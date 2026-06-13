@@ -1,4 +1,4 @@
- /* ==========================================
+/* ==========================================
    RESET
 ========================================== */
 * {
@@ -14,9 +14,7 @@ body {
     background-color: #040b17;
 }
 
-/* ==========================================
-   LUCES SUAVES
-========================================== */
+/* fondo con luces suaves tipo glow */
 body::before {
     content: "";
     position: fixed;
@@ -28,9 +26,7 @@ body::before {
     z-index: 1;
 }
 
-/* ==========================================
-   NAVBAR
-========================================== */
+/* navbar de arriba */
 .navbar {
     width: 90%;
     margin: auto;
@@ -42,11 +38,13 @@ body::before {
     z-index: 10;
 }
 
+/* logo */
 .logo h2 {
     font-weight: 800;
     color: white;
 }
 
+/* links del menú */
 .nav-links {
     display: flex;
     gap: 30px;
@@ -59,11 +57,12 @@ body::before {
     font-size: 0.95rem;
 }
 
-/* Dropdown */
+/* dropdown del menú */
 .dropdown {
     position: relative;
 }
 
+/* caja del dropdown */
 .dropdown-menu {
     position: absolute;
     top: 40px;
@@ -77,6 +76,7 @@ body::before {
     padding: 10px;
 }
 
+/* aparece al pasar el mouse */
 .dropdown:hover .dropdown-menu {
     display: flex;
 }
@@ -86,10 +86,12 @@ body::before {
     border-radius: 8px;
 }
 
+/* hover de opciones */
 .dropdown-menu a:hover {
     background: #182336;
 }
 
+/* botón login */
 .login-btn {
     background: #2563eb;
     color: white;
@@ -100,7 +102,7 @@ body::before {
 }
 
 /* ==========================================
-   HERO (SPLIT + IMAGEN LIBRE)
+   HERO (sección principal)
 ========================================== */
 .hero {
     width: 100%;
@@ -117,7 +119,7 @@ body::before {
     z-index: 2;
 }
 
-/* TEXTO IZQUIERDA */
+/* texto lado izquierdo */
 .hero-content {
     width: 50%;
     max-width: 600px;
@@ -132,6 +134,7 @@ body::before {
     margin-bottom: 20px;
 }
 
+/* resaltado azul */
 .hero-content span {
     color: #3b82f6;
 }
@@ -142,11 +145,13 @@ body::before {
     margin-bottom: 30px;
 }
 
+/* botones del hero */
 .hero-buttons {
     display: flex;
     gap: 15px;
 }
 
+/* botón principal */
 .primary-btn {
     background: #2563eb;
     color: white;
@@ -156,6 +161,7 @@ body::before {
     cursor: pointer;
 }
 
+/* botón secundario */
 .secondary-btn {
     background: transparent;
     color: white;
@@ -166,33 +172,30 @@ body::before {
 }
 
 /* ==========================================
-   IMAGEN (TIPO WORD: DETRÁS DEL TEXTO)
+   imagen grande del hero (tipo fondo)
 ========================================== */
 .hero-image {
     position: absolute;
-    right: 32%;   /* 🔥 la saca un poco fuera para que pueda ser grande */
+    right: 32%;
     top: -240px;
 
-    width: 70%;    /* 🔥 aquí controlas el tamaño general */
+    width: 70%;
 
     z-index: 1;
     pointer-events: none;
 }
 
 .hero-image img {
-    width: 150%;   /* 🔥 aquí recuperas el “grande bonito” */
+    width: 150%;
     max-width: none;
 
     height: auto;
-
     object-fit: contain;
 
     filter: drop-shadow(0 30px 50px rgba(0,0,0,0.4));
 }
 
-/* ==========================================
-   ESTADÍSTICAS
-========================================== */
+/* stats de abajo */
 .stats {
     width: 90%;
     margin: auto;
@@ -203,6 +206,7 @@ body::before {
     z-index: 5;
 }
 
+/* tarjetas de stats */
 .stat-card {
     background: #0b1324;
     border: 1px solid rgba(255,255,255,.05);
@@ -216,7 +220,7 @@ body::before {
 }
 
 /* ==========================================
-   FEATURES
+   features (sección de tarjetas)
 ========================================== */
 .features {
     width: 90%;
@@ -229,12 +233,14 @@ body::before {
     margin-bottom: 30px;
 }
 
+/* grid de features */
 .feature-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 20px;
 }
 
+/* cada tarjeta */
 .feature-card {
     background: #0b1324;
     border: 1px solid rgba(255,255,255,.05);
@@ -246,9 +252,7 @@ body::before {
     color: #a6b0c2;
 }
 
-/* ==========================================
-   RESPONSIVE
-========================================== */
+/* responsive */
 @media (max-width: 1100px) {
 
     .hero {

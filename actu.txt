@@ -1,4 +1,16 @@
-git status
+Copien y peguen estas 4 lineas para subir su progreso al github 
+lo de git status es opcional, es para ver especificaciones de archivos modificados y cosas asi. 
+No es necesario para subir.
+
+===================================
+git status 
 git add .
 git commit -m "acatualizacion"
 git push
+===================================
+
+Para actualizar en tu local lo que los demas hayamos hecho en el github escribe esto.
+Asi si alguien ya edito algo, hizo otra parte o lo ue sea pues ya se les actualiza en su computadora
+===================================
+git pull
+====================================

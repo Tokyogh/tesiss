@@ -1,1 +1,1 @@
-console.log("VINOVA iniciado");
+console.log("ola");
