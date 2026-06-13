@@ -172,19 +172,18 @@ body::before {
 }
 
 /* ==========================================
-   imagen grande del hero (tipo fondo)
+   imagen grande del hero 
 ========================================== */
 .hero-image {
     position: absolute;
     right: 32%;
-    top: -240px;
+    top: -140px;
 
-    width: 70%;
+    width: 59%;
 
     z-index: 1;
     pointer-events: none;
 }
-
 .hero-image img {
     width: 150%;
     max-width: none;
@@ -207,16 +206,35 @@ body::before {
 }
 
 /* tarjetas de stats */
+/* Modificación en las tarjetas de stats */
 .stat-card {
     background: #0b1324;
     border: 1px solid rgba(255,255,255,.05);
     padding: 25px;
     border-radius: 16px;
+    
+    /* Nuevas propiedades para alinear el icono al lado */
+    display: flex;
+    align-items: center;
+    gap: 15px; /* Espacio entre el icono y el texto */
+}
+
+/* Control del tamaño de tus iconos */
+.stat-icon {
+    width: 35px;  /* Ajusta el tamaño que quieras aquí */
+    height: 35px; /* Ajusta el tamaño que quieras aquí */
+    object-fit: contain;
+}
+
+/* Contenedor del texto para mantener el orden vertical */
+.stat-info {
+    display: flex;
+    flex-direction: column;
 }
 
 .stat-card h3 {
     color: #3b82f6;
-    margin-bottom: 10px;
+    margin-bottom: 2px; /* Reducido un poco para que cuadre mejor con el icono */
 }
 
 /* ==========================================
