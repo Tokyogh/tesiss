@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VINOVA</title>
 
-    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -104,7 +104,7 @@
 
     <!-- IMAGEN DERECHA -->
     <div class="hero-image">
-        <img src="assets/fondo.png" alt="Vehículo Vinova">
+        <img src="{{ url_for('static', filename='img/fondo.png') }}">
     </div>
 
 </section>
@@ -121,7 +121,7 @@
     </div>
 
     <div class="stat-card">
-        <img src="assets/icon-wrench.png" alt="Icono llave" class="stat-icon">
+        <img src="assets/llave.png" alt="Icono llave" class="stat-icon">
         <div class="stat-info">
             <h3>+2000</h3>
             <p>Mantenimientos realizados</p>
@@ -133,11 +133,11 @@
             <h3>+50</h3>
             <p>Talleres asociados</p>
         </div>
-        <img src="assets/icon-shop.png" alt="Icono taller" class="stat-icon">
+        <img src="assets/asociados.png" alt="Icono taller" class="stat-icon">
     </div>
 
     <div class="stat-card">
-        <img src="assets/icon-smile.png" alt="Icono usuario" class="stat-icon">
+        <img src="assets/usuario.png" alt="Icono usuario" class="stat-icon">
         <div class="stat-info">
             <h3>95%</h3>
             <p>Satisfacción de usuarios</p>
@@ -179,7 +179,7 @@
 
 </section>
 
-<script src="js/script.js"></script>
+<script src="{{ url_for('static', filename='js/script.js') }}"></script>
 
 </body>
 </html>

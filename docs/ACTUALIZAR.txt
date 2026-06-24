@@ -10,7 +10,8 @@ git push
 ===================================
 
 Para actualizar en tu local lo que los demas hayamos hecho en el github escribe esto.
-Asi si alguien ya edito algo, hizo otra parte o lo ue sea pues ya se les actualiza en su computadora
+Asi si alguien ya edito algo, hizo otra parte o lo que sea pues ya se les actualiza en su computadora
 ===================================
 git pull
 ====================================
+six seven 
