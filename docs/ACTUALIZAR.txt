@@ -5,7 +5,7 @@ No es necesario para subir. el commit es un comentario que saldra en la actualiz
 ===================================
 git status 
 git add .
-git commit -m "acatualizacion"
+git commit -m "actualizacion"
 git push
 ===================================
 
