@@ -1,6 +1,6 @@
 Copien y peguen estas 4 lineas para subir su progreso al github 
 lo de git status es opcional, es para ver especificaciones de archivos modificados y cosas asi. 
-No es necesario para subir.
+No es necesario para subir. el commit es un comentario que saldra en la actualizacion de github,
 
 ===================================
 git status 
@@ -14,4 +14,12 @@ Asi si alguien ya edito algo, hizo otra parte o lo que sea pues ya se les actual
 ===================================
 git pull
 ====================================
+
+==================================
 six seven 
+==================================
+
+para descargar los requeriments
+=============================
+pip install -r requirements.txt
+=============================
