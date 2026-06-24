@@ -68,17 +68,33 @@ body::before {
     top: 40px;
     left: 0;
     width: 220px;
+
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+
+    transition: opacity 0.5s ease;
+
     background: #101827;
     border: 1px solid rgba(255,255,255,.08);
     border-radius: 12px;
-    display: none;
-    flex-direction: column;
     padding: 10px;
+    display: flex;
+    flex-direction: column;
 }
 
 /* aparece al pasar el mouse */
-.dropdown:hover .dropdown-menu {
-    display: flex;
+/*
+ .dropdown:hover .dropdown-menu {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+} */
+
+.dropdown-menu.show {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
 }
 
 .dropdown-menu a {

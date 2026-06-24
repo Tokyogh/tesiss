@@ -23,19 +23,19 @@
     <nav>
         <ul class="nav-links">
 
-            <li><a href="#">Inicio</a></li>
+            <li><a href="{{ url_for('inicio') }}">Inicio</a></li>
 
             <li class="dropdown">
                 <a href="#">Vehículos</a>
                 <div class="dropdown-menu">
-                    <a href="#">Mis vehículos</a>
-                    <a href="#">Agregar vehículo</a>
+                    <a href="#">Catalogo</a>
+                    <!--<a href="#">Agregar vehículo</a>
                     <a href="#">Historial</a>
-                    <a href="#">Información técnica</a>
+                    <a href="#">Información técnica</a> -->
                 </div>
             </li>
 
-            <li class="dropdown">
+            <!--<li class="dropdown">
                 <a href="#">Mantenimiento</a>
                 <div class="dropdown-menu">
                     <a href="#">Próximos servicios</a>
@@ -43,8 +43,8 @@
                     <a href="#">Recomendaciones</a>
                     <a href="#">Alertas</a>
                 </div>
-            </li>
-            <li class="dropdown">
+            </li>-->
+            <!--<li class="dropdown">
                 <a href="#">Servicios</a>
                 <div class="dropdown-menu">
                     <a href="#">Próximos servicios</a>
@@ -52,23 +52,19 @@
                     <a href="#">Recomendaciones</a>
                     <a href="#">Alertas</a>
                 </div>
-            </li>
+            </li> -->
             <li class="dropdown">
                 <a href="#">Instituciones</a>
                 <div class="dropdown-menu">
-                    <a href="#">Próximos servicios</a>
-                    <a href="#">Historial</a>
-                    <a href="#">Recomendaciones</a>
-                    <a href="#">Alertas</a>
+                    <a href="#">Instituciones Afiliadas</a>
+                    <a href="#">Concesionarios</a>
+                    <a href="#">Centros de servicio</a>
                 </div>
             </li>
             <li class="dropdown">
                 <a href="#">Contacto</a>
                 <div class="dropdown-menu">
-                    <a href="#">Próximos servicios</a>
-                    <a href="#">Historial</a>
-                    <a href="#">Recomendaciones</a>
-                    <a href="#">Alertas</a>
+                    <a href="#">Servicio al cliente</a>
                 </div>
             </li>
         </ul>
@@ -129,11 +125,13 @@
     </div>
 
     <div class="stat-card">
+        <img src="assets/asociados.png" alt="Icono taller" class="stat-icon">
+        
         <div class="stat-info">
             <h3>+50</h3>
             <p>Talleres asociados</p>
         </div>
-        <img src="assets/asociados.png" alt="Icono taller" class="stat-icon">
+        
     </div>
 
     <div class="stat-card">
