@@ -14,7 +14,7 @@ body {
     background-color: #040b17;
 }
 
-/* fondo con luces suaves tipo glow */
+/* fondo */
 body::before {
     content: "";
     position: fixed;
@@ -28,23 +28,22 @@ body::before {
 
 /* navbar de arriba */
 .navbar {
-    width: 90%;
-    margin: auto;
+    width: 100%;
+    background-color: #040b17;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 20px 0;
+    padding: 20px 5%;
     position: relative;
     z-index: 10;
+    border-bottom: 1px solid rgba(255,255,255,.05);
 }
 
-/* logo */
 .logo h2 {
     font-weight: 800;
     color: white;
 }
 
-/* links del menú */
 .nav-links {
     display: flex;
     gap: 30px;
@@ -57,24 +56,19 @@ body::before {
     font-size: 0.95rem;
 }
 
-/* dropdown del menú */
 .dropdown {
     position: relative;
 }
 
-/* caja del dropdown */
 .dropdown-menu {
     position: absolute;
     top: 40px;
     left: 0;
     width: 220px;
-
     opacity: 0;
     visibility: hidden;
     pointer-events: none;
-
     transition: opacity 0.5s ease;
-
     background: #101827;
     border: 1px solid rgba(255,255,255,.08);
     border-radius: 12px;
@@ -82,14 +76,6 @@ body::before {
     display: flex;
     flex-direction: column;
 }
-
-/* aparece al pasar el mouse */
-/*
- .dropdown:hover .dropdown-menu {
-    opacity: 1;
-    visibility: visible;
-    pointer-events: auto;
-} */
 
 .dropdown-menu.show {
     opacity: 1;
@@ -102,12 +88,10 @@ body::before {
     border-radius: 8px;
 }
 
-/* hover de opciones */
 .dropdown-menu a:hover {
     background: #182336;
 }
 
-/* botón login */
 .login-btn {
     background: #2563eb;
     color: white;
@@ -123,23 +107,18 @@ body::before {
 .hero {
     width: 100%;
     min-height: 85vh;
-
     display: flex;
     align-items: center;
     justify-content: space-between;
-
     padding: 0 5%;
-
     position: relative;
     overflow: visible;
     z-index: 2;
 }
 
-/* texto lado izquierdo */
 .hero-content {
     width: 50%;
     max-width: 600px;
-
     position: relative;
     z-index: 3;
 }
@@ -150,7 +129,6 @@ body::before {
     margin-bottom: 20px;
 }
 
-/* resaltado azul */
 .hero-content span {
     color: #3b82f6;
 }
@@ -161,56 +139,120 @@ body::before {
     margin-bottom: 30px;
 }
 
-/* botones del hero */
 .hero-buttons {
     display: flex;
     gap: 15px;
 }
 
-/* botón principal */
 .primary-btn {
-    background: #2563eb;
+    background: linear-gradient(135deg, #1e40af 0%, #2563eb 40%, #00f2fe 100%);
+    background-size: 200% auto; 
+    
     color: white;
+    font-weight: 700;
+    letter-spacing: 0.5px; 
     border: none;
     padding: 14px 24px;
     border-radius: 12px;
     cursor: pointer;
+    
+    position: relative;
+    overflow: hidden; 
+    
+    box-shadow: 0 4px 15px rgba(0, 242, 254, 0.4);
+    
+    transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
-/* botón secundario */
+
+.primary-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 255, 255, 0.3),
+        transparent
+    );
+    transform: skewX(-25deg); 
+    transition: none;
+}
+
+.primary-btn:hover {
+    
+    transform: translateY(-2px);
+    background-position: right center; 
+    
+    box-shadow: 0 0 25px rgba(0, 242, 254, 0.8), 
+                0 0 10px rgba(37, 99, 235, 0.5);
+}
+
+.primary-btn:hover::before {
+    left: 100%;
+    transition: all 0.6s ease;
+}
+
+/* Efecto de clic pulsado */
+.primary-btn:active {
+    transform: translateY(1px);
+    box-shadow: 0 2px 10px rgba(0, 242, 254, 0.4);
+}
+/* ==========================================
+   BOTÓN SECUNDARIO 
+========================================== */
 .secondary-btn {
-    background: transparent;
+    background: rgba(255, 255, 255, 0.05); 
+    backdrop-filter: blur(10px);           
+    -webkit-backdrop-filter: blur(10px);   /* Hace que el efecto funcione también en Safari (Mac/iPhone) */
+    
     color: white;
-    border: 1px solid rgba(255,255,255,.2);
+    border: 1px solid rgba(255, 255, 255, 0.15); 
     padding: 14px 24px;
     border-radius: 12px;
     cursor: pointer;
+    
+    transition: all 0.3s ease;            
+}
+.secondary-btn:hover {
+    background: rgba(255, 255, 255, 0.12); 
+    border-color: rgba(255, 255, 255, 0.3); 
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3); 
 }
 
-/* ==========================================
-   imagen grande del hero 
-========================================== */
+.secondary-btn:active {
+    transform: scale(0.97);                     
+    background: rgba(255, 255, 255, 0.04);       
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4);   
+    border-color: rgba(255, 255, 255, 0.2);      
+    
+    transition: all 0.08s ease;                  
+}
+
+
 .hero-image {
     position: absolute;
     right: 32%;
     top: -140px;
-
     width: 59%;
-
     z-index: 1;
     pointer-events: none;
 }
+
 .hero-image img {
     width: 150%;
     max-width: none;
-
     height: auto;
     object-fit: contain;
-
     filter: drop-shadow(0 30px 50px rgba(0,0,0,0.4));
 }
 
-/* stats de abajo */
+/* ==========================================
+   STATS & FEATURES (Contenedores compartidos)
+========================================== */
 .stats {
     width: 90%;
     margin: auto;
@@ -221,41 +263,6 @@ body::before {
     z-index: 5;
 }
 
-/* tarjetas de stats */
-/* Modificación en las tarjetas de stats */
-.stat-card {
-    background: #0b1324;
-    border: 1px solid rgba(255,255,255,.05);
-    padding: 25px;
-    border-radius: 16px;
-    
-    /* Nuevas propiedades para alinear el icono al lado */
-    display: flex;
-    align-items: center;
-    gap: 15px; /* Espacio entre el icono y el texto */
-}
-
-/* Control del tamaño de tus iconos */
-.stat-icon {
-    width: 35px;  /* Ajusta el tamaño que quieras aquí */
-    height: 35px; /* Ajusta el tamaño que quieras aquí */
-    object-fit: contain;
-}
-
-/* Contenedor del texto para mantener el orden vertical */
-.stat-info {
-    display: flex;
-    flex-direction: column;
-}
-
-.stat-card h3 {
-    color: #3b82f6;
-    margin-bottom: 2px; /* Reducido un poco para que cuadre mejor con el icono */
-}
-
-/* ==========================================
-   features (sección de tarjetas)
-========================================== */
 .features {
     width: 90%;
     margin: 80px auto;
@@ -267,59 +274,116 @@ body::before {
     margin-bottom: 30px;
 }
 
-/* grid de features */
 .feature-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 20px;
 }
 
-/* cada tarjeta */
+/* Estilo unificado para las tarjetas */
+.stat-card, 
 .feature-card {
     background: #0b1324;
     border: 1px solid rgba(255,255,255,.05);
     padding: 25px;
     border-radius: 16px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
 }
 
+.stat-info, 
+.feature-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.stat-card h3, 
+.feature-card h3 {
+    color: #3b82f6;
+    margin-bottom: 2px;
+    font-size: 1.17rem;
+}
+
+.stat-card p,
 .feature-card p {
     color: #a6b0c2;
 }
 
-/* responsive */
-@media (max-width: 1100px) {
+/* ==========================================
+   CAJAS DE ICONOS (Neon Style)
+========================================== */
+.icon-box {
+    width: 52px;
+    height: 52px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
 
+/* Forzar el tamaño grande del icono dentro de la caja */
+.icon-box i,
+.icon-box svg {
+    width: 50px !important;
+    height: 50px !important;
+    stroke-width: 2.5;
+    flex-shrink: 0;
+}
+
+/* Colores de las cajas con opacidad y brillo */
+.purple {
+    background: rgba(139, 92, 246, 0.1);
+    box-shadow: 0 0 15px rgba(139, 92, 246, 0.25);
+    color: #8b5cf6;
+}
+
+.blue {
+    background: rgba(59, 130, 246, 0.1);
+    box-shadow: 0 0 15px rgba(59, 130, 246, 0.25);
+    color: #3b82f6;
+}
+
+.green {
+    background: rgba(34, 197, 94, 0.1);
+    box-shadow: 0 0 15px rgba(34, 197, 94, 0.25);
+    color: #22c55e;
+}
+
+.yellow {
+    background: rgba(245, 158, 11, 0.1);
+    box-shadow: 0 0 15px rgba(245, 158, 11, 0.25);
+    color: #f59e0b;
+}
+
+/* ==========================================
+   RESPONSIVE
+========================================== */
+@media (max-width: 1100px) {
     .hero {
         flex-direction: column;
         text-align: center;
         gap: 40px;
     }
-
     .hero-content,
     .hero-image {
         width: 100%;
         position: relative;
     }
-
     .hero-image {
         top: 0;
     }
-
     .hero-content h1 {
         font-size: 2.8rem;
     }
-
-    .stats {
-        grid-template-columns: repeat(2, 1fr);
-    }
-
+    .stats,
     .feature-grid {
         grid-template-columns: repeat(2, 1fr);
     }
 }
 
 @media (max-width: 768px) {
-
     .stats,
     .feature-grid {
         grid-template-columns: 1fr;

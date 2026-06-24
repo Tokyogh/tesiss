@@ -14,3 +14,6 @@ document.querySelectorAll('.dropdown').forEach(dropdown => {
         }, 200); // 200 ms
     });
 });
+
+// Activar los iconos de Lucide
+lucide.createIcons();
