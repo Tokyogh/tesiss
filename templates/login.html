@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Vinova</title>
+
+    <!-- FUENTE -->
+
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+
+    <!-- CSS -->
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles2.css') }}">
+
+</head>
+
+<body>
+
+    <!-- ================= MODAL RECUPERAR CONTRASEÑA ================= -->
+
+    <div id="modal" class="modal">
+
+        <div class="modal-contenido">
+
+            <h3>Recuperar contraseña</h3>
+
+            <p>
+                Ingresa tu correo para enviarte un enlace de recuperación
+            </p>
+
+            <form method="POST" action="/recuperar">
+
+                <input 
+                    type="email"
+                    name="correo"
+                    placeholder="Tu correo"
+                    required
+                >
+
+                <button type="submit">
+                    Enviar
+                </button>
+
+            </form>
+
+            <button class="cerrar-btn" onclick="cerrarModal()">
+                Cerrar
+            </button>
+
+        </div>
+
+    </div>
+
+    <!-- ================= MODAL REGISTRO ================= -->
+
+    <div id="modal-registro" class="modal">
+
+        <div class="modal-contenido">
+
+            <h3>Crear cuenta</h3>
+            <p>
+                Crea tu cuenta para gestionar tus vehículos.
+            </p>
+
+            <form method="POST" action="/register">
+
+                <input
+                    type="text"
+                    name="nombre"
+                    placeholder="Nombre completo"
+                    required
+                >
+
+                <input
+                    type="email"
+                    name="correo"
+                    placeholder="Correo"
+                    required
+                >
+
+                <input
+                    type="password"
+                    name="password"
+                    placeholder="Contraseña"
+                    required
+                >
+
+                <button type="submit">
+                    Registrarse
+                </button>
+
+            </form>
+
+            <button class="cerrar-btn" onclick="cerrarRegistro()">
+                Cerrar
+            </button>
+
+        </div>
+
+    </div>
+
+    <!-- ================= MODAL SOPORTE ================= -->
+
+    <div id="modal-soporte" class="modal">
+
+        <div class="modal-contenido">
+
+            <h3>Soporte</h3>
+
+            <p>
+                Si tienes problemas con la plataforma,
+                comunícate con soporte técnico.
+            </p>
+
+            <p>
+                Horario de atención:
+                8:00 AM - 5:00 PM
+            </p>
+
+            <button class="cerrar-btn" onclick="cerrarSoporte()">
+                Cerrar
+            </button>
+
+        </div>
+
+    </div>
+
+    <!-- ================= MODAL CONTACTO ================= -->
+
+    <div id="modal-contacto" class="modal">
+
+        <div class="modal-contenido">
+
+            <h3>Contáctenos</h3>
+
+            <p>Correo: contacto@vinova.com</p>
+
+            <p>Teléfono: +593 999 999 999</p>
+
+            <button class="cerrar-btn" onclick="cerrarContacto()">
+                Cerrar
+            </button>
+
+        </div>
+
+    </div>
+
+    <!-- ================= MODAL SOBRE NOSOTROS ================= -->
+
+    <div id="modal-nosotros" class="modal">
+
+        <div class="modal-contenido">
+
+            <h3>Sobre nosotros</h3>
+
+            <p>
+                Vinova es una plataforma educativa
+                diseñada para estudiantes y docentes.
+            </p>
+
+            <p>
+                Nuestro objetivo es mejorar la
+                experiencia académica digital.
+            </p>
+
+            <button class="cerrar-btn" onclick="cerrarNosotros()">
+                Cerrar
+            </button>
+
+        </div>
+
+    </div>
+
+    <!-- ================= CONTENIDO PRINCIPAL ================= -->
+
+    <div class="contenedor-principal">
+
+        <!-- LOGO -->
+
+        <div class="logo">
+
+            <h1></h1>
+
+        </div>
+
+        <!-- LOGIN -->
+
+        <div class="contenido-login">
+
+            <div class="tarjeta-login">
+
+                <h2>¡Bienvenido!</h2>
+
+                <!-- MENSAJES FLASK -->
+
+                {% with messages = get_flashed_messages() %}
+                    {% if messages %}
+                        <div class="mensaje-error">
+                            {{ messages[0] }}
+                        </div>
+                    {% endif %}
+                {% endwith %}
+
+                <!-- FORM LOGIN -->
+
+                <form method="POST" action="/login">
+
+                    <!-- INPUT CORREO -->
+
+                    <div class="grupo-input">
+
+                        <span class="icono">📧</span>
+
+                        <input 
+                            type="email"
+                            name="email"
+                            placeholder="Correo electrónico"
+                            required
+                        >
+
+                    </div>
+
+                    <!-- INPUT PASSWORD -->
+
+                    <div class="grupo-input">
+
+                        <span class="icono">🔒</span>
+
+                        <input 
+                            type="password"
+                            id="password"
+                            name="password"
+                            placeholder="Contraseña"
+                            required
+                        >
+
+                        <span class="toggle-pass" onclick="togglePassword()">
+                            👁️
+                        </span>
+
+                    </div>
+
+                    <!-- OLVIDASTE CONTRASEÑA -->
+
+                    <div class="forgot-container">
+
+                        <a href="javascript:void(0)" onclick="abrirModal()">
+                            ¿Olvidaste la contraseña?
+                        </a>
+
+                    </div>
+
+                    <!-- BOTON LOGIN -->
+
+                    <button type="submit" class="btn-login">
+                        Iniciar sesión
+                    </button>
+
+                </form>
+
+                <!-- REGISTRO -->
+
+                <div class="signup-container">
+
+                    <span>¿No tienes una cuenta?</span>
+
+                    <a href="javascript:void(0)" onclick="abrirRegistro()">
+                        Crear una cuenta
+                    </a>
+
+                </div>
+
+            </div>
+
+            <!-- ILUSTRACION -->
+
+            <div class="ilustracion">
+
+            </div>
+
+        </div>
+
+        <!-- ================= BARRA INFERIOR ================= -->
+
+        <div class="barra-inferior">
+
+            <!-- SOPORTE -->
+
+            <div class="item-barra" onclick="abrirSoporte()">
+
+                <span>🎧</span>
+
+                <p>Soporte</p>
+
+            </div>
+
+            <div class="linea"></div>
+
+            <!-- CONTACTO -->
+
+            <div class="item-barra" onclick="abrirContacto()">
+
+                <span>📞</span>
+
+                <p>Contáctenos</p>
+
+            </div>
+
+            <div class="linea"></div>
+
+            <!-- SOBRE NOSOTROS -->
+
+            <div class="item-barra" onclick="abrirNosotros()">
+
+                <span>👥</span>
+
+                <p>Sobre nosotros</p>
+
+            </div>
+        </div>
+
+    </div>
+    <script src="{{ url_for('static', filename='js/script2.js') }}"></script>
+</body>
+
+</html>
