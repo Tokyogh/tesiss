@@ -8,7 +8,7 @@ def inicio():
 
 @app.route('/perfil')
 def perfil():
-    return render_template('perfil.html')
+    return render_template('profile.html')
 
 if __name__ == "__main__":
     app.run(debug=True)
