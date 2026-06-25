@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vinova Perfil</title>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/diseño.css') }}">
+
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+</head>
+
+<body>
+
+    <div class="container">
+
+        <!-- SIDEBAR (BARRA LATERAL) -->
+
+        <aside class="sidebar">
+
+            <div class="logo">
+                <img src="https://cdn.oreateai.com/aiimage/nano/65fe12013bda235231000940/1f545f192f6b978fac061ca943745ec4" alt=""><h2>VINOVA</h2>
+            </div>
+
+            <nav>
+
+                <h4>INICIO</h4>
+
+                <a href="{{ url_for('inicio') }}"><i class="fa-solid fa-house"></i> Inicio</a>
+
+                <h4>VEHÍCULOS</h4>
+
+                <a href="#"><i class="fa-solid fa-car"></i> Mis vehiculos</a>
+
+                <a href="#"><i class="fa-solid fa-star"></i> Agregar vehiculos</a>
+
+                <h4>MANTENIMIENTO</h4>
+
+                <a href="#"><i class="fa-solid fa-clock-rotate-left"></i> Historial</a>
+
+                <a href="#"><i class="fa-solid fa-screwdriver-wrench"></i> Proximos servicios</a>
+
+                <h4>DOCUMENTACIÓN</h4>
+
+                <a href="#"><i class="fa-solid fa-user"></i> Manuales </a>
+                
+                <a href="#"><i class="fa-solid fa-gear"></i> Facturas </a>
+                
+                <h4>CONFIGURACIÓN</h4>
+
+                <a href="#"><i class="fa-solid fa-user"></i> Perfil</a>
+
+                <a href="#"><i class="fa-solid fa-bell"></i> Notificaciones</a>
+
+                <a href="#"><i class="fa-solid fa-gear"></i> Configuración</a>
+
+                <br>
+
+                <br>
+
+                <a href="#"><i class="fa-solid fa-arrow-right-from-bracket"></i> Cerrar sesión</a>
+
+            </nav>
+
+        </aside>
+
+        <!-- CONTENIDO -->
+
+        <main class="content">
+
+            <!-- HEADER -->
+
+            <header class="header">
+
+                <div>
+                    <h1>Hola, Fabricio 😀</h1>
+                    <p>Bienvenido a tu panel de control</p>
+                </div>
+
+                <div class="header-right">
+
+                    <input type="text" placeholder="Buscar vehículo...">
+
+                    <i class="fa-solid fa-bell icon"></i>
+
+                    <img src="https://tse2.mm.bing.net/th/id/OIP.pdgwLL8oxjSs9n4AV66x5wHaHa?r=0&rs=1&pid=ImgDetMain&o=7&rm=3" alt="perfil">
+
+                </div>
+
+            </header>
+
+            <!-- TARJETAS -->
+
+            <section class="cards">
+
+                <div class="card">
+                    <i class="fa-solid fa-car"></i>
+                    <p>Vehículos</p>
+                    <br>
+                    <h2>2</h2>
+                    <p>Registrados</p>
+                </div>
+
+                <div class="card">
+                    <i class="fa-solid fa-road"></i>
+                    <p>Próximo mantenimiento</p>
+                    <br>
+                    <h2>1,500 km</h2>
+                    <p>Restantes</p>
+                </div>
+
+                <div class="card">
+                    <i class="fa-solid fa-calendar"></i>
+                    <p>Último servicio</p>
+                    <br>
+                    <h2>15 Junio 2026</h2>
+                    <p>Hace 8 dias</p>
+                </div>
+
+                <div class="card">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <p>Alertas</p>
+                    <br>
+                    <h2>0</h2>
+                    <p>Pendientes</p>
+                </div>
+
+            </section>
+
+            <!-- VEHÍCULOS -->
+
+            <section class="vehicles">
+
+                <h2> Mis vehiculos </h2>
+
+                <div class="vehicle-grid">
+
+                    <div class="vehicle-card">
+
+                        <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS-W-DVFKOzSfbHypjPbIxTpXtoLtjcL47o_3FXWlXRQQ&s" alt="Toyota">
+
+                        <h3>Toyota Corolla</h3>
+
+                        <p>Sedán • Automático</p>
+
+                    </div>
+
+                    <div class="vehicle-card">
+
+                        <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQoxI8-ttsnhEa7JOOePivAAEjvkoIt0e3WlXxjASWu6g&s=10" alt="Hyundai">
+
+                        <h3>Toyota C-HR 2021</h3>
+
+                        <p>SUV • Automático </p>
+                    </div>
+
+                </div>
+
+            </section>
+
+        </main>
+
+    </div>
+
+</body>
+
+</html>
