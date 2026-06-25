@@ -6,6 +6,18 @@
     padding: 0;
     box-sizing: border-box;
 }
+/* ==========================================
+             animacion de entrada
+========================================== */
+body {
+    animation: fadeInAnimation ease 1s;
+    animation-iteration-count: 1;
+    animation-fill-mode: forwards;
+}
+
+/* ==========================================
+    ESTILOS GENERALES body
+========================================== */
 
 body {
     zoom: 1.1; /* Fuerza un zoom del 110% en toda la página */
@@ -428,4 +440,9 @@ body::before {
     .feature-grid {
         grid-template-columns: 1fr;
     }
+}
+
+@keyframes fadeInAnimation {
+    0% { opacity: 0; }
+    100% { opacity: 1; }
 }
