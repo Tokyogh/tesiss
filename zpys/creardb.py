@@ -3,14 +3,12 @@ import sqlite3
 conexion = sqlite3.connect("vinova.db")
 
 cursor = conexion.cursor()
-#-----------ESTO BORRA TODA LA BASE DE DATOSS-------------
-#676766767676767676767676767676767676767667667
+#-----------Creacion de tablas-------------
 
 
 
 
-
-
+#----------- NO EJECUTAR ----------------
 
 
 
