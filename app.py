@@ -120,6 +120,13 @@ def logout():
 
     return redirect("/")
 
+# ================= CATALOG =================
+
+@app.route("/catalog")
+def catalog():
+    
+    return render_template("catalog.html")
+
 # ================= APP =================
 
 if __name__ == "__main__":
