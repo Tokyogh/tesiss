@@ -73,11 +73,57 @@
 
         function togglePassword(){
 
-            const input = document.getElementById("password");
+            const input =
+            document.getElementById("password");
+
+            const icon =
+            document.querySelector(".toggle-pass i");
 
             if(input.type === "password"){
+
                 input.type = "text";
-            } else {
+
+                icon.classList.remove("fa-eye");
+                icon.classList.add("fa-eye-slash");
+
+            }else{
+
                 input.type = "password";
+
+                icon.classList.remove("fa-eye-slash");
+                icon.classList.add("fa-eye");
+
             }
         }
+
+        // ================= CURSOR GLOW =================
+
+        const glow = document.getElementById("cursor-glow");
+
+        if(glow){
+
+            document.addEventListener("mousemove", (e) => {
+
+                glow.style.left = e.clientX + "px";
+                glow.style.top = e.clientY + "px";
+
+            });
+
+        }
+        // ================= CERRAR MODALES AFUERA =================
+
+        window.addEventListener("click", (e) => {
+
+            const modales = document.querySelectorAll(".modal");
+
+            modales.forEach(modal => {
+
+                if(e.target === modal){
+
+                    modal.style.display = "none";
+
+                }
+
+            });
+
+        });
