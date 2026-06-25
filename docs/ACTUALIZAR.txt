@@ -2,8 +2,10 @@ Copien y peguen estas 4 lineas para subir su progreso al github
 lo de git status es opcional, es para ver especificaciones de archivos modificados y cosas asi. 
 No es necesario para subir. el commit es un comentario que saldra en la actualizacion de github,
 
-===================================
+=============opcional===============
 git status 
+==========obligatorio=========
+git pull 
 git add .
 git commit -m "actualizacion"
 git push
