@@ -5,11 +5,22 @@ No es necesario para subir. el commit es un comentario que saldra en la actualiz
 =============opcional===============
 git status 
 ==========obligatorio=========
-git pull 
+git pull (Primero esto por individual)
 git add .
 git commit -m "actualizacion"
 git push
 ===================================
+
+
+POSIBLE "ERROR"
+==================================
+si al hacer pull les sale algo raro en la terminal escriban esto
+:wq
+============================
+
+
+
+
 
 Para actualizar en tu local lo que los demas hayamos hecho en el github escribe esto.
 Asi si alguien ya edito algo, hizo otra parte o lo que sea pues ya se les actualiza en su computadora
