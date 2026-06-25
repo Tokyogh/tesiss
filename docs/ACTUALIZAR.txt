@@ -5,9 +5,12 @@ No es necesario para subir. el commit es un comentario que saldra en la actualiz
 =============opcional===============
 git status 
 ==========obligatorio=========
-git pull --rebase (Primero esto por individual) (se añadio el --rebase para evitar errores)
+git stash 
+git pull --rebase (esto primero actualiza todo en sus pc)
+git stash pop 
+==================
 git add .
-git commit -m "actualizacion"
+git commit -m "actualizacion"   (Aca ya se sube su avance, es necesario hacer ambas cosas)
 git push
 ===================================
 
