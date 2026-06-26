@@ -40,9 +40,14 @@
 
             <li class="dropdown">
                 <a href="#">Mi cuenta</a>
+
                 <div class="dropdown-menu">
-                    <a href="{{ url_for('perfil') }}">Mi perfil</a>
-                    <a href="{{ url_for('logout') }}">Cerrar sesión</a>
+                    {% if session.get("usuario_id") %}
+                        <a href="{{ url_for('perfil') }}">Mi perfil</a>
+                        <a href="{{ url_for('logout') }}">Cerrar sesión</a>
+                    {% else %}
+                        <a href="{{ url_for('login') }}">Iniciar sesión</a>
+                    {% endif %}
                 </div>
             </li>
 
@@ -64,9 +69,9 @@
         </ul>
     </nav>
 
-    {% if session.get("usuario") %}
+    {% if session.get("usuario_id") %}
         <a href="{{ url_for('perfil') }}" class="login-btn">
-            Mi cuenta
+            Hola, {{ session["usuario"] }}
         </a>
     {% else %}
         <a href="{{ url_for('login') }}" class="login-btn">

@@ -412,6 +412,153 @@ body::before {
 }
 
 /* ==========================================
+   USUARIO LOGUEADO EN NAVBAR
+========================================== */
+
+.navbar-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.user-session-box {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Avatar */
+
+.user-avatar-link {
+    width: 40px;
+    height: 40px;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    border-radius: 50%;
+    background: rgba(4, 11, 23, 0.7);
+    border: 2px solid rgba(59, 130, 246, 0.9);
+    box-shadow:
+        0 0 12px rgba(59, 130, 246, 0.45),
+        inset 0 0 10px rgba(59, 130, 246, 0.12);
+    transition: all 0.25s ease;
+}
+
+.user-avatar-link:hover {
+    transform: translateY(-2px);
+    box-shadow:
+        0 0 18px rgba(59, 130, 246, 0.75),
+        inset 0 0 12px rgba(59, 130, 246, 0.18);
+}
+
+.user-avatar-img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.user-avatar-initial {
+    width: 100%;
+    height: 100%;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    color: white;
+    font-size: 0.95rem;
+    font-weight: 800;
+    background:
+        radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.18), transparent 30%),
+        linear-gradient(135deg, #0f172a, #1d4ed8);
+}
+
+/* Punto de estado */
+
+.user-status-dot {
+    position: absolute;
+    right: -1px;
+    bottom: 2px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #38bdf8;
+    border: 2px solid #040b17;
+    box-shadow: 0 0 8px rgba(56, 189, 248, 0.95);
+}
+
+/* Nombre completo */
+
+.user-name-pill {
+    min-height: 38px;
+    padding: 0 14px;
+    display: inline-flex;
+    align-items: center;
+    color: #ffffff;
+    text-decoration: none;
+    font-size: 0.92rem;
+    font-weight: 700;
+    white-space: nowrap;
+    border-radius: 10px;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.025)),
+        rgba(6, 15, 31, 0.7);
+    border: 1px solid rgba(59, 130, 246, 0.22);
+    box-shadow:
+        0 8px 24px rgba(0, 0, 0, 0.25),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    transition: all 0.25s ease;
+}
+
+.user-name-pill:hover {
+    color: #bfdbfe;
+    border-color: rgba(59, 130, 246, 0.45);
+    box-shadow:
+        0 0 14px rgba(59, 130, 246, 0.18),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* Botón cerrar sesión */
+
+.logout-icon-btn {
+    width: 40px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    color: #60a5fa;
+    text-decoration: none;
+    border-radius: 10px;
+    background: rgba(4, 11, 23, 0.58);
+    border: 1px solid rgba(59, 130, 246, 0.72);
+    box-shadow:
+        0 0 10px rgba(37, 99, 235, 0.28),
+        inset 0 0 8px rgba(59, 130, 246, 0.05);
+    transition: all 0.25s ease;
+}
+
+.logout-icon-btn svg {
+    width: 19px;
+    height: 19px;
+    stroke-width: 2.3;
+}
+
+.logout-icon-btn:hover {
+    color: #ffffff;
+    background: rgba(37, 99, 235, 0.18);
+    border-color: rgba(96, 165, 250, 0.95);
+    box-shadow:
+        0 0 18px rgba(59, 130, 246, 0.55),
+        inset 0 0 10px rgba(59, 130, 246, 0.1);
+    transform: translateY(-2px);
+}
+
+.logout-icon-btn:active {
+    transform: scale(0.96);
+}
+
+
+/* ==========================================
    RESPONSIVE
 ========================================== */
 @media (max-width: 1100px) {
@@ -447,4 +594,38 @@ body::before {
 @keyframes fadeInAnimation {
     0% { opacity: 0; }
     100% { opacity: 1; }
+}
+
+@media (max-width: 900px) {
+    .user-name-pill {
+        font-size: 0.82rem;
+        padding: 0 10px;
+    }
+
+    .user-avatar-link,
+    .logout-icon-btn {
+        width: 36px;
+        height: 36px;
+    }
+}
+
+@media (max-width: 768px) {
+    .navbar {
+        gap: 16px;
+        flex-wrap: wrap;
+    }
+
+    .navbar-actions {
+        margin-left: auto;
+    }
+
+    .user-session-box {
+        gap: 6px;
+    }
+
+    .user-name-pill {
+        max-width: 180px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
 }

@@ -8,11 +8,18 @@ git status
 git stash 
 git pull --rebase (esto primero actualiza todo en sus pc)
 git stash pop 
-==================
+
+========= (Aca ya se sube su avance, es necesario hacer ambas cosas) =======
 git add .
-git commit -m "actualizacion"   (Aca ya se sube su avance, es necesario hacer ambas cosas)
+git commit -m "actualizacion"   
 git push
 ===================================
+
+============================
+Para ver si han actualizado algo al github
+git fetch origin
+git status
+=================
 
 
 POSIBLE "ERROR"

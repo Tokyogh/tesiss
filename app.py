@@ -1,9 +1,23 @@
 from flask import Flask, render_template, request, redirect, session, flash
 import sqlite3
 from werkzeug.security import generate_password_hash, check_password_hash
+from functools import wraps
+from datetime import timedelta
 
 app = Flask(__name__)
 app.secret_key = "vinova"
+app.permanent_session_lifetime = timedelta(days=1)
+
+# ================= PROTEGER RUTAS =================
+
+def login_required(ruta):
+    @wraps(ruta)
+    def wrapper(*args, **kwargs):
+        if "usuario_id" not in session:
+            flash("Debes iniciar sesión para acceder a tu perfil.")
+            return redirect("/login")
+        return ruta(*args, **kwargs)
+    return wrapper
 
 # ================= INICIO =================
 
@@ -17,6 +31,9 @@ def inicio():
 def login():
 
     if request.method == "GET":
+        if "usuario_id" in session:
+            return redirect("/perfil")
+
         return render_template("login.html")
 
     correo = request.form["email"]
@@ -31,19 +48,17 @@ def login():
     )
 
     usuario = cursor.fetchone()
-
     conexion.close()
 
     if not usuario:
-
         flash("Usuario no encontrado.")
         return redirect("/login")
 
     if not check_password_hash(usuario[3], password):
-
         flash("Contraseña incorrecta.")
         return redirect("/login")
 
+    session.permanent = True
     session["usuario_id"] = usuario[0]
     session["usuario"] = usuario[1]
     session["rol"] = usuario[4]
@@ -101,14 +116,13 @@ def register():
 # ================= PERFIL =================
 
 @app.route("/perfil")
+@login_required
 def perfil():
-
-    if "usuario" not in session:
-        return redirect("/login")
 
     return render_template(
         "profile.html",
-        nombre=session["usuario"]
+        nombre=session["usuario"],
+        rol=session["rol"]
     )
 
 # ================= LOGOUT =================
@@ -121,10 +135,11 @@ def logout():
     return redirect("/")
 
 # ================= CATALOG =================
+# Catálogo público
 
 @app.route("/catalog")
 def catalog():
-    
+
     return render_template("catalog.html")
 
 # ================= APP =================

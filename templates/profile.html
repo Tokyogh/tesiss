@@ -59,7 +59,9 @@
 
                 <br>
 
-                <a href="#"><i class="fa-solid fa-arrow-right-from-bracket"></i> Cerrar sesión</a>
+                <a href="{{ url_for('logout') }}">
+                    <i class="fa-solid fa-arrow-right-from-bracket"></i> Cerrar sesión
+                </a>
 
             </nav>
 
@@ -74,7 +76,7 @@
             <header class="header">
 
                 <div>
-                    <h1>Hola, Fabricio 😀</h1>
+                    <h1>Hola, {{ nombre }} 😀</h1>
                     <p>Bienvenido a tu panel de control</p>
                 </div>
 

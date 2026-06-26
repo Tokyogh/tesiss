@@ -4,7 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VINOVA</title>
+
     <script src="https://unpkg.com/lucide@latest"></script>
+
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -20,36 +22,85 @@
 
     <nav>
         <ul class="nav-links">
-            <li><a href="{{ url_for('inicio') }}">Inicio</a></li>
+
+            <li>
+                <a href="{{ url_for('inicio') }}">Inicio</a>
+            </li>
+
             <li class="dropdown">
                 <a href="#">Vehículos</a>
+
                 <div class="dropdown-menu">
-                    <a href="{{ url_for('catalog') }}">Catalogo</a>
+                    <a href="{{ url_for('catalog') }}">Catálogo</a>
                 </div>
             </li>
-            <li class="dropdown">
+
+            <li>
                 <a href="{{ url_for('perfil') }}">Mi perfil</a>
             </li>
+
             <li class="dropdown">
                 <a href="#">Instituciones</a>
+
                 <div class="dropdown-menu">
                     <a href="#">Instituciones Afiliadas</a>
                     <a href="#">Concesionarios</a>
                     <a href="#">Centros de servicio</a>
                 </div>
             </li>
+
             <li class="dropdown">
                 <a href="#">Contacto</a>
+
                 <div class="dropdown-menu">
                     <a href="#">Servicio al cliente</a>
                 </div>
             </li>
+
         </ul>
     </nav>
 
-    <a href="/login" class="login-btn">
-        Iniciar sesión
-    </a>
+    <div class="navbar-actions">
+
+        {% if session.get("usuario_id") %}
+
+            <div class="user-session-box">
+
+                <a href="{{ url_for('perfil') }}" class="user-avatar-link" title="Ir a mi perfil">
+
+                    {% if session.get("foto_perfil") %}
+                        <img
+                            src="{{ session.get('foto_perfil') }}"
+                            alt="Foto de perfil de {{ session['usuario'] }}"
+                            class="user-avatar-img">
+                    {% else %}
+                        <span class="user-avatar-initial">
+                            {{ session["usuario"][:1]|upper }}
+                        </span>
+                    {% endif %}
+
+                    <span class="user-status-dot"></span>
+                </a>
+
+                <a href="{{ url_for('perfil') }}" class="user-name-pill">
+                    {{ session["usuario"] }}
+                </a>
+
+                <a href="{{ url_for('logout') }}" class="logout-icon-btn" title="Cerrar sesión" aria-label="Cerrar sesión">
+                    <i data-lucide="log-out"></i>
+                </a>
+
+            </div>
+
+        {% else %}
+
+            <a href="{{ url_for('login') }}" class="login-btn">
+                Iniciar sesión
+            </a>
+
+        {% endif %}
+
+    </div>
 </header>
 
 <section class="hero">
@@ -58,9 +109,11 @@
             Descubre tu proximo <br>
             <span>vehículo</span>.
         </h1>
+
         <p>
             Consulta historial, recomendaciones personalizadas y documentación técnica.
         </p>
+
         <div class="hero-buttons">
             <button class="primary-btn">Comenzar</button>
             <button class="secondary-btn">Ver demo</button>
@@ -68,7 +121,7 @@
     </div>
 
     <div class="hero-image">
-        <img src="{{ url_for('static', filename='img/fondo.png') }}">
+        <img src="{{ url_for('static', filename='img/fondo.png') }}" alt="Vehículo VINOVA">
     </div>
 </section>
 
@@ -77,6 +130,7 @@
         <div class="icon-box purple">
             <i data-lucide="car-front"></i>
         </div>
+
         <div class="stat-info">
             <h3>+500</h3>
             <p>Vehículos registrados</p>
@@ -87,6 +141,7 @@
         <div class="icon-box blue">
             <i data-lucide="wrench"></i>
         </div>
+
         <div class="stat-info">
             <h3>+2000</h3>
             <p>Mantenimientos realizados</p>
@@ -97,6 +152,7 @@
         <div class="icon-box green">
             <i data-lucide="users"></i>
         </div>
+
         <div class="stat-info">
             <h3>+50</h3>
             <p>Talleres asociados</p>
@@ -107,6 +163,7 @@
         <div class="icon-box yellow">
             <i data-lucide="star"></i>
         </div>
+
         <div class="stat-info">
             <h3>95%</h3>
             <p>Satisfacción de usuarios</p>
@@ -118,11 +175,13 @@
     <h2>Todo lo que necesitas para el cuidado de tu vehículo</h2>
 
     <div class="feature-grid">
+
         <div class="feature-card">
             <div class="icon-box purple">
                 <i data-lucide="clipboard-list"></i>
             </div>
-            <div class="feature-info"> 
+
+            <div class="feature-info">
                 <h3>Registro inteligente</h3>
                 <p>Lleva un control completo de los mantenimientos.</p>
             </div>
@@ -132,7 +191,8 @@
             <div class="icon-box blue">
                 <i data-lucide="bell"></i>
             </div>
-            <div class="feature-info"> 
+
+            <div class="feature-info">
                 <h3>Recordatorios</h3>
                 <p>Recibe alertas y recordatorios automáticos.</p>
             </div>
@@ -142,7 +202,8 @@
             <div class="icon-box green">
                 <i data-lucide="box"></i>
             </div>
-            <div class="feature-info"> 
+
+            <div class="feature-info">
                 <h3>Modelo 3D</h3>
                 <p>Explora cada parte del vehículo mediante un modelo interactivo.</p>
             </div>
@@ -152,14 +213,17 @@
             <div class="icon-box yellow">
                 <i data-lucide="chart-column"></i>
             </div>
-            <div class="feature-info"> 
+
+            <div class="feature-info">
                 <h3>Historial</h3>
                 <p>Consulta intervenciones y mantenimientos anteriores.</p>
             </div>
         </div>
+
     </div>
 </section>
 
 <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+
 </body>
 </html>
