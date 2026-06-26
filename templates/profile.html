@@ -15,52 +15,83 @@
 
     <div class="container">
 
-        <!-- SIDEBAR (BARRA LATERAL) -->
+        <!-- SIDEBAR -->
 
         <aside class="sidebar">
 
             <div class="logo">
-                <img src="https://cdn.oreateai.com/aiimage/nano/65fe12013bda235231000940/1f545f192f6b978fac061ca943745ec4" alt=""><h2>VINOVA</h2>
+                <img src="https://cdn.oreateai.com/aiimage/nano/65fe12013bda235231000940/1f545f192f6b978fac061ca943745ec4" alt="Logo VINOVA">
+                <h2>VINOVA</h2>
             </div>
 
             <nav>
 
                 <h4>INICIO</h4>
 
-                <a href="{{ url_for('inicio') }}"><i class="fa-solid fa-house"></i> Inicio</a>
+                <a href="#seccion-inicio" class="sidebar-link active" data-section="inicio">
+                    <i class="fa-solid fa-house"></i>
+                    Inicio
+                </a>
 
                 <h4>VEHÍCULOS</h4>
 
-                <a href="#"><i class="fa-solid fa-car"></i> Mis vehiculos</a>
+                <a href="#seccion-mis-vehiculos" class="sidebar-link" data-section="mis-vehiculos">
+                    <i class="fa-solid fa-car"></i>
+                    Mis vehículos
+                </a>
 
-                <a href="#"><i class="fa-solid fa-star"></i> Agregar vehiculos</a>
+                <a href="#seccion-agregar-vehiculo" class="sidebar-link" data-section="agregar-vehiculo">
+                    <i class="fa-solid fa-circle-plus"></i>
+                    Agregar vehículo
+                </a>
 
                 <h4>MANTENIMIENTO</h4>
 
-                <a href="#"><i class="fa-solid fa-clock-rotate-left"></i> Historial</a>
+                <a href="#seccion-historial" class="sidebar-link" data-section="historial">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                    Historial
+                </a>
 
-                <a href="#"><i class="fa-solid fa-screwdriver-wrench"></i> Proximos servicios</a>
+                <a href="#seccion-proximos-servicios" class="sidebar-link" data-section="proximos-servicios">
+                    <i class="fa-solid fa-screwdriver-wrench"></i>
+                    Próximos servicios
+                </a>
 
                 <h4>DOCUMENTACIÓN</h4>
 
-                <a href="#"><i class="fa-solid fa-user"></i> Manuales </a>
-                
-                <a href="#"><i class="fa-solid fa-gear"></i> Facturas </a>
-                
+                <a href="#seccion-manuales" class="sidebar-link" data-section="manuales">
+                    <i class="fa-solid fa-book"></i>
+                    Manuales
+                </a>
+
+                <a href="#seccion-facturas" class="sidebar-link" data-section="facturas">
+                    <i class="fa-solid fa-file-invoice"></i>
+                    Facturas
+                </a>
+
                 <h4>CONFIGURACIÓN</h4>
 
-                <a href="#"><i class="fa-solid fa-user"></i> Perfil</a>
+                <a href="#seccion-perfil" class="sidebar-link" data-section="perfil">
+                    <i class="fa-solid fa-user"></i>
+                    Perfil
+                </a>
 
-                <a href="#"><i class="fa-solid fa-bell"></i> Notificaciones</a>
+                <a href="#seccion-notificaciones" class="sidebar-link" data-section="notificaciones">
+                    <i class="fa-solid fa-bell"></i>
+                    Notificaciones
+                </a>
 
-                <a href="#"><i class="fa-solid fa-gear"></i> Configuración</a>
+                <a href="#seccion-configuracion" class="sidebar-link" data-section="configuracion">
+                    <i class="fa-solid fa-gear"></i>
+                    Configuración
+                </a>
 
                 <br>
-
                 <br>
 
-                <a href="{{ url_for('logout') }}">
-                    <i class="fa-solid fa-arrow-right-from-bracket"></i> Cerrar sesión
+                <a href="{{ url_for('logout') }}" class="logout-link">
+                    <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                    Cerrar sesión
                 </a>
 
             </nav>
@@ -71,7 +102,7 @@
 
         <main class="content">
 
-            <!-- HEADER -->
+            <!-- HEADER GENERAL -->
 
             <header class="header">
 
@@ -86,86 +117,615 @@
 
                     <i class="fa-solid fa-bell icon"></i>
 
-                    <img src="https://tse2.mm.bing.net/th/id/OIP.pdgwLL8oxjSs9n4AV66x5wHaHa?r=0&rs=1&pid=ImgDetMain&o=7&rm=3" alt="perfil">
+                    <div class="header-profile-avatar">
+                        {% if foto_perfil %}
+                            <img src="{{ foto_perfil }}" alt="Foto de perfil de {{ nombre }}">
+                        {% else %}
+                            <span>{{ nombre[:1]|upper }}</span>
+                        {% endif %}
+                    </div>
 
                 </div>
 
             </header>
 
-            <!-- TARJETAS -->
+            <!-- MENSAJES FLASH -->
 
-            <section class="cards">
-
-                <div class="card">
-                    <div>
-                        <i class="fa-solid fa-car blue"></i>
+            {% with messages = get_flashed_messages() %}
+                {% if messages %}
+                    <div class="profile-message">
+                        <i class="fa-solid fa-circle-info"></i>
+                        <span>{{ messages[0] }}</span>
                     </div>
-                    <p>Vehículos</p>
-                    <br>
-                    <h2>2</h2>
-                    <p>Registrados</p>
+                {% endif %}
+            {% endwith %}
+
+            <!-- SECCIÓN INICIO -->
+
+            <section class="dashboard-section active-section" id="seccion-inicio" data-content="inicio">
+
+                <div class="section-title">
+                    <span>RESUMEN GENERAL</span>
+                    <h2>Panel principal</h2>
+                    <p>Consulta un resumen rápido del estado de tus vehículos y servicios.</p>
                 </div>
 
-                <div class="card">
-                    <i class="fa-solid fa-road"></i>
-                    <p>Próximo mantenimiento</p>
-                    <br>
-                    <h2>1,500 km</h2>
-                    <p>Restantes</p>
-                </div>
+                <section class="cards">
 
-                <div class="card">
-                    <i class="fa-solid fa-calendar"></i>
-                    <p>Último servicio</p>
-                    <br>
-                    <h2>15 Junio 2026</h2>
-                    <p>Hace 8 dias</p>
-                </div>
+                    <div class="card">
+                        <div>
+                            <i class="fa-solid fa-car blue"></i>
+                        </div>
+                        <p>Vehículos</p>
+                        <br>
+                        <h2>2</h2>
+                        <p>Registrados</p>
+                    </div>
 
-                <div class="card">
-                    <i class="fa-solid fa-triangle-exclamation"></i>
-                    <p>Alertas</p>
-                    <br>
-                    <h2>0</h2>
-                    <p>Pendientes</p>
-                </div>
+                    <div class="card">
+                        <i class="fa-solid fa-road"></i>
+                        <p>Próximo mantenimiento</p>
+                        <br>
+                        <h2>1,500 km</h2>
+                        <p>Restantes</p>
+                    </div>
+
+                    <div class="card">
+                        <i class="fa-solid fa-calendar"></i>
+                        <p>Último servicio</p>
+                        <br>
+                        <h2>15 Junio 2026</h2>
+                        <p>Hace 8 días</p>
+                    </div>
+
+                    <div class="card">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <p>Alertas</p>
+                        <br>
+                        <h2>0</h2>
+                        <p>Pendientes</p>
+                    </div>
+
+                </section>
+
+                <section class="vehicles">
+
+                    <h2>Mis vehículos recientes</h2>
+
+                    <div class="vehicle-grid">
+
+                        <div class="vehicle-card">
+                            <div class="vehicle-image">
+                                <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS-W-DVFKOzSfbHypjPbIxTpXtoLtjcL47o_3FXWlXRQQ&s" alt="Toyota Corolla">
+                            </div>
+
+                            <h3>Toyota Corolla</h3>
+                            <p>Sedán • Automático</p>
+                        </div>
+
+                        <div class="vehicle-card">
+                            <div class="vehicle-image">
+                                <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQoxI8-ttsnhEa7JOOePivAAEjvkoIt0e3WlXxjASWu6g&s=10" alt="Toyota C-HR 2021">
+                            </div>
+
+                            <h3>Toyota C-HR 2021</h3>
+                            <p>SUV • Automático</p>
+                        </div>
+
+                    </div>
+
+                </section>
 
             </section>
 
-            <!-- VEHÍCULOS -->
+            <!-- SECCIÓN MIS VEHÍCULOS -->
 
-            <section class="vehicles">
+            <section class="dashboard-section" id="seccion-mis-vehiculos" data-content="mis-vehiculos">
 
-                <div class="vehicle-grid">
-                    <button class="more_vehicules">
-                        Agregar mas vehiculos
-                    </button>
+                <div class="section-title">
+                    <span>VEHÍCULOS</span>
+                    <h2>Mis vehículos</h2>
+                    <p>Administra los vehículos registrados en tu cuenta.</p>
                 </div>
 
-                <h2> Mis vehiculos </h2>
+                <section class="vehicles">
 
-                <div class="vehicle-grid">
+                    <div class="vehicle-grid">
 
-                    <div class="vehicle-card">
-                        <div class="vehicle-image">
-                            <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS-W-DVFKOzSfbHypjPbIxTpXtoLtjcL47o_3FXWlXRQQ&s" alt="Toyota">
-                        </div>   
-                        <h3>Toyota Corolla</h3>
+                        <div class="vehicle-card">
+                            <div class="vehicle-image">
+                                <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS-W-DVFKOzSfbHypjPbIxTpXtoLtjcL47o_3FXWlXRQQ&s" alt="Toyota Corolla">
+                            </div>
 
-                        <p>Sedán • Automático</p>
-
-                    </div>
-
-                    <div class="vehicle-card">
-                        <div class="vehicle-image">
-                            <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQoxI8-ttsnhEa7JOOePivAAEjvkoIt0e3WlXxjASWu6g&s=10" alt="Hyundai">
+                            <h3>Toyota Corolla</h3>
+                            <p>Sedán • Automático</p>
                         </div>
-                        <h3>Toyota C-HR 2021</h3>
 
-                        <p>SUV • Automático </p>
+                        <div class="vehicle-card">
+                            <div class="vehicle-image">
+                                <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQoxI8-ttsnhEa7JOOePivAAEjvkoIt0e3WlXxjASWu6g&s=10" alt="Toyota C-HR 2021">
+                            </div>
+
+                            <h3>Toyota C-HR 2021</h3>
+                            <p>SUV • Automático</p>
+                        </div>
+
                     </div>
 
+                </section>
+
+            </section>
+
+            <!-- SECCIÓN AGREGAR VEHÍCULO -->
+
+            <section class="dashboard-section" id="seccion-agregar-vehiculo" data-content="agregar-vehiculo">
+
+                <div class="section-title">
+                    <span>NUEVO VEHÍCULO</span>
+                    <h2>Agregar vehículo</h2>
+                    <p>Registra un nuevo vehículo en tu cuenta VINOVA.</p>
                 </div>
+
+                <section class="form-panel">
+
+                    <form class="vehicle-form" action="#" method="POST">
+
+                        <div class="form-grid">
+
+                            <div class="form-group">
+                                <label for="marca">Marca</label>
+                                <input type="text" id="marca" name="marca" placeholder="Ejemplo: Toyota">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="modelo">Modelo</label>
+                                <input type="text" id="modelo" name="modelo" placeholder="Ejemplo: Corolla">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="anio">Año</label>
+                                <input type="number" id="anio" name="anio" placeholder="Ejemplo: 2021">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="tipo">Tipo</label>
+                                <select id="tipo" name="tipo">
+                                    <option value="">Seleccionar tipo</option>
+                                    <option value="sedan">Sedán</option>
+                                    <option value="suv">SUV</option>
+                                    <option value="camioneta">Camioneta</option>
+                                    <option value="hatchback">Hatchback</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="transmision">Transmisión</label>
+                                <select id="transmision" name="transmision">
+                                    <option value="">Seleccionar transmisión</option>
+                                    <option value="manual">Manual</option>
+                                    <option value="automatica">Automática</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="kilometraje">Kilometraje actual</label>
+                                <input type="number" id="kilometraje" name="kilometraje" placeholder="Ejemplo: 45000">
+                            </div>
+
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="submit" class="profile-save-btn">
+                                <i class="fa-solid fa-floppy-disk"></i>
+                                Guardar vehículo
+                            </button>
+                        </div>
+
+                    </form>
+
+                </section>
+
+            </section>
+
+            <!-- SECCIÓN HISTORIAL -->
+
+            <section class="dashboard-section" id="seccion-historial" data-content="historial">
+
+                <div class="section-title">
+                    <span>MANTENIMIENTO</span>
+                    <h2>Historial de servicios</h2>
+                    <p>Consulta los mantenimientos realizados a tus vehículos.</p>
+                </div>
+
+                <section class="info-panel">
+
+                    <div class="history-list">
+
+                        <article class="history-item">
+                            <div class="history-icon">
+                                <i class="fa-solid fa-oil-can"></i>
+                            </div>
+
+                            <div>
+                                <h3>Cambio de aceite</h3>
+                                <p>Toyota Corolla • 15 Junio 2026</p>
+                            </div>
+
+                            <strong>$45.00</strong>
+                        </article>
+
+                        <article class="history-item">
+                            <div class="history-icon">
+                                <i class="fa-solid fa-car-battery"></i>
+                            </div>
+
+                            <div>
+                                <h3>Revisión de batería</h3>
+                                <p>Toyota C-HR 2021 • 02 Mayo 2026</p>
+                            </div>
+
+                            <strong>$20.00</strong>
+                        </article>
+
+                        <article class="history-item">
+                            <div class="history-icon">
+                                <i class="fa-solid fa-circle-dot"></i>
+                            </div>
+
+                            <div>
+                                <h3>Alineación y balanceo</h3>
+                                <p>Toyota Corolla • 18 Abril 2026</p>
+                            </div>
+
+                            <strong>$35.00</strong>
+                        </article>
+
+                    </div>
+
+                </section>
+
+            </section>
+
+            <!-- SECCIÓN PRÓXIMOS SERVICIOS -->
+
+            <section class="dashboard-section" id="seccion-proximos-servicios" data-content="proximos-servicios">
+
+                <div class="section-title">
+                    <span>MANTENIMIENTO</span>
+                    <h2>Próximos servicios</h2>
+                    <p>Revisa los mantenimientos pendientes o recomendados.</p>
+                </div>
+
+                <section class="service-grid">
+
+                    <article class="service-card">
+                        <i class="fa-solid fa-oil-can"></i>
+                        <h3>Cambio de aceite</h3>
+                        <p>Toyota Corolla</p>
+                        <strong>En 1,500 km</strong>
+                    </article>
+
+                    <article class="service-card">
+                        <i class="fa-solid fa-filter"></i>
+                        <h3>Cambio de filtro</h3>
+                        <p>Toyota C-HR 2021</p>
+                        <strong>En 2 meses</strong>
+                    </article>
+
+                    <article class="service-card">
+                        <i class="fa-solid fa-screwdriver-wrench"></i>
+                        <h3>Revisión general</h3>
+                        <p>Todos los vehículos</p>
+                        <strong>Pendiente</strong>
+                    </article>
+
+                </section>
+
+            </section>
+
+            <!-- SECCIÓN MANUALES -->
+
+            <section class="dashboard-section" id="seccion-manuales" data-content="manuales">
+
+                <div class="section-title">
+                    <span>DOCUMENTACIÓN</span>
+                    <h2>Manuales</h2>
+                    <p>Accede a manuales y guías técnicas de tus vehículos.</p>
+                </div>
+
+                <section class="document-grid">
+
+                    <article class="document-card">
+                        <i class="fa-solid fa-book-open"></i>
+                        <h3>Manual Toyota Corolla</h3>
+                        <p>Manual de usuario y mantenimiento.</p>
+                        <a href="#">Ver manual</a>
+                    </article>
+
+                    <article class="document-card">
+                        <i class="fa-solid fa-book-open"></i>
+                        <h3>Manual Toyota C-HR 2021</h3>
+                        <p>Guía técnica del vehículo.</p>
+                        <a href="#">Ver manual</a>
+                    </article>
+
+                </section>
+
+            </section>
+
+            <!-- SECCIÓN FACTURAS -->
+
+            <section class="dashboard-section" id="seccion-facturas" data-content="facturas">
+
+                <div class="section-title">
+                    <span>DOCUMENTACIÓN</span>
+                    <h2>Facturas</h2>
+                    <p>Consulta tus facturas de servicios y mantenimientos.</p>
+                </div>
+
+                <section class="info-panel">
+
+                    <div class="invoice-list">
+
+                        <article class="invoice-item">
+                            <div>
+                                <h3>Factura #VN-001</h3>
+                                <p>Cambio de aceite • 15 Junio 2026</p>
+                            </div>
+
+                            <strong>$45.00</strong>
+
+                            <a href="#">Ver</a>
+                        </article>
+
+                        <article class="invoice-item">
+                            <div>
+                                <h3>Factura #VN-002</h3>
+                                <p>Revisión de batería • 02 Mayo 2026</p>
+                            </div>
+
+                            <strong>$20.00</strong>
+
+                            <a href="#">Ver</a>
+                        </article>
+
+                    </div>
+
+                </section>
+
+            </section>
+
+            <!-- SECCIÓN PERFIL -->
+
+            <section class="dashboard-section" id="seccion-perfil" data-content="perfil">
+
+                <div class="section-title">
+                    <span>CONFIGURACIÓN DE CUENTA</span>
+                    <h2>Perfil de usuario</h2>
+                    <p>Cambia tu foto de perfil y administra la información principal de tu cuenta.</p>
+                </div>
+
+                <section class="profile-settings">
+
+                    <div class="profile-settings-grid">
+
+                        <!-- FOTO DE PERFIL -->
+
+                        <article class="profile-photo-card">
+
+                            <div class="profile-photo-preview" id="profilePhotoPreview">
+                                {% if foto_perfil %}
+                                    <img src="{{ foto_perfil }}" alt="Foto de perfil de {{ nombre }}">
+                                {% else %}
+                                    <span class="profile-photo-initial">
+                                        {{ nombre[:1]|upper }}
+                                    </span>
+                                {% endif %}
+                            </div>
+
+                            <div class="profile-photo-info">
+                                <h3>Foto de perfil</h3>
+                                <p>
+                                    Esta imagen aparecerá en tu panel, en la barra superior y en las secciones donde tu cuenta esté activa.
+                                </p>
+                            </div>
+
+                            <form class="profile-photo-form" action="{{ url_for('actualizar_foto_perfil') }}" method="POST" enctype="multipart/form-data">
+
+                                <input
+                                    type="file"
+                                    id="foto_perfil"
+                                    name="foto_perfil"
+                                    accept="image/png, image/jpeg, image/webp"
+                                    hidden>
+
+                                <label for="foto_perfil" class="profile-upload-btn">
+                                    <i class="fa-solid fa-camera"></i>
+                                    Elegir imagen
+                                </label>
+
+                                <button type="submit" class="profile-save-btn">
+                                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                                    Guardar foto
+                                </button>
+
+                            </form>
+
+                            <small>
+                                Formatos permitidos: JPG, PNG o WEBP. Recomendado: imagen cuadrada.
+                            </small>
+
+                        </article>
+
+                        <!-- DATOS DEL USUARIO -->
+
+                        <article class="profile-data-card">
+
+                            <div class="profile-data-title">
+
+                                <div class="profile-data-icon">
+                                    <i class="fa-solid fa-id-card"></i>
+                                </div>
+
+                                <div>
+                                    <h3>Información personal</h3>
+                                    <p>Datos principales asociados a tu cuenta.</p>
+                                </div>
+
+                            </div>
+
+                            <div class="profile-info-list">
+
+                                <div class="profile-info-row">
+                                    <span>Nombre</span>
+                                    <strong>{{ nombre }}</strong>
+                                </div>
+
+                                <div class="profile-info-row">
+                                    <span>Rol</span>
+                                    <strong>{{ rol }}</strong>
+                                </div>
+
+                                <div class="profile-info-row">
+                                    <span>Estado de cuenta</span>
+                                    <strong class="profile-active-text">Activa</strong>
+                                </div>
+
+                                <div class="profile-info-row">
+                                    <span>Avatar</span>
+                                    {% if foto_perfil %}
+                                        <strong>Configurado</strong>
+                                    {% else %}
+                                        <strong>No configurado</strong>
+                                    {% endif %}
+                                </div>
+
+                            </div>
+
+                            <div class="profile-account-box">
+                                <br>
+                                <h4>Administración de cuenta</h4>
+
+                                <p>
+                                    Desde aquí puedes revisar los datos visibles de tu cuenta y cerrar sesión de forma segura.
+                                </p>
+
+                                <a href="{{ url_for('logout') }}" class="profile-logout-btn">
+                                    <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                                    Cerrar sesión
+                                </a>
+
+                            </div>
+
+                        </article>
+
+                    </div>
+
+                </section>
+
+            </section>
+
+            <!-- SECCIÓN NOTIFICACIONES -->
+
+            <section class="dashboard-section" id="seccion-notificaciones" data-content="notificaciones">
+
+                <div class="section-title">
+                    <span>CONFIGURACIÓN</span>
+                    <h2>Notificaciones</h2>
+                    <p>Configura cómo quieres recibir alertas y recordatorios.</p>
+                </div>
+
+                <section class="settings-panel">
+
+                    <label class="profile-toggle-row">
+                        <span>
+                            <i class="fa-solid fa-bell"></i>
+                            Notificaciones de mantenimiento
+                        </span>
+
+                        <input type="checkbox" checked>
+                    </label>
+
+                    <label class="profile-toggle-row">
+                        <span>
+                            <i class="fa-solid fa-envelope"></i>
+                            Alertas por correo
+                        </span>
+
+                        <input type="checkbox" checked>
+                    </label>
+
+                    <label class="profile-toggle-row">
+                        <span>
+                            <i class="fa-solid fa-triangle-exclamation"></i>
+                            Alertas importantes del vehículo
+                        </span>
+
+                        <input type="checkbox" checked>
+                    </label>
+
+                    <label class="profile-toggle-row">
+                        <span>
+                            <i class="fa-solid fa-calendar-days"></i>
+                            Recordatorios mensuales
+                        </span>
+
+                        <input type="checkbox">
+                    </label>
+
+                </section>
+
+            </section>
+
+            <!-- SECCIÓN CONFIGURACIÓN -->
+
+            <section class="dashboard-section" id="seccion-configuracion" data-content="configuracion">
+
+                <div class="section-title">
+                    <span>CONFIGURACIÓN</span>
+                    <h2>Configuración general</h2>
+                    <p>Ajusta preferencias generales de tu cuenta.</p>
+                </div>
+
+                <section class="settings-panel">
+
+                    <div class="config-card">
+
+                        <h3>Preferencias de cuenta</h3>
+
+                        <label class="profile-toggle-row">
+                            <span>
+                                <i class="fa-solid fa-shield-halved"></i>
+                                Mostrar estado de sesión
+                            </span>
+
+                            <input type="checkbox" checked>
+                        </label>
+
+                        <label class="profile-toggle-row">
+                            <span>
+                                <i class="fa-solid fa-moon"></i>
+                                Mantener tema oscuro
+                            </span>
+
+                            <input type="checkbox" checked>
+                        </label>
+
+                    </div>
+
+                    <div class="config-card danger-zone">
+                        
+                        <h3>Zona de sesión</h3>
+                        <p>Cierra tu sesión actual de VINOVA de forma segura.</p>
+
+                        <a href="{{ url_for('logout') }}" class="profile-logout-btn">
+                            <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                            Cerrar sesión
+                        </a>
+
+                    </div>
+
+                </section>
 
             </section>
 
@@ -173,6 +733,8 @@
 
     </div>
 
+    <script src="{{ url_for('static', filename='js/script1.js') }}"></script>
+
 </body>
 
-</html> 
+</html>
