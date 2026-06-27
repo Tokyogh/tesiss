@@ -355,12 +355,13 @@
                     <input type="text" placeholder="Buscar por marca, modelo o año...">
                 </label>
             </div>
-
+            
             <div class="catalog-stats-grid" aria-label="Resumen del catálogo">
+
                 <button type="button" class="catalog-stat-card tone-blue active">
                     <i data-lucide="car-front"></i>
                     <span>
-                        <strong>128</strong>
+                        <strong>{{ total_vehiculos }}</strong>
                         <small>Total vehículos</small>
                     </span>
                 </button>
@@ -375,7 +376,7 @@
                         <path d="M43 31a5 5 0 1 0 10 0"/>
                     </svg>
                     <span>
-                        <strong>48</strong>
+                        <strong>{{ total_camionetas }}</strong>
                         <small>Camionetas</small>
                     </span>
                 </button>
@@ -383,7 +384,7 @@
                 <button type="button" class="catalog-stat-card tone-blue-soft">
                     <i data-lucide="car"></i>
                     <span>
-                        <strong>52</strong>
+                        <strong>{{ total_suv }}</strong>
                         <small>SUV</small>
                     </span>
                 </button>
@@ -391,19 +392,21 @@
                 <button type="button" class="catalog-stat-card tone-green">
                     <i data-lucide="leaf"></i>
                     <span>
-                        <strong>16</strong>
+                        <strong>{{ total_hibridos }}</strong>
                         <small>Híbridos / Eléctricos</small>
                     </span>
                 </button>
 
                 <button type="button" class="catalog-stat-card tone-yellow">
-                    <i data-lucide="star"></i>
+                    <i data-lucide="circle-check"></i>
                     <span>
-                        <strong>12</strong>
-                        <small>Nuevos ingresos</small>
+                        <strong>{{ total_disponibles }}</strong>
+                        <small>Disponibles</small>
                     </span>
                 </button>
+
             </div>
+            <!--KASDSKSAJDKSADADKAJDKASSJDKASJDKASDJAK-->
         </section>
 
         <div class="catalog-toolbar">
@@ -421,344 +424,216 @@
 
         <section class="catalog-vehicle-grid">
 
-            <article class="catalog-vehicle-card vehicle-tone-blue" tabindex="0">
-                <div class="catalog-vehicle-badge badge-blue">
-                    <i data-lucide="badge-check"></i>
-                    Nuevo
-                </div>
+            {% if vehiculos %}
 
-                <button type="button" class="favorite-btn" aria-label="Agregar a favoritos">
-                    <i data-lucide="heart"></i>
-                </button>
+                {% for vehiculo in vehiculos %}
 
-                <img src="{{ url_for('static', filename='img/vehicles/toyota-rav4-2024.png') }}" alt="Toyota RAV4 2024" class="catalog-vehicle-img">
+                    <article class="catalog-vehicle-card vehicle-tone-blue" tabindex="0">
 
-                <div class="catalog-vehicle-info">
-                    <div class="catalog-vehicle-main-info">
-                        <div>
-                            <h3>Toyota RAV4 2024</h3>
-                            <p>XLE Híbrida</p>
+                        <div class="catalog-vehicle-badge {% if vehiculo['estado'] == 'Disponible' %}badge-green{% else %}badge-blue{% endif %}">
+                            {% if vehiculo['estado'] == 'Disponible' %}
+                                <i data-lucide="circle-check"></i>
+                            {% else %}
+                                <i data-lucide="info"></i>
+                            {% endif %}
+
+                            {{ vehiculo['estado'] or 'Disponible' }}
                         </div>
 
-                        <strong class="catalog-vehicle-price">$28,900</strong>
-                    </div>
+                        <button type="button" class="favorite-btn" aria-label="Agregar a favoritos">
+                            <i data-lucide="heart"></i>
+                        </button>
 
-                    <div class="catalog-vehicle-specs">
-                        <span><i data-lucide="sliders-horizontal"></i> Automática</span>
-                        <span><i data-lucide="fuel"></i> Híbrido</span>
-                        <span><i data-lucide="gauge"></i> 55,430 km</span>
-                    </div>
+                        {% if vehiculo['imagen'] %}
+                            <img
+                                src="{{ url_for('static', filename=vehiculo['imagen']) }}"
+                                alt="{{ vehiculo['marca'] }} {{ vehiculo['modelo'] }} {{ vehiculo['anio'] }}"
+                                class="catalog-vehicle-img">
+                        {% else %}
+                            <div class="catalog-vehicle-img catalog-vehicle-img-placeholder">
+                                <i data-lucide="car-front"></i>
+                            </div>
+                        {% endif %}
 
-                    <div class="catalog-vehicle-footer">
-                        <span class="available">
-                            <span class="status-dot"></span>
-                            Disponible
-                        </span>
+                        <div class="catalog-vehicle-info">
 
-                        <span class="rating">
-                            <i data-lucide="star"></i>
-                            4.6 (181)
-                        </span>
+                            <div class="catalog-vehicle-main-info">
+                                <div>
+                                    <h3>{{ vehiculo['marca'] }} {{ vehiculo['modelo'] }} {{ vehiculo['anio'] }}</h3>
+                                    <p>{{ vehiculo['tipo_vehiculo'] or 'Vehículo' }}</p>
+                                </div>
 
-                        <a href="#" class="detail-btn">Ver detalle</a>
-                    </div>
-                </div>
-            </article>
+                                <strong class="catalog-vehicle-price">
+                                    ${{ "{:,.0f}".format(vehiculo['precio'] or 0) }}
+                                </strong>
+                            </div>
 
-            <article class="catalog-vehicle-card vehicle-tone-blue" tabindex="0">
-                <div class="catalog-vehicle-badge badge-blue">
-                    <i data-lucide="star"></i>
-                    Recomendado
-                </div>
+                            <div class="catalog-vehicle-specs">
+                                <span>
+                                    <i data-lucide="sliders-horizontal"></i>
+                                    {{ vehiculo['transmision'] or 'N/D' }}
+                                </span>
 
-                <button type="button" class="favorite-btn" aria-label="Agregar a favoritos">
-                    <i data-lucide="heart"></i>
-                </button>
+                                <span>
+                                    <i data-lucide="fuel"></i>
+                                    {{ vehiculo['combustible'] or 'N/D' }}
+                                </span>
 
-                <img src="{{ url_for('static', filename='img/vehicles/honda-accord-2023.png') }}" alt="Honda Accord 2023" class="catalog-vehicle-img">
+                                <span>
+                                    <i data-lucide="gauge"></i>
+                                    {{ "{:,}".format(vehiculo['kilometraje'] or 0) }} km
+                                </span>
+                            </div>
 
-                <div class="catalog-vehicle-info">
-                    <div class="catalog-vehicle-main-info">
-                        <div>
-                            <h3>Honda Accord 2023</h3>
-                            <p>EX-L 1.5T</p>
+                            <div class="catalog-vehicle-footer">
+
+                                <span class="available">
+                                    <span class="status-dot"></span>
+                                    {{ vehiculo['estado'] or 'Disponible' }}
+                                </span>
+
+                                <span class="rating">
+                                    <i data-lucide="box"></i>
+                                    {{ vehiculo['codigo_catalogo'] or 'Sin código' }}
+                                </span>
+
+                                <a
+                                    href="#"
+                                    class="detail-btn catalog-preview-btn"
+                                    data-id="{{ vehiculo['id'] }}"
+                                    data-codigo="{{ vehiculo['codigo_catalogo'] }}"
+                                    data-marca="{{ vehiculo['marca'] }}"
+                                    data-modelo="{{ vehiculo['modelo'] }}"
+                                    data-anio="{{ vehiculo['anio'] }}"
+                                    data-tipo="{{ vehiculo['tipo_vehiculo'] }}"
+                                    data-combustible="{{ vehiculo['combustible'] }}"
+                                    data-transmision="{{ vehiculo['transmision'] }}"
+                                    data-kilometraje="{{ vehiculo['kilometraje'] }}"
+                                    data-precio="{{ vehiculo['precio'] }}"
+                                    data-imagen="{{ vehiculo['imagen'] }}"
+                                    data-modelo3d-id="{{ vehiculo['modelo_3d_id'] }}"
+                                    data-modelo3d="{{ vehiculo['modelo_3d'] }}"
+                                    data-descripcion="{{ vehiculo['descripcion'] or '' }}">
+                                    Ver detalle
+                                </a>
+
+                            </div>
+
                         </div>
 
-                        <strong class="catalog-vehicle-price">$26,500</strong>
-                    </div>
+                    </article>
 
-                    <div class="catalog-vehicle-specs">
-                        <span><i data-lucide="sliders-horizontal"></i> Automática</span>
-                        <span><i data-lucide="fuel"></i> Gasolina</span>
-                        <span><i data-lucide="gauge"></i> 38,250 km</span>
-                    </div>
+                {% endfor %}
 
-                    <div class="catalog-vehicle-footer">
-                        <span class="available">
-                            <span class="status-dot"></span>
-                            Disponible
-                        </span>
+            {% else %}
 
-                        <span class="rating">
-                            <i data-lucide="star"></i>
-                            4.7 (96)
-                        </span>
-
-                        <a href="#" class="detail-btn">Ver detalle</a>
-                    </div>
-                </div>
-            </article>
-
-            <article class="catalog-vehicle-card vehicle-tone-green" tabindex="0">
-                <div class="catalog-vehicle-badge badge-green">
-                    <i data-lucide="circle-check"></i>
-                    Disponible
+                <div class="catalog-empty-state">
+                    <i data-lucide="car-front"></i>
+                    <h3>No hay vehículos disponibles</h3>
+                    <p>Cuando el administrador agregue vehículos activos, aparecerán aquí.</p>
                 </div>
 
-                <button type="button" class="favorite-btn" aria-label="Agregar a favoritos">
-                    <i data-lucide="heart"></i>
-                </button>
-
-                <img src="{{ url_for('static', filename='img/vehicles/hyundai-tucson-2022.png') }}" alt="Hyundai Tucson 2022" class="catalog-vehicle-img">
-
-                <div class="catalog-vehicle-info">
-                    <div class="catalog-vehicle-main-info">
-                        <div>
-                            <h3>Hyundai Tucson 2022</h3>
-                            <p>Limited 2.0</p>
-                        </div>
-
-                        <strong class="catalog-vehicle-price">$24,800</strong>
-                    </div>
-
-                    <div class="catalog-vehicle-specs">
-                        <span><i data-lucide="sliders-horizontal"></i> Automática</span>
-                        <span><i data-lucide="fuel"></i> Gasolina</span>
-                        <span><i data-lucide="gauge"></i> 39,200 km</span>
-                    </div>
-
-                    <div class="catalog-vehicle-footer">
-                        <span class="available">
-                            <span class="status-dot"></span>
-                            Disponible
-                        </span>
-
-                        <span class="rating">
-                            <i data-lucide="star"></i>
-                            4.7 (75)
-                        </span>
-
-                        <a href="#" class="detail-btn">Ver detalle</a>
-                    </div>
-                </div>
-            </article>
-
-            <article class="catalog-vehicle-card vehicle-tone-blue" tabindex="0">
-                <div class="catalog-vehicle-badge badge-blue">
-                    <i data-lucide="badge-check"></i>
-                    Nuevo
-                </div>
-
-                <button type="button" class="favorite-btn" aria-label="Agregar a favoritos">
-                    <i data-lucide="heart"></i>
-                </button>
-
-                <img src="{{ url_for('static', filename='img/vehicles/kia-sportage-2024.png') }}" alt="Kia Sportage 2024" class="catalog-vehicle-img">
-
-                <div class="catalog-vehicle-info">
-                    <div class="catalog-vehicle-main-info">
-                        <div>
-                            <h3>Kia Sportage 2024</h3>
-                            <p>LX</p>
-                        </div>
-
-                        <strong class="catalog-vehicle-price">$27,900</strong>
-                    </div>
-
-                    <div class="catalog-vehicle-specs">
-                        <span><i data-lucide="sliders-horizontal"></i> Automática</span>
-                        <span><i data-lucide="fuel"></i> Gasolina</span>
-                        <span><i data-lucide="gauge"></i> 32,300 km</span>
-                    </div>
-
-                    <div class="catalog-vehicle-footer">
-                        <span class="available">
-                            <span class="status-dot"></span>
-                            Disponible
-                        </span>
-
-                        <span class="rating">
-                            <i data-lucide="star"></i>
-                            4.6 (64)
-                        </span>
-
-                        <a href="#" class="detail-btn">Ver detalle</a>
-                    </div>
-                </div>
-            </article>
-
-            <article class="catalog-vehicle-card vehicle-tone-blue" tabindex="0">
-                <button type="button" class="favorite-btn" aria-label="Agregar a favoritos">
-                    <i data-lucide="heart"></i>
-                </button>
-
-                <img src="{{ url_for('static', filename='img/vehicles/mazda-cx5-2021.png') }}" alt="Mazda CX-5 2021" class="catalog-vehicle-img">
-
-                <div class="catalog-vehicle-info">
-                    <div class="catalog-vehicle-main-info">
-                        <div>
-                            <h3>Mazda CX-5 2021</h3>
-                            <p>Grand Touring</p>
-                        </div>
-
-                        <strong class="catalog-vehicle-price">$22,700</strong>
-                    </div>
-
-                    <div class="catalog-vehicle-specs">
-                        <span><i data-lucide="sliders-horizontal"></i> Automática</span>
-                        <span><i data-lucide="fuel"></i> Gasolina</span>
-                        <span><i data-lucide="gauge"></i> 27,800 km</span>
-                    </div>
-
-                    <div class="catalog-vehicle-footer">
-                        <span class="available">
-                            <span class="status-dot"></span>
-                            Disponible
-                        </span>
-
-                        <span class="rating">
-                            <i data-lucide="star"></i>
-                            4.6 (62)
-                        </span>
-
-                        <a href="#" class="detail-btn">Ver detalle</a>
-                    </div>
-                </div>
-            </article>
-
-            <article class="catalog-vehicle-card vehicle-tone-blue" tabindex="0">
-                <button type="button" class="favorite-btn" aria-label="Agregar a favoritos">
-                    <i data-lucide="heart"></i>
-                </button>
-
-                <img src="{{ url_for('static', filename='img/vehicles/toyota-corolla-2020.png') }}" alt="Toyota Corolla 2020" class="catalog-vehicle-img">
-
-                <div class="catalog-vehicle-info">
-                    <div class="catalog-vehicle-main-info">
-                        <div>
-                            <h3>Toyota Corolla 2020</h3>
-                            <p>SE</p>
-                        </div>
-
-                        <strong class="catalog-vehicle-price">$17,900</strong>
-                    </div>
-
-                    <div class="catalog-vehicle-specs">
-                        <span><i data-lucide="sliders-horizontal"></i> Automática</span>
-                        <span><i data-lucide="fuel"></i> Gasolina</span>
-                        <span><i data-lucide="gauge"></i> 40,300 km</span>
-                    </div>
-
-                    <div class="catalog-vehicle-footer">
-                        <span class="available">
-                            <span class="status-dot"></span>
-                            Disponible
-                        </span>
-
-                        <span class="rating">
-                            <i data-lucide="star"></i>
-                            4.3 (101)
-                        </span>
-
-                        <a href="#" class="detail-btn">Ver detalle</a>
-                    </div>
-                </div>
-            </article>
-
-            <article class="catalog-vehicle-card vehicle-tone-blue" tabindex="0">
-                <div class="catalog-vehicle-badge badge-blue">
-                    <i data-lucide="star"></i>
-                    Recomendado
-                </div>
-
-                <button type="button" class="favorite-btn" aria-label="Agregar a favoritos">
-                    <i data-lucide="heart"></i>
-                </button>
-
-                <img src="{{ url_for('static', filename='img/vehicles/honda-crv-2022.png') }}" alt="Honda CR-V 2022" class="catalog-vehicle-img">
-
-                <div class="catalog-vehicle-info">
-                    <div class="catalog-vehicle-main-info">
-                        <div>
-                            <h3>Honda CR-V 2022</h3>
-                            <p>EX AWD</p>
-                        </div>
-
-                        <strong class="catalog-vehicle-price">$25,900</strong>
-                    </div>
-
-                    <div class="catalog-vehicle-specs">
-                        <span><i data-lucide="sliders-horizontal"></i> Automática</span>
-                        <span><i data-lucide="fuel"></i> Híbrido</span>
-                        <span><i data-lucide="gauge"></i> 21,500 km</span>
-                    </div>
-
-                    <div class="catalog-vehicle-footer">
-                        <span class="available">
-                            <span class="status-dot"></span>
-                            Disponible
-                        </span>
-
-                        <span class="rating">
-                            <i data-lucide="star"></i>
-                            4.7 (88)
-                        </span>
-
-                        <a href="#" class="detail-btn">Ver detalle</a>
-                    </div>
-                </div>
-            </article>
-
-            <article class="catalog-vehicle-card vehicle-tone-blue" tabindex="0">
-                <button type="button" class="favorite-btn" aria-label="Agregar a favoritos">
-                    <i data-lucide="heart"></i>
-                </button>
-
-                <img src="{{ url_for('static', filename='img/vehicles/kia-k5-2023.png') }}" alt="Kia K5 2023" class="catalog-vehicle-img">
-
-                <div class="catalog-vehicle-info">
-                    <div class="catalog-vehicle-main-info">
-                        <div>
-                            <h3>Kia K5 2023</h3>
-                            <p>GT-Line</p>
-                        </div>
-
-                        <strong class="catalog-vehicle-price">$23,400</strong>
-                    </div>
-
-                    <div class="catalog-vehicle-specs">
-                        <span><i data-lucide="sliders-horizontal"></i> Automática</span>
-                        <span><i data-lucide="fuel"></i> Gasolina</span>
-                        <span><i data-lucide="gauge"></i> 19,800 km</span>
-                    </div>
-
-                    <div class="catalog-vehicle-footer">
-                        <span class="available">
-                            <span class="status-dot"></span>
-                            Disponible
-                        </span>
-
-                        <span class="rating">
-                            <i data-lucide="star"></i>
-                            4.5 (45)
-                        </span>
-
-                        <a href="#" class="detail-btn">Ver detalle</a>
-                    </div>
-                </div>
-            </article>
+            {% endif %}
 
         </section>
+        
+        
+        <!-- MODAL / VISUALIZACIÓN PREVIA -->
+
+        <div class="catalog-modal" id="vehiclePreviewModal" aria-hidden="true">
+
+            <div class="catalog-modal-backdrop" data-close-preview></div>
+
+            <article class="catalog-modal-card">
+
+                <button type="button" class="catalog-modal-close" data-close-preview aria-label="Cerrar visualización">
+                    <i data-lucide="x"></i>
+                </button>
+
+                <div class="catalog-modal-grid">
+
+                    <section class="catalog-modal-media">
+
+                        <div class="catalog-modal-image-box">
+                            <img id="previewImage" src="" alt="Vista previa del vehículo">
+                        </div>
+
+                        <div class="catalog-modal-3d-box" id="previewModelBox">
+                            <div class="catalog-model-placeholder">
+                                <i data-lucide="box"></i>
+                                <h3>Modelo 3D</h3>
+                                <p id="previewModelText">Modelo 3D pendiente de asignación.</p>
+                            </div>
+                        </div>
+
+                    </section>
+
+                    <section class="catalog-modal-info">
+
+                        <span class="catalog-modal-eyebrow" id="previewCode">VINOVA</span>
+
+                        <h2 id="previewTitle">Vehículo</h2>
+
+                        <p class="catalog-modal-subtitle" id="previewSubtitle">
+                            Información técnica del vehículo seleccionado.
+                        </p>
+
+                        <strong class="catalog-modal-price" id="previewPrice">$0</strong>
+
+                        <div class="catalog-modal-spec-grid">
+
+                            <div class="catalog-modal-spec">
+                                <i data-lucide="car-front"></i>
+                                <span>Tipo</span>
+                                <strong id="previewType">N/D</strong>
+                            </div>
+
+                            <div class="catalog-modal-spec">
+                                <i data-lucide="fuel"></i>
+                                <span>Combustible</span>
+                                <strong id="previewFuel">N/D</strong>
+                            </div>
+
+                            <div class="catalog-modal-spec">
+                                <i data-lucide="sliders-horizontal"></i>
+                                <span>Transmisión</span>
+                                <strong id="previewTransmission">N/D</strong>
+                            </div>
+
+                            <div class="catalog-modal-spec">
+                                <i data-lucide="gauge"></i>
+                                <span>Kilometraje</span>
+                                <strong id="previewMileage">0 km</strong>
+                            </div>
+
+                        </div>
+
+                        <div class="catalog-modal-description">
+                            <h3>Descripción</h3>
+                            <p id="previewDescription">
+                                Sin descripción disponible.
+                            </p>
+                        </div>
+
+                        <div class="catalog-modal-actions">
+                            <button type="button" class="catalog-modal-primary">
+                                <i data-lucide="box"></i>
+                                Visualización previa
+                            </button>
+
+                            <button type="button" class="catalog-modal-secondary">
+                                <i data-lucide="plus-circle"></i>
+                                Registrar en mi perfil
+                            </button>
+                        </div>
+
+                    </section>
+
+                </div>
+
+            </article>
+
+        </div>
 
         <footer class="catalog-footer">
             <nav class="catalog-pagination" aria-label="Paginación del catálogo">

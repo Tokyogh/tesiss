@@ -1,4 +1,5 @@
 document.addEventListener("DOMContentLoaded", () => {
+    initVehiclePreviewModal();
     initLucideIcons();
     initDropdownMenus();
     initVehicleTypeButtons();
@@ -295,4 +296,107 @@ function normalizeText(text) {
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
         .trim();
+}
+
+/* ============================= */
+/* MODAL DE PREVISUALIZACIÓN */
+/* ============================= */
+
+function initVehiclePreviewModal() {
+    const modal = document.getElementById("vehiclePreviewModal");
+    const previewButtons = document.querySelectorAll(".catalog-preview-btn");
+
+    if (!modal || previewButtons.length === 0) return;
+
+    const previewImage = document.getElementById("previewImage");
+    const previewCode = document.getElementById("previewCode");
+    const previewTitle = document.getElementById("previewTitle");
+    const previewSubtitle = document.getElementById("previewSubtitle");
+    const previewPrice = document.getElementById("previewPrice");
+    const previewType = document.getElementById("previewType");
+    const previewFuel = document.getElementById("previewFuel");
+    const previewTransmission = document.getElementById("previewTransmission");
+    const previewMileage = document.getElementById("previewMileage");
+    const previewDescription = document.getElementById("previewDescription");
+    const previewModelText = document.getElementById("previewModelText");
+
+    function formatNumber(value) {
+        const number = Number(value || 0);
+        return number.toLocaleString("en-US");
+    }
+
+    function openModal(button) {
+        const codigo = button.dataset.codigo || "VINOVA";
+        const marca = button.dataset.marca || "";
+        const modelo = button.dataset.modelo || "";
+        const anio = button.dataset.anio || "";
+        const tipo = button.dataset.tipo || "N/D";
+        const combustible = button.dataset.combustible || "N/D";
+        const transmision = button.dataset.transmision || "N/D";
+        const kilometraje = button.dataset.kilometraje || "0";
+        const precio = button.dataset.precio || "0";
+        const imagen = button.dataset.imagen || "";
+        const modelo3d = button.dataset.modelo3d || "";
+        const modelo3dId = button.dataset.modelo3dId || "";
+        const descripcion = button.dataset.descripcion || "";
+
+        previewCode.textContent = codigo;
+        previewTitle.textContent = `${marca} ${modelo} ${anio}`.trim();
+        previewSubtitle.textContent = `${tipo} · ${combustible} · ${transmision}`;
+        previewPrice.textContent = `$${formatNumber(precio)}`;
+
+        previewType.textContent = tipo;
+        previewFuel.textContent = combustible;
+        previewTransmission.textContent = transmision;
+        previewMileage.textContent = `${formatNumber(kilometraje)} km`;
+
+        previewDescription.textContent = descripcion || "Sin descripción disponible.";
+
+        if (imagen) {
+            previewImage.src = `/static/${imagen}`;
+            previewImage.alt = `${marca} ${modelo} ${anio}`;
+            previewImage.style.display = "block";
+        } else {
+            previewImage.removeAttribute("src");
+            previewImage.alt = "Vehículo sin imagen";
+            previewImage.style.display = "none";
+        }
+
+        if (modelo3d) {
+            previewModelText.textContent = `Modelo asignado: ${modelo3dId || modelo3d}`;
+        } else {
+            previewModelText.textContent = "Modelo 3D pendiente de asignación.";
+        }
+
+        modal.classList.add("is-open");
+        modal.setAttribute("aria-hidden", "false");
+        document.body.classList.add("modal-open");
+
+        if (window.lucide) {
+            lucide.createIcons();
+        }
+    }
+
+    function closeModal() {
+        modal.classList.remove("is-open");
+        modal.setAttribute("aria-hidden", "true");
+        document.body.classList.remove("modal-open");
+    }
+
+    previewButtons.forEach((button) => {
+        button.addEventListener("click", (event) => {
+            event.preventDefault();
+            openModal(button);
+        });
+    });
+
+    document.querySelectorAll("[data-close-preview]").forEach((closeButton) => {
+        closeButton.addEventListener("click", closeModal);
+    });
+
+    document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && modal.classList.contains("is-open")) {
+            closeModal();
+        }
+    });
 }

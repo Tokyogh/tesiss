@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VINOVA | Panel administrador</title>
+
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+</head>
+
+<body>
+
+<header class="navbar">
+    <div class="logo">
+        <h2>VINOVA</h2>
+    </div>
+
+    <nav>
+        <ul class="nav-links">
+
+            <li>
+                <a href="{{ url_for('inicio') }}">Inicio</a>
+            </li>
+
+            <li class="dropdown">
+                <a href="#">Vehículos</a>
+
+                <div class="dropdown-menu">
+                    <a href="{{ url_for('catalog') }}">Catálogo</a>
+                    <a href="{{ url_for('admin_vehiculos') }}">Administrar vehículos</a>
+                </div>
+            </li>
+
+            <li>
+                <a href="{{ url_for('perfil') }}">Mi perfil</a>
+            </li>
+
+            <li class="dropdown">
+                <a href="#">Instituciones</a>
+
+                <div class="dropdown-menu">
+                    <a href="#">Instituciones Afiliadas</a>
+                    <a href="#">Concesionarios</a>
+                    <a href="#">Centros de servicio</a>
+                </div>
+            </li>
+
+            <li class="dropdown">
+                <a href="#">Contacto</a>
+
+                <div class="dropdown-menu">
+                    <a href="#">Servicio al cliente</a>
+                </div>
+            </li>
+
+        </ul>
+    </nav>
+
+    <div class="navbar-actions">
+
+        <div class="user-session-box">
+
+            <a href="{{ url_for('perfil') }}" class="user-avatar-link" title="Ir a mi perfil">
+
+                {% if session.get("foto_perfil") %}
+                    <img
+                        src="{{ session.get('foto_perfil') }}"
+                        alt="Foto de perfil de {{ session['usuario'] }}"
+                        class="user-avatar-img">
+                {% else %}
+                    <span class="user-avatar-initial">
+                        {{ session["usuario"][:1]|upper }}
+                    </span>
+                {% endif %}
+
+                <span class="user-status-dot"></span>
+            </a>
+
+            <a href="{{ url_for('perfil') }}" class="user-name-pill">
+                {{ session["usuario"] }}
+            </a>
+
+            <a href="{{ url_for('logout') }}" class="logout-icon-btn" title="Cerrar sesión" aria-label="Cerrar sesión">
+                <i data-lucide="log-out"></i>
+            </a>
+
+        </div>
+
+    </div>
+</header>
+
+<main class="admin-page">
+
+    <section class="admin-hero">
+        <div>
+            <span class="admin-eyebrow">PANEL ADMINISTRADOR</span>
+
+            {% if vehiculo_editar %}
+                <h1>Editar vehículo</h1>
+                <p>Actualiza la información del modelo seleccionado dentro del catálogo VINOVA.</p>
+            {% else %}
+                <h1>Administrar catálogo</h1>
+                <p>Crea, edita y activa los vehículos que aparecerán en el catálogo público.</p>
+            {% endif %}
+        </div>
+
+        <div class="admin-summary">
+            <article>
+                <i data-lucide="car-front"></i>
+                <strong>{{ total_vehiculos }}</strong>
+                <span>Total</span>
+            </article>
+
+            <article>
+                <i data-lucide="circle-check"></i>
+                <strong>{{ vehiculos_activos }}</strong>
+                <span>Activos</span>
+            </article>
+
+            <article>
+                <i data-lucide="circle-off"></i>
+                <strong>{{ vehiculos_inactivos }}</strong>
+                <span>Ocultos</span>
+            </article>
+        </div>
+    </section>
+
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            <div class="admin-message">
+                <i data-lucide="info"></i>
+                <span>{{ messages[0] }}</span>
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <section class="admin-layout">
+
+        <section class="admin-panel admin-form-panel">
+
+            <div class="admin-panel-title">
+                <div>
+                    <span>CATÁLOGO</span>
+
+                    {% if vehiculo_editar %}
+                        <h2>Editar modelo</h2>
+                    {% else %}
+                        <h2>Nuevo vehículo</h2>
+                    {% endif %}
+                </div>
+
+                {% if vehiculo_editar %}
+                    <a href="{{ url_for('admin_vehiculos') }}" class="admin-secondary-link">
+                        Cancelar edición
+                    </a>
+                {% endif %}
+            </div>
+
+            <form action="{{ url_for('admin_guardar_vehiculo') }}" method="POST" enctype="multipart/form-data" class="admin-form">
+
+                {% if vehiculo_editar %}
+                    <input type="hidden" name="vehiculo_id" value="{{ vehiculo_editar['id'] }}">
+                {% endif %}
+
+                <div class="admin-form-grid">
+
+                    <label class="admin-field">
+                        <span>Código de catálogo</span>
+                        <input
+                            type="text"
+                            name="codigo_catalogo"
+                            placeholder="VIN-RAV4-2024"
+                            value="{{ vehiculo_editar['codigo_catalogo'] if vehiculo_editar else '' }}"
+                            required>
+                    </label>
+
+                    <label class="admin-field">
+                        <span>Marca</span>
+                        <input
+                            type="text"
+                            name="marca"
+                            placeholder="Toyota"
+                            value="{{ vehiculo_editar['marca'] if vehiculo_editar else '' }}"
+                            required>
+                    </label>
+
+                    <label class="admin-field">
+                        <span>Modelo</span>
+                        <input
+                            type="text"
+                            name="modelo"
+                            placeholder="RAV4"
+                            value="{{ vehiculo_editar['modelo'] if vehiculo_editar else '' }}"
+                            required>
+                    </label>
+
+                    <label class="admin-field">
+                        <span>Año</span>
+                        <input
+                            type="number"
+                            name="anio"
+                            min="1980"
+                            max="2035"
+                            placeholder="2024"
+                            value="{{ vehiculo_editar['anio'] if vehiculo_editar else '' }}"
+                            required>
+                    </label>
+
+                    <label class="admin-field">
+                        <span>Tipo de vehículo</span>
+
+                        {% set tipo_actual = vehiculo_editar['tipo_vehiculo'] if vehiculo_editar else '' %}
+
+                        <select name="tipo_vehiculo" required>
+                            <option value="">Seleccionar</option>
+                            <option value="SUV" {% if tipo_actual == 'SUV' %}selected{% endif %}>SUV</option>
+                            <option value="Sedán" {% if tipo_actual == 'Sedán' %}selected{% endif %}>Sedán</option>
+                            <option value="Camioneta" {% if tipo_actual == 'Camioneta' %}selected{% endif %}>Camioneta</option>
+                            <option value="Pickup" {% if tipo_actual == 'Pickup' %}selected{% endif %}>Pickup</option>
+                            <option value="Deportivo" {% if tipo_actual == 'Deportivo' %}selected{% endif %}>Deportivo</option>
+                            <option value="Hatchback" {% if tipo_actual == 'Hatchback' %}selected{% endif %}>Hatchback</option>
+                        </select>
+                    </label>
+
+                    <label class="admin-field">
+                        <span>Combustible</span>
+
+                        {% set combustible_actual = vehiculo_editar['combustible'] if vehiculo_editar else '' %}
+
+                        <select name="combustible" required>
+                            <option value="">Seleccionar</option>
+                            <option value="Gasolina" {% if combustible_actual == 'Gasolina' %}selected{% endif %}>Gasolina</option>
+                            <option value="Diésel" {% if combustible_actual == 'Diésel' %}selected{% endif %}>Diésel</option>
+                            <option value="Híbrido" {% if combustible_actual == 'Híbrido' %}selected{% endif %}>Híbrido</option>
+                            <option value="Eléctrico" {% if combustible_actual == 'Eléctrico' %}selected{% endif %}>Eléctrico</option>
+                        </select>
+                    </label>
+
+                    <label class="admin-field">
+                        <span>Transmisión</span>
+
+                        {% set transmision_actual = vehiculo_editar['transmision'] if vehiculo_editar else '' %}
+
+                        <select name="transmision" required>
+                            <option value="">Seleccionar</option>
+                            <option value="Automática" {% if transmision_actual == 'Automática' %}selected{% endif %}>Automática</option>
+                            <option value="Manual" {% if transmision_actual == 'Manual' %}selected{% endif %}>Manual</option>
+                        </select>
+                    </label>
+
+                    <label class="admin-field">
+                        <span>Kilometraje</span>
+                        <input
+                            type="number"
+                            name="kilometraje"
+                            min="0"
+                            placeholder="55430"
+                            value="{{ vehiculo_editar['kilometraje'] if vehiculo_editar else '0' }}">
+                    </label>
+
+                    <label class="admin-field">
+                        <span>Precio USD</span>
+                        <input
+                            type="number"
+                            name="precio"
+                            min="0"
+                            step="0.01"
+                            placeholder="28900"
+                            value="{{ vehiculo_editar['precio'] if vehiculo_editar else '0' }}">
+                    </label>
+
+                    <label class="admin-field">
+                        <span>Estado</span>
+
+                        {% set estado_actual = vehiculo_editar['estado'] if vehiculo_editar else 'Disponible' %}
+
+                        <select name="estado">
+                            <option value="Disponible" {% if estado_actual == 'Disponible' %}selected{% endif %}>Disponible</option>
+                            <option value="Reservado" {% if estado_actual == 'Reservado' %}selected{% endif %}>Reservado</option>
+                            <option value="No disponible" {% if estado_actual == 'No disponible' %}selected{% endif %}>No disponible</option>
+                        </select>
+                    </label>
+
+                    <label class="admin-field admin-field-wide">
+                        <span>Imagen del vehículo</span>
+                        <input type="file" name="imagen" accept="image/png,image/jpeg,image/webp">
+
+                        {% if vehiculo_editar and vehiculo_editar['imagen'] %}
+                            <small>Imagen actual: {{ vehiculo_editar['imagen'] }}</small>
+                        {% else %}
+                            <small>Se guardará en static/img/vehicles/</small>
+                        {% endif %}
+                    </label>
+
+                    <label class="admin-field">
+                        <span>ID modelo 3D</span>
+                        <input
+                            type="text"
+                            name="modelo_3d_id"
+                            placeholder="rav4_2024"
+                            value="{{ vehiculo_editar['modelo_3d_id'] if vehiculo_editar else '' }}">
+                    </label>
+
+                    <label class="admin-field">
+                        <span>Ruta modelo 3D</span>
+                        <input
+                            type="text"
+                            name="modelo_3d"
+                            placeholder="models/vehicles/rav4_2024.glb"
+                            value="{{ vehiculo_editar['modelo_3d'] if vehiculo_editar else '' }}">
+                    </label>
+
+                    <label class="admin-field">
+                        <span>Tipo modelo 3D</span>
+
+                        {% set modelo_3d_tipo_actual = vehiculo_editar['modelo_3d_tipo'] if vehiculo_editar else 'glb' %}
+
+                        <select name="modelo_3d_tipo">
+                            <option value="glb" {% if modelo_3d_tipo_actual == 'glb' %}selected{% endif %}>GLB</option>
+                            <option value="gltf" {% if modelo_3d_tipo_actual == 'gltf' %}selected{% endif %}>GLTF</option>
+                            <option value="pendiente" {% if modelo_3d_tipo_actual == 'pendiente' %}selected{% endif %}>Pendiente</option>
+                        </select>
+                    </label>
+
+                    <label class="admin-field admin-field-wide">
+                        <span>Descripción</span>
+                        <textarea name="descripcion" rows="4" placeholder="Descripción breve del vehículo...">{{ vehiculo_editar['descripcion'] if vehiculo_editar else '' }}</textarea>
+                    </label>
+
+                    <label class="admin-switch">
+                        <input
+                            type="checkbox"
+                            name="activo"
+                            {% if not vehiculo_editar or vehiculo_editar['activo'] == 1 %}checked{% endif %}>
+                        <span></span>
+                        Mostrar en catálogo
+                    </label>
+
+                </div>
+
+                <div class="admin-actions">
+                    <button type="submit" class="admin-primary-btn">
+                        <i data-lucide="save"></i>
+
+                        {% if vehiculo_editar %}
+                            Guardar cambios
+                        {% else %}
+                            Crear vehículo
+                        {% endif %}
+                    </button>
+                </div>
+
+            </form>
+
+        </section>
+
+        <section class="admin-panel admin-list-panel">
+
+            <div class="admin-panel-title">
+                <div>
+                    <span>REGISTROS</span>
+                    <h2>Vehículos creados</h2>
+                </div>
+            </div>
+
+            <div class="admin-vehicle-list">
+
+                {% if vehiculos %}
+
+                    {% for vehiculo in vehiculos %}
+
+                        <article class="admin-vehicle-row">
+
+                            <div class="admin-vehicle-img">
+                                {% if vehiculo['imagen'] %}
+                                    <img
+                                        src="{{ url_for('static', filename=vehiculo['imagen']) }}"
+                                        alt="{{ vehiculo['marca'] }} {{ vehiculo['modelo'] }}">
+                                {% else %}
+                                    <i data-lucide="car-front"></i>
+                                {% endif %}
+                            </div>
+
+                            <div class="admin-vehicle-info">
+                                <h3>{{ vehiculo['marca'] }} {{ vehiculo['modelo'] }} {{ vehiculo['anio'] }}</h3>
+
+                                <p>
+                                    {{ vehiculo['codigo_catalogo'] }}
+                                    · {{ vehiculo['tipo_vehiculo'] }}
+                                    · {{ vehiculo['combustible'] }}
+                                    · {{ vehiculo['transmision'] }}
+                                </p>
+
+                                <div class="admin-vehicle-meta">
+                                    <span>${{ "{:,.2f}".format(vehiculo['precio'] or 0) }}</span>
+                                    <span>{{ "{:,}".format(vehiculo['kilometraje'] or 0) }} km</span>
+
+                                    {% if vehiculo['activo'] == 1 %}
+                                        <strong class="admin-status active">Activo</strong>
+                                    {% else %}
+                                        <strong class="admin-status inactive">Oculto</strong>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="admin-row-actions">
+                                <a href="{{ url_for('admin_vehiculos', editar=vehiculo['id']) }}" class="admin-mini-btn">
+                                    Editar
+                                </a>
+
+                                <form action="{{ url_for('admin_cambiar_estado_vehiculo', vehiculo_id=vehiculo['id']) }}" method="POST">
+                                    <button type="submit" class="admin-mini-btn admin-mini-btn-muted">
+                                        {% if vehiculo['activo'] == 1 %}
+                                            Ocultar
+                                        {% else %}
+                                            Activar
+                                        {% endif %}
+                                    </button>
+                                </form>
+                            </div>
+
+                        </article>
+
+                    {% endfor %}
+
+                {% else %}
+
+                    <div class="admin-empty">
+                        <i data-lucide="car-front"></i>
+                        <h3>No hay vehículos creados</h3>
+                        <p>Usa el formulario para agregar el primer modelo al catálogo.</p>
+                    </div>
+
+                {% endif %}
+
+            </div>
+
+        </section>
+
+    </section>
+
+</main>
+
+<script src="{{ url_for('static', filename='js/script.js') }}"></script>
+
+</body>
+</html>
