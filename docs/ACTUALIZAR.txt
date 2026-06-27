@@ -21,7 +21,6 @@ git fetch origin
 git status
 =================
 
-
 POSIBLE "ERROR"
 ==================================
 si al hacer pull les sale algo raro en la terminal relacionado a "merge" escriban esto
@@ -31,7 +30,6 @@ Para evitarlo escriban esto en terminal 1 sola vez:
 
 git config --global core.editor "code --wait" 1 
 ============================
-
 
 Para actualizar en tu local lo que los demas hayamos hecho en el github escribe esto.
 Asi si alguien ya edito algo, hizo otra parte o lo que sea pues ya se les actualiza en su computadora
@@ -48,3 +46,7 @@ para descargar los requeriments
 =============================
 pip install -r requirements.txt
 =============================
+
+================================
+borrar todo lo no guardado
+git reset --hard HEAD

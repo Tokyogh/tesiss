@@ -2,6 +2,7 @@ document.addEventListener("DOMContentLoaded", () => {
     initLucideIcons();
     initDropdownMenus();
     initVehicleTypeButtons();
+    initStatCards();
     initFavoriteButtons();
     initPagination();
     initClearFilters();
@@ -26,7 +27,7 @@ function initLucideIcons() {
 
 /* ============================= */
 /* DROPDOWNS NAVBAR */
-/* Compatible con la navbar del index */
+/* Misma lógica compatible con la navbar del index */
 /* ============================= */
 
 function initDropdownMenus() {
@@ -58,7 +59,6 @@ function initDropdownMenus() {
                 event.stopPropagation();
 
                 const isOpen = menu.classList.contains("show");
-
                 closeAllDropdowns(menu);
 
                 if (!isOpen) {
@@ -86,7 +86,7 @@ function closeAllDropdowns(exceptionMenu = null) {
 }
 
 /* ============================= */
-/* TIPOS DE VEHÍCULO */
+/* TARJETAS DE TIPO */
 /* ============================= */
 
 function initVehicleTypeButtons() {
@@ -94,11 +94,23 @@ function initVehicleTypeButtons() {
 
     typeButtons.forEach((button) => {
         button.addEventListener("click", () => {
-            typeButtons.forEach((item) => {
-                item.classList.remove("active");
-            });
-
+            typeButtons.forEach((item) => item.classList.remove("active"));
             button.classList.add("active");
+        });
+    });
+}
+
+/* ============================= */
+/* TARJETAS DE RESUMEN */
+/* ============================= */
+
+function initStatCards() {
+    const statCards = document.querySelectorAll(".catalog-stat-card");
+
+    statCards.forEach((card) => {
+        card.addEventListener("click", () => {
+            statCards.forEach((item) => item.classList.remove("active"));
+            card.classList.add("active");
         });
     });
 }
@@ -111,18 +123,19 @@ function initFavoriteButtons() {
     const favoriteButtons = document.querySelectorAll(".favorite-btn");
 
     favoriteButtons.forEach((button) => {
-        button.addEventListener("click", () => {
+        button.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+
             button.classList.toggle("active");
 
             const icon = button.querySelector("svg");
-
             if (!icon) return;
 
-            if (button.classList.contains("active")) {
-                icon.setAttribute("fill", "currentColor");
-            } else {
-                icon.setAttribute("fill", "none");
-            }
+            icon.setAttribute(
+                "fill",
+                button.classList.contains("active") ? "currentColor" : "none"
+            );
         });
     });
 }
@@ -142,9 +155,7 @@ function initPagination() {
 
         button.addEventListener("click", () => {
             paginationButtons.forEach((item) => {
-                const itemText = item.textContent.trim();
-
-                if (/^\d+$/.test(itemText)) {
+                if (/^\d+$/.test(item.textContent.trim())) {
                     item.classList.remove("active");
                 }
             });
@@ -183,7 +194,6 @@ function initClearFilters() {
         });
 
         const firstType = document.querySelector(".catalog-type-card");
-
         if (firstType) {
             firstType.classList.add("active");
         }
@@ -206,47 +216,27 @@ function initCollapsibleFilters() {
     const sections = document.querySelectorAll(".catalog-filter-section");
 
     sections.forEach((section) => {
-        const titleRow = section.querySelector(".catalog-filter-title");
+        const titleButton = section.querySelector(".catalog-filter-title");
 
-        if (!titleRow) return;
+        if (!titleButton) return;
 
         const hasCollapsibleContent =
             section.querySelector(".catalog-checkbox-list") ||
             section.querySelector(".catalog-filter-search") ||
             section.querySelector(".catalog-range-control") ||
-            section.querySelector(".catalog-year-filter");
+            section.querySelector(".catalog-year-filter") ||
+            section.querySelector(".catalog-type-grid");
 
         if (!hasCollapsibleContent) return;
 
-        const icon = titleRow.querySelector("svg");
-
-        if (icon) {
-            icon.style.transition = "transform 0.25s ease";
-        }
-
-        titleRow.addEventListener("click", () => {
+        titleButton.addEventListener("click", () => {
             section.classList.toggle("is-collapsed");
-
-            const currentIcon = titleRow.querySelector("svg");
-
-            if (!currentIcon) return;
-
-            const iconName = currentIcon.getAttribute("data-lucide");
-            const isCollapsed = section.classList.contains("is-collapsed");
-
-            if (iconName === "chevron-up") {
-                currentIcon.style.transform = isCollapsed ? "rotate(180deg)" : "rotate(0deg)";
-            }
-
-            if (iconName === "chevron-down") {
-                currentIcon.style.transform = isCollapsed ? "rotate(0deg)" : "rotate(180deg)";
-            }
         });
     });
 }
 
 /* ============================= */
-/* BUSCADOR PRINCIPAL DEL CATÁLOGO */
+/* BUSCADOR PRINCIPAL */
 /* ============================= */
 
 function initCatalogSearch() {
@@ -265,17 +255,13 @@ function initCatalogSearch() {
 
             const cardText = normalizeText(`${title} ${version} ${specs}`);
 
-            if (cardText.includes(searchValue)) {
-                card.style.display = "";
-            } else {
-                card.style.display = "none";
-            }
+            card.style.display = cardText.includes(searchValue) ? "" : "none";
         });
     });
 }
 
 /* ============================= */
-/* BUSCADOR DE MARCAS EN SIDEBAR */
+/* BUSCADOR DE MARCAS */
 /* ============================= */
 
 function initBrandSearch() {
@@ -294,17 +280,10 @@ function initBrandSearch() {
 
         brandRows.forEach((row) => {
             const rowText = normalizeText(row.textContent);
-
-            if (rowText.includes(searchValue)) {
-                row.style.display = "";
-            } else {
-                row.style.display = "none";
-            }
+            row.style.display = rowText.includes(searchValue) ? "" : "none";
         });
     });
 }
-
-
 
 /* ============================= */
 /* NORMALIZAR TEXTO */

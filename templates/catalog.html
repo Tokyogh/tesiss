@@ -20,39 +20,31 @@
 
 <header class="navbar">
     <div class="logo">
-        <a href="{{ url_for('inicio') }}">
-            <h2>VINOVA</h2>
-        </a>
+        <h2>VINOVA</h2>
     </div>
 
     <nav>
         <ul class="nav-links">
+
             <li>
                 <a href="{{ url_for('inicio') }}">Inicio</a>
             </li>
 
             <li class="dropdown">
                 <a href="#">Vehículos</a>
+
                 <div class="dropdown-menu">
                     <a href="{{ url_for('catalog') }}">Catálogo</a>
                 </div>
             </li>
 
-            <li class="dropdown">
-                <a href="#">Mi cuenta</a>
-
-                <div class="dropdown-menu">
-                    {% if session.get("usuario_id") %}
-                        <a href="{{ url_for('perfil') }}">Mi perfil</a>
-                        <a href="{{ url_for('logout') }}">Cerrar sesión</a>
-                    {% else %}
-                        <a href="{{ url_for('login') }}">Iniciar sesión</a>
-                    {% endif %}
-                </div>
+            <li>
+                <a href="{{ url_for('perfil') }}">Mi perfil</a>
             </li>
 
             <li class="dropdown">
                 <a href="#">Instituciones</a>
+
                 <div class="dropdown-menu">
                     <a href="#">Instituciones Afiliadas</a>
                     <a href="#">Concesionarios</a>
@@ -62,27 +54,61 @@
 
             <li class="dropdown">
                 <a href="#">Contacto</a>
+
                 <div class="dropdown-menu">
                     <a href="#">Servicio al cliente</a>
                 </div>
             </li>
+
         </ul>
     </nav>
 
-    {% if session.get("usuario_id") %}
-        <a href="{{ url_for('perfil') }}" class="login-btn">
-            Hola, {{ session["usuario"] }}
-        </a>
-    {% else %}
-        <a href="{{ url_for('login') }}" class="login-btn">
-            Iniciar sesión
-        </a>
-    {% endif %}
+    <div class="navbar-actions">
+
+        {% if session.get("usuario_id") %}
+
+            <div class="user-session-box">
+
+                <a href="{{ url_for('perfil') }}" class="user-avatar-link" title="Ir a mi perfil">
+
+                    {% if session.get("foto_perfil") %}
+                        <img
+                            src="{{ session.get('foto_perfil') }}"
+                            alt="Foto de perfil de {{ session['usuario'] }}"
+                            class="user-avatar-img">
+                    {% else %}
+                        <span class="user-avatar-initial">
+                            {{ session["usuario"][:1]|upper }}
+                        </span>
+                    {% endif %}
+
+                    <span class="user-status-dot"></span>
+                </a>
+
+                <a href="{{ url_for('perfil') }}" class="user-name-pill">
+                    {{ session["usuario"] }}
+                </a>
+
+                <a href="{{ url_for('logout') }}" class="logout-icon-btn" title="Cerrar sesión" aria-label="Cerrar sesión">
+                    <i data-lucide="log-out"></i>
+                </a>
+
+            </div>
+
+        {% else %}
+
+            <a href="{{ url_for('login') }}" class="login-btn">
+                Iniciar sesión
+            </a>
+
+        {% endif %}
+
+    </div>
 </header>
 
 <main class="catalog-page">
 
-    <aside class="catalog-sidebar">
+    <aside class="catalog-sidebar" aria-label="Filtros del catálogo">
 
         <div class="catalog-filters-header">
             <h2>Filtros</h2>
@@ -90,15 +116,14 @@
         </div>
 
         <section class="catalog-filter-section">
-            <div class="catalog-filter-title">
-                <h3>Marca</h3>
+            <button type="button" class="catalog-filter-title">
+                <span>Marca</span>
                 <i data-lucide="chevron-up"></i>
-            </div>
+            </button>
 
             <label class="catalog-filter-search">
                 <i data-lucide="search"></i>
                 <input type="text" placeholder="Buscar marca...">
-                <i data-lucide="chevron-down"></i>
             </label>
 
             <div class="catalog-checkbox-list">
@@ -152,14 +177,14 @@
         </section>
 
         <section class="catalog-filter-section">
-            <div class="catalog-filter-title">
-                <h3>Precio (USD)</h3>
+            <button type="button" class="catalog-filter-title">
+                <span>Precio (USD)</span>
                 <i data-lucide="chevron-up"></i>
-            </div>
+            </button>
 
             <p class="catalog-range-text">$10,000 – $90,000+</p>
 
-            <div class="catalog-range-control">
+            <div class="catalog-range-control" aria-hidden="true">
                 <span class="catalog-range-line"></span>
                 <span class="catalog-range-dot catalog-range-dot-left"></span>
                 <span class="catalog-range-dot catalog-range-dot-center"></span>
@@ -168,10 +193,10 @@
         </section>
 
         <section class="catalog-filter-section">
-            <div class="catalog-filter-title">
-                <h3>Año</h3>
+            <button type="button" class="catalog-filter-title">
+                <span>Año</span>
                 <i data-lucide="chevron-down"></i>
-            </div>
+            </button>
 
             <div class="catalog-year-filter">
                 <button type="button">
@@ -189,33 +214,46 @@
         </section>
 
         <section class="catalog-filter-section">
-            <div class="catalog-filter-title">
-                <h3>Tipo de vehículo</h3>
-            </div>
+            <button type="button" class="catalog-filter-title">
+                <span>Tipo de vehículo</span>
+                <i data-lucide="chevron-down"></i>
+            </button>
 
             <div class="catalog-type-grid">
-                <button type="button" class="catalog-type-card catalog-type-blue active">
+                <button type="button" class="catalog-type-card tone-blue active">
                     <i data-lucide="car-front"></i>
                     <span>SUV</span>
                 </button>
 
-                <button type="button" class="catalog-type-card catalog-type-green">
-                    <i data-lucide="truck"></i>
-                    <span>Camionetas</span>
+                <button type="button" class="catalog-type-card tone-blue-soft">
+                    <i data-lucide="car"></i>
+                    <span>Sedán</span>
                 </button>
 
-                <button type="button" class="catalog-type-card catalog-type-orange">
+                <button type="button" class="catalog-type-card tone-green">
+                    <svg class="custom-pickup-icon" viewBox="0 0 64 40" aria-hidden="true">
+                        <path d="M5 25h5l4-11h24l7 8h8c3 0 6 3 6 6v3H5v-6Z"/>
+                        <path d="M18 14v11"/>
+                        <path d="M38 14v11"/>
+                        <path d="M42 22h-9"/>
+                        <path d="M15 31a5 5 0 1 0 10 0"/>
+                        <path d="M43 31a5 5 0 1 0 10 0"/>
+                    </svg>
+                    <span>Pickup</span>
+                </button>
+
+                <button type="button" class="catalog-type-card tone-yellow">
                     <i data-lucide="car"></i>
-                    <span>Deportivos</span>
+                    <span>Deportivo</span>
                 </button>
             </div>
         </section>
 
         <section class="catalog-filter-section">
-            <div class="catalog-filter-title">
-                <h3>Combustible</h3>
+            <button type="button" class="catalog-filter-title">
+                <span>Combustible</span>
                 <i data-lucide="chevron-up"></i>
-            </div>
+            </button>
 
             <div class="catalog-checkbox-list">
                 <label class="catalog-checkbox-row">
@@ -257,10 +295,10 @@
         </section>
 
         <section class="catalog-filter-section">
-            <div class="catalog-filter-title">
-                <h3>Transmisión</h3>
-                <i data-lucide="chevron-down"></i>
-            </div>
+            <button type="button" class="catalog-filter-title">
+                <span>Transmisión</span>
+                <i data-lucide="chevron-up"></i>
+            </button>
 
             <div class="catalog-checkbox-list">
                 <label class="catalog-checkbox-row">
@@ -284,17 +322,17 @@
         </section>
 
         <section class="catalog-filter-section catalog-filter-collapsed">
-            <div class="catalog-filter-title">
-                <h3>Kilometraje</h3>
+            <button type="button" class="catalog-filter-title">
+                <span>Kilometraje</span>
                 <i data-lucide="chevron-down"></i>
-            </div>
+            </button>
         </section>
 
         <section class="catalog-filter-section catalog-filter-collapsed">
-            <div class="catalog-filter-title">
-                <h3>Estado</h3>
+            <button type="button" class="catalog-filter-title">
+                <span>Estado</span>
                 <i data-lucide="chevron-down"></i>
-            </div>
+            </button>
         </section>
 
     </aside>
@@ -307,8 +345,8 @@
             <span>Catálogo</span>
         </div>
 
-        <section class="catalog-hero">
-            <div class="catalog-title">
+        <section class="catalog-header">
+            <div class="catalog-heading">
                 <h1>Explora el catálogo de vehículos</h1>
                 <p>Descubre opciones, compara modelos y revisa la información técnica de cada vehículo.</p>
 
@@ -318,61 +356,58 @@
                 </label>
             </div>
 
-            <div class="catalog-stats-grid">
-                <article class="catalog-stat-card catalog-stat-blue">
-                    <div class="catalog-icon-box">
-                        <i data-lucide="car-front"></i>
-                    </div>
-                    <div>
+            <div class="catalog-stats-grid" aria-label="Resumen del catálogo">
+                <button type="button" class="catalog-stat-card tone-blue active">
+                    <i data-lucide="car-front"></i>
+                    <span>
                         <strong>128</strong>
-                        <span>Total vehículos</span>
-                    </div>
-                </article>
+                        <small>Total vehículos</small>
+                    </span>
+                </button>
 
-                <article class="catalog-stat-card catalog-stat-green">
-                    <div class="catalog-icon-box">
-                        <i data-lucide="truck"></i>
-                    </div>
-                    <div>
+                <button type="button" class="catalog-stat-card tone-green">
+                    <svg class="custom-pickup-icon" viewBox="0 0 64 40" aria-hidden="true">
+                        <path d="M5 25h5l4-11h24l7 8h8c3 0 6 3 6 6v3H5v-6Z"/>
+                        <path d="M18 14v11"/>
+                        <path d="M38 14v11"/>
+                        <path d="M42 22h-9"/>
+                        <path d="M15 31a5 5 0 1 0 10 0"/>
+                        <path d="M43 31a5 5 0 1 0 10 0"/>
+                    </svg>
+                    <span>
                         <strong>48</strong>
-                        <span>Camionetas</span>
-                    </div>
-                </article>
+                        <small>Camionetas</small>
+                    </span>
+                </button>
 
-                <article class="catalog-stat-card catalog-stat-blue">
-                    <div class="catalog-icon-box">
-                        <i data-lucide="car"></i>
-                    </div>
-                    <div>
+                <button type="button" class="catalog-stat-card tone-blue-soft">
+                    <i data-lucide="car"></i>
+                    <span>
                         <strong>52</strong>
-                        <span>SUV</span>
-                    </div>
-                </article>
+                        <small>SUV</small>
+                    </span>
+                </button>
 
-                <article class="catalog-stat-card catalog-stat-green">
-                    <div class="catalog-icon-box">
-                        <i data-lucide="leaf"></i>
-                    </div>
-                    <div>
+                <button type="button" class="catalog-stat-card tone-green">
+                    <i data-lucide="leaf"></i>
+                    <span>
                         <strong>16</strong>
-                        <span>Híbridos/<br>Eléctricos</span>
-                    </div>
-                </article>
+                        <small>Híbridos / Eléctricos</small>
+                    </span>
+                </button>
 
-                <article class="catalog-stat-card catalog-stat-orange">
-                    <div class="catalog-icon-box">
-                        <i data-lucide="star"></i>
-                    </div>
-                    <div>
+                <button type="button" class="catalog-stat-card tone-yellow">
+                    <i data-lucide="star"></i>
+                    <span>
                         <strong>12</strong>
-                        <span>Nuevos ingresos</span>
-                    </div>
-                </article>
+                        <small>Nuevos ingresos</small>
+                    </span>
+                </button>
             </div>
         </section>
 
         <div class="catalog-toolbar">
-            <p>Mostrando <strong>1–16</strong> de <strong>128</strong> vehículos</p>
+            <p>Mostrando <strong>1-8</strong> de <strong>128</strong> vehículos</p>
 
             <div class="catalog-sort-control">
                 <span>Ordenar por</span>
@@ -386,7 +421,7 @@
 
         <section class="catalog-vehicle-grid">
 
-            <article class="catalog-vehicle-card">
+            <article class="catalog-vehicle-card vehicle-tone-blue" tabindex="0">
                 <div class="catalog-vehicle-badge badge-blue">
                     <i data-lucide="badge-check"></i>
                     Nuevo
@@ -411,7 +446,7 @@
                     <div class="catalog-vehicle-specs">
                         <span><i data-lucide="sliders-horizontal"></i> Automática</span>
                         <span><i data-lucide="fuel"></i> Híbrido</span>
-                        <span><i data-lucide="gauge"></i> 55,420 km</span>
+                        <span><i data-lucide="gauge"></i> 55,430 km</span>
                     </div>
 
                     <div class="catalog-vehicle-footer">
@@ -430,7 +465,7 @@
                 </div>
             </article>
 
-            <article class="catalog-vehicle-card">
+            <article class="catalog-vehicle-card vehicle-tone-blue" tabindex="0">
                 <div class="catalog-vehicle-badge badge-blue">
                     <i data-lucide="star"></i>
                     Recomendado
@@ -474,7 +509,7 @@
                 </div>
             </article>
 
-            <article class="catalog-vehicle-card">
+            <article class="catalog-vehicle-card vehicle-tone-green" tabindex="0">
                 <div class="catalog-vehicle-badge badge-green">
                     <i data-lucide="circle-check"></i>
                     Disponible
@@ -518,7 +553,7 @@
                 </div>
             </article>
 
-            <article class="catalog-vehicle-card">
+            <article class="catalog-vehicle-card vehicle-tone-blue" tabindex="0">
                 <div class="catalog-vehicle-badge badge-blue">
                     <i data-lucide="badge-check"></i>
                     Nuevo
@@ -562,7 +597,7 @@
                 </div>
             </article>
 
-            <article class="catalog-vehicle-card">
+            <article class="catalog-vehicle-card vehicle-tone-blue" tabindex="0">
                 <button type="button" class="favorite-btn" aria-label="Agregar a favoritos">
                     <i data-lucide="heart"></i>
                 </button>
@@ -593,7 +628,7 @@
 
                         <span class="rating">
                             <i data-lucide="star"></i>
-                            4.6 (52)
+                            4.6 (62)
                         </span>
 
                         <a href="#" class="detail-btn">Ver detalle</a>
@@ -601,7 +636,7 @@
                 </div>
             </article>
 
-            <article class="catalog-vehicle-card">
+            <article class="catalog-vehicle-card vehicle-tone-blue" tabindex="0">
                 <button type="button" class="favorite-btn" aria-label="Agregar a favoritos">
                     <i data-lucide="heart"></i>
                 </button>
@@ -640,7 +675,7 @@
                 </div>
             </article>
 
-            <article class="catalog-vehicle-card">
+            <article class="catalog-vehicle-card vehicle-tone-blue" tabindex="0">
                 <div class="catalog-vehicle-badge badge-blue">
                     <i data-lucide="star"></i>
                     Recomendado
@@ -684,7 +719,7 @@
                 </div>
             </article>
 
-            <article class="catalog-vehicle-card">
+            <article class="catalog-vehicle-card vehicle-tone-blue" tabindex="0">
                 <button type="button" class="favorite-btn" aria-label="Agregar a favoritos">
                     <i data-lucide="heart"></i>
                 </button>
