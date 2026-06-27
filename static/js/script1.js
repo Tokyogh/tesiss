@@ -38,16 +38,17 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    sidebarLinks.forEach((link) => {
-        link.addEventListener("click", (event) => {
-            event.preventDefault();
+    document.addEventListener("click", (event) => {
+        const link = event.target.closest(".sidebar-link");
 
-            const sectionName = link.dataset.section;
+        if (!link) return;
 
-            if (sectionName) {
-                mostrarSeccion(sectionName);
-            }
-        });
+        const sectionName = link.dataset.section;
+
+        if (!sectionName) return;
+
+        event.preventDefault();
+        mostrarSeccion(sectionName);
     });
 
     // ================= ABRIR SECCIÓN SEGÚN HASH =================

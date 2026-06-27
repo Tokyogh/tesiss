@@ -158,24 +158,30 @@
                         </div>
                         <p>Vehículos</p>
                         <br>
-                        <h2>2</h2>
-                        <p>Registrados</p>
+                        <h2>{{ mis_vehiculos|length }}</h2>
+                        <p>
+                            {% if mis_vehiculos|length == 1 %}
+                                Registrado
+                            {% else %}
+                                Registrados
+                            {% endif %}
+                        </p>
                     </div>
 
                     <div class="card">
                         <i class="fa-solid fa-road"></i>
                         <p>Próximo mantenimiento</p>
                         <br>
-                        <h2>1,500 km</h2>
-                        <p>Restantes</p>
+                        <h2>Próximamente</h2>
+                        <p>En desarrollo</p>
                     </div>
 
                     <div class="card">
                         <i class="fa-solid fa-calendar"></i>
                         <p>Último servicio</p>
                         <br>
-                        <h2>15 Junio 2026</h2>
-                        <p>Hace 8 días</p>
+                        <h2>Sin registros</h2>
+                        <p>Aún no disponible</p>
                     </div>
 
                     <div class="card">
@@ -192,27 +198,67 @@
 
                     <h2>Mis vehículos recientes</h2>
 
-                    <div class="vehicle-grid">
+                    {% if mis_vehiculos %}
 
-                        <div class="vehicle-card">
-                            <div class="vehicle-image">
-                                <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS-W-DVFKOzSfbHypjPbIxTpXtoLtjcL47o_3FXWlXRQQ&s" alt="Toyota Corolla">
-                            </div>
+                        <div class="vehicle-grid">
 
-                            <h3>Toyota Corolla</h3>
-                            <p>Sedán • Automático</p>
+                            {% for vehiculo in mis_vehiculos[:2] %}
+
+                                <article class="vehicle-card">
+
+                                    <div class="vehicle-image">
+                                        {% if vehiculo.imagen %}
+                                            <img
+                                                src="{{ url_for('static', filename='img/vehicles/' ~ vehiculo.imagen) }}"
+                                                alt="{{ vehiculo.marca }} {{ vehiculo.modelo }}">
+                                        {% else %}
+                                            <img
+                                                src="{{ url_for('static', filename='img/vehicles/default-car.png') }}"
+                                                alt="Vehículo VINOVA">
+                                        {% endif %}
+                                    </div>
+
+                                    <h3>{{ vehiculo.marca }} {{ vehiculo.modelo }} {{ vehiculo.anio }}</h3>
+
+                                    <p>
+                                        {% if vehiculo.tipo_vehiculo %}
+                                            {{ vehiculo.tipo_vehiculo }}
+                                        {% else %}
+                                            Vehículo
+                                        {% endif %}
+
+                                        {% if vehiculo.transmision %}
+                                            • {{ vehiculo.transmision }}
+                                        {% endif %}
+                                    </p>
+
+                                </article>
+
+                            {% endfor %}
+
+                            <a href="#seccion-mis-vehiculos" class="more_vehicules sidebar-link" data-section="mis-vehiculos">
+                                Ver todos
+                            </a>
+
                         </div>
 
-                        <div class="vehicle-card">
-                            <div class="vehicle-image">
-                                <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQoxI8-ttsnhEa7JOOePivAAEjvkoIt0e3WlXxjASWu6g&s=10" alt="Toyota C-HR 2021">
-                            </div>
+                    {% else %}
 
-                            <h3>Toyota C-HR 2021</h3>
-                            <p>SUV • Automático</p>
+                        <div class="empty-vehicles-state">
+                            <i class="fa-solid fa-car-side"></i>
+                            <h3>Aún no tienes vehículos registrados</h3>
+                            <p>
+                                Cuando registres tu primer vehículo con un código de activación,
+                                aparecerá aquí como acceso rápido.
+                            </p>
+
+                            <a href="#seccion-agregar-vehiculo" class="profile-save-btn sidebar-link sidebar-link-like" data-section="agregar-vehiculo">
+                                <i class="fa-solid fa-circle-plus"></i>
+                                Agregar vehículo
+                            </a>
                         </div>
 
-                    </div>
+                    {% endif %}
 
                 </section>
 
@@ -230,27 +276,115 @@
 
                 <section class="vehicles">
 
-                    <div class="vehicle-grid">
+                    {% if mis_vehiculos %}
 
-                        <div class="vehicle-card">
-                            <div class="vehicle-image">
-                                <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS-W-DVFKOzSfbHypjPbIxTpXtoLtjcL47o_3FXWlXRQQ&s" alt="Toyota Corolla">
-                            </div>
+                        <div class="vehicle-grid">
 
-                            <h3>Toyota Corolla</h3>
-                            <p>Sedán • Automático</p>
+                            {% for vehiculo in mis_vehiculos %}
+
+                                <article class="vehicle-card registered-vehicle-card">
+
+                                    <div class="vehicle-image">
+                                        {% if vehiculo.imagen %}
+                                            <img
+                                                src="{{ url_for('static', filename='img/vehicles/' ~ vehiculo.imagen) }}"
+                                                alt="{{ vehiculo.marca }} {{ vehiculo.modelo }}">
+                                        {% else %}
+                                            <img
+                                                src="{{ url_for('static', filename='img/vehicles/default-car.png') }}"
+                                                alt="Vehículo VINOVA">
+                                        {% endif %}
+                                    </div>
+
+                                    <div class="vehicle-card-body">
+
+                                        <div class="vehicle-card-header">
+                                            <div>
+                                                <h3>{{ vehiculo.marca }} {{ vehiculo.modelo }} {{ vehiculo.anio }}</h3>
+
+                                                {% if vehiculo.codigo_catalogo %}
+                                                    <p class="vehicle-reference">
+                                                        Referencia de unidad: {{ vehiculo.codigo_catalogo }}
+                                                    </p>
+                                                {% endif %}
+                                            </div>
+
+                                            <span class="registered-badge">
+                                                Registrado
+                                            </span>
+                                        </div>
+
+                                        <div class="vehicle-meta">
+
+                                            {% if vehiculo.kilometraje is not none %}
+                                                <p>
+                                                    <i class="fa-solid fa-gauge-high"></i>
+                                                    Kilometraje inicial: {{ "{:,}".format(vehiculo.kilometraje).replace(",", ".") }} km
+                                                </p>
+                                            {% endif %}
+
+                                            {% if vehiculo.combustible %}
+                                                <p>
+                                                    <i class="fa-solid fa-gas-pump"></i>
+                                                    Combustible: {{ vehiculo.combustible }}
+                                                </p>
+                                            {% endif %}
+
+                                            {% if vehiculo.transmision %}
+                                                <p>
+                                                    <i class="fa-solid fa-gears"></i>
+                                                    Transmisión: {{ vehiculo.transmision }}
+                                                </p>
+                                            {% endif %}
+
+                                            {% if vehiculo.fecha_registro %}
+                                                <p>
+                                                    <i class="fa-solid fa-calendar-check"></i>
+                                                    Fecha de registro: {{ vehiculo.fecha_registro }}
+                                                </p>
+                                            {% endif %}
+
+                                        </div>
+
+                                        <div class="vehicle-actions-row">
+                                            <button type="button" class="mini-action-btn" disabled>
+                                                Monitoreo
+                                            </button>
+
+                                            <button type="button" class="mini-action-btn" disabled>
+                                                Historial
+                                            </button>
+
+                                            <button type="button" class="mini-action-btn" disabled>
+                                                Servicios
+                                            </button>
+                                        </div>
+
+                                    </div>
+
+                                </article>
+
+                            {% endfor %}
+
                         </div>
 
-                        <div class="vehicle-card">
-                            <div class="vehicle-image">
-                                <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQoxI8-ttsnhEa7JOOePivAAEjvkoIt0e3WlXxjASWu6g&s=10" alt="Toyota C-HR 2021">
-                            </div>
+                    {% else %}
 
-                            <h3>Toyota C-HR 2021</h3>
-                            <p>SUV • Automático</p>
+                        <div class="empty-vehicles-state">
+                            <i class="fa-solid fa-car-side"></i>
+                            <h3>Aún no tienes vehículos registrados</h3>
+                            <p>
+                                Cuando compres un vehículo en VINOVA, recibirás un código privado
+                                para activarlo en tu perfil.
+                            </p>
+
+                            <a href="#seccion-agregar-vehiculo" class="profile-save-btn sidebar-link sidebar-link-like" data-section="agregar-vehiculo">
+                                <i class="fa-solid fa-circle-plus"></i>
+                                Agregar vehículo
+                            </a>
                         </div>
 
-                    </div>
+                    {% endif %}
 
                 </section>
 
@@ -263,65 +397,51 @@
                 <div class="section-title">
                     <span>NUEVO VEHÍCULO</span>
                     <h2>Agregar vehículo</h2>
-                    <p>Registra un nuevo vehículo en tu cuenta VINOVA.</p>
+                    <p>Activa un vehículo adquirido en VINOVA usando el código entregado por la concesionaria.</p>
                 </div>
 
-                <section class="form-panel">
+                <section class="form-panel redeem-panel">
 
-                    <form class="vehicle-form" action="#" method="POST">
+                    <div class="redeem-box">
 
-                        <div class="form-grid">
-
-                            <div class="form-group">
-                                <label for="marca">Marca</label>
-                                <input type="text" id="marca" name="marca" placeholder="Ejemplo: Toyota">
-                            </div>
-
-                            <div class="form-group">
-                                <label for="modelo">Modelo</label>
-                                <input type="text" id="modelo" name="modelo" placeholder="Ejemplo: Corolla">
-                            </div>
-
-                            <div class="form-group">
-                                <label for="anio">Año</label>
-                                <input type="number" id="anio" name="anio" placeholder="Ejemplo: 2021">
-                            </div>
-
-                            <div class="form-group">
-                                <label for="tipo">Tipo</label>
-                                <select id="tipo" name="tipo">
-                                    <option value="">Seleccionar tipo</option>
-                                    <option value="sedan">Sedán</option>
-                                    <option value="suv">SUV</option>
-                                    <option value="camioneta">Camioneta</option>
-                                    <option value="hatchback">Hatchback</option>
-                                </select>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="transmision">Transmisión</label>
-                                <select id="transmision" name="transmision">
-                                    <option value="">Seleccionar transmisión</option>
-                                    <option value="manual">Manual</option>
-                                    <option value="automatica">Automática</option>
-                                </select>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="kilometraje">Kilometraje actual</label>
-                                <input type="number" id="kilometraje" name="kilometraje" placeholder="Ejemplo: 45000">
-                            </div>
-
+                        <div class="redeem-icon">
+                            <i class="fa-solid fa-key"></i>
                         </div>
 
-                        <div class="form-actions">
-                            <button type="submit" class="profile-save-btn">
-                                <i class="fa-solid fa-floppy-disk"></i>
-                                Guardar vehículo
-                            </button>
+                        <div class="redeem-content">
+                            <h3>Código de activación</h3>
+                            <p>
+                                Ingresa el código privado entregado por la concesionaria para registrar
+                                tu vehículo en este perfil.
+                            </p>
+
+                            <form class="vehicle-form redeem-form" action="{{ url_for('canjear_codigo_vehiculo') }}" method="POST">
+
+                                <div class="form-group">
+                                    <label for="codigo_vehiculo">Código de activación</label>
+                                    <input
+                                        type="text"
+                                        id="codigo_vehiculo"
+                                        name="codigo_vehiculo"
+                                        placeholder="VNV-XXXX-XXXX-XXXX"
+                                        required
+                                        autocomplete="off">
+                                    <small>
+                                        Este código es privado. No es lo mismo que la referencia pública del vehículo.
+                                    </small>
+                                </div>
+
+                                <div class="form-actions">
+                                    <button type="submit" class="profile-save-btn">
+                                        <i class="fa-solid fa-circle-check"></i>
+                                        Registrar vehículo
+                                    </button>
+                                </div>
+
+                            </form>
                         </div>
 
-                    </form>
+                    </div>
 
                 </section>
 

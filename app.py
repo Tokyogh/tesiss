@@ -73,6 +73,75 @@ def crear_slug(texto):
     return texto or "vehiculo"
 
 
+def normalizar_kilometraje(valor):
+    """
+    Convierte el kilometraje a entero antes de enviarlo a los templates.
+
+    Acepta valores como:
+    - 55430
+    - "55430"
+    - "55.430"
+    - "55,430"
+    - "55 430 km"
+
+    Devuelve None si el valor está vacío, no es numérico o es negativo.
+    """
+
+    if valor is None:
+        return None
+
+    if isinstance(valor, int):
+        return valor if valor >= 0 else None
+
+    if isinstance(valor, float):
+        return int(valor) if valor >= 0 else None
+
+    texto = str(valor).strip().lower()
+
+    if not texto:
+        return None
+
+    texto = texto.replace("kilómetros", "")
+    texto = texto.replace("kilometros", "")
+    texto = texto.replace("kms", "")
+    texto = texto.replace("km", "")
+    texto = re.sub(r"\s+", "", texto)
+
+    # Para kilometraje usamos enteros. Quitamos separadores de miles comunes.
+    texto = texto.replace(".", "").replace(",", "")
+
+    if not re.fullmatch(r"\d+", texto):
+        return None
+
+    return int(texto)
+
+
+def obtener_nombre_imagen_vehiculo(ruta_imagen):
+    """
+    Normaliza la imagen del vehículo para profile.html.
+
+    En la base puede venir como:
+    - img/vehicles/archivo.webp
+    - static/img/vehicles/archivo.webp
+    - archivo.webp
+
+    profile.html ya antepone:
+    url_for('static', filename='img/vehicles/' ~ vehiculo.imagen)
+
+    Por eso aquí devolvemos solo el nombre del archivo.
+    """
+
+    if not ruta_imagen:
+        return None
+
+    ruta_limpia = str(ruta_imagen).strip().replace("\\", "/")
+
+    if not ruta_limpia:
+        return None
+
+    return os.path.basename(ruta_limpia)
+
+
 def generar_codigo_canje():
     """
     Genera un código privado de canje para entregar al comprador.
@@ -247,7 +316,13 @@ def perfil():
 
     cursor.execute("""
         SELECT
-            usuarios_vehiculos.*,
+            usuarios_vehiculos.id AS usuario_vehiculo_id,
+            usuarios_vehiculos.usuario_id,
+            usuarios_vehiculos.vehiculo_id,
+            usuarios_vehiculos.codigo_vehiculo_id,
+            usuarios_vehiculos.kilometraje_inicial,
+            usuarios_vehiculos.fecha_registro,
+            vehiculos.id AS id,
             vehiculos.codigo_catalogo,
             vehiculos.marca,
             vehiculos.modelo,
@@ -255,7 +330,7 @@ def perfil():
             vehiculos.tipo_vehiculo,
             vehiculos.combustible,
             vehiculos.transmision,
-            vehiculos.kilometraje,
+            vehiculos.kilometraje AS kilometraje_catalogo,
             vehiculos.precio,
             vehiculos.imagen,
             vehiculos.modelo_3d,
@@ -275,8 +350,39 @@ def perfil():
         session["usuario_id"],
     ))
 
-    mis_vehiculos = cursor.fetchall()
+    filas_vehiculos = cursor.fetchall()
     conexion.close()
+
+    mis_vehiculos = []
+
+    for fila in filas_vehiculos:
+        vehiculo = dict(fila)
+
+        kilometraje_inicial = normalizar_kilometraje(
+            vehiculo.get("kilometraje_inicial")
+        )
+
+        kilometraje_catalogo = normalizar_kilometraje(
+            vehiculo.get("kilometraje_catalogo")
+        )
+
+        vehiculo["kilometraje_inicial"] = kilometraje_inicial
+        vehiculo["kilometraje_catalogo"] = kilometraje_catalogo
+
+        # profile.html usa vehiculo.kilometraje para mostrar
+        # "Kilometraje inicial". Por eso priorizamos el kilometraje guardado
+        # en usuarios_vehiculos al momento del canje.
+        vehiculo["kilometraje"] = (
+            kilometraje_inicial
+            if kilometraje_inicial is not None
+            else kilometraje_catalogo
+        )
+
+        vehiculo["imagen"] = obtener_nombre_imagen_vehiculo(
+            vehiculo.get("imagen")
+        )
+
+        mis_vehiculos.append(vehiculo)
 
     return render_template(
         "profile.html",
@@ -385,7 +491,7 @@ def canjear_codigo_vehiculo():
             session["usuario_id"],
             vehiculo_id,
             codigo["id"],
-            codigo["kilometraje"] or 0,
+            normalizar_kilometraje(codigo["kilometraje"]) or 0,
             ahora
         ))
 
@@ -684,10 +790,14 @@ def admin_guardar_vehiculo():
 
     try:
         anio = int(anio)
-        kilometraje = int(kilometraje or 0)
-        precio = float(precio or 0)
+        kilometraje = normalizar_kilometraje(kilometraje)
+        precio = float(str(precio or 0).replace(",", "."))
     except ValueError:
         flash("Año, kilometraje y precio deben ser valores numéricos.")
+        return redirect("/admin/vehiculos")
+
+    if kilometraje is None:
+        flash("El kilometraje debe ser un valor numérico válido.")
         return redirect("/admin/vehiculos")
 
     archivo_imagen = request.files.get("imagen")

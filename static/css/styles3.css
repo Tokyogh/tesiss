@@ -1,5 +1,5 @@
 /* ============================= */
-/*   VINOVA | CATÁLOGO RECREADO  */
+/*         CSS CATALOGO          */
 /* ============================= */
 
 :root {
@@ -1323,6 +1323,16 @@ body.modal-open {
 /* ============================= */
 /* COLAPSABLES */
 /* ============================= */
+
+/*subrayado*/
+
+a.catalog-modal-secondary,
+a.catalog-modal-secondary:hover,
+a.catalog-modal-secondary:focus,
+a.catalog-modal-secondary:visited {
+    text-decoration: none;
+    color: inherit;
+}
 
 .catalog-filter-section.is-collapsed .catalog-checkbox-list,
 .catalog-filter-section.is-collapsed .catalog-filter-search,

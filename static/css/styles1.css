@@ -967,6 +967,168 @@ body {
     opacity: 0.9;
 }
 
+/* ================= CANJE DE VEHÍCULO ================= */
+
+.redeem-panel {
+    overflow: hidden;
+}
+
+.redeem-box {
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    gap: 22px;
+    align-items: flex-start;
+}
+
+.redeem-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 18px;
+    display: grid;
+    place-items: center;
+    background: rgba(79, 70, 229, 0.16);
+    color: #818cf8;
+    font-size: 26px;
+    box-shadow: 0 0 22px rgba(79, 70, 229, 0.25);
+}
+
+.redeem-content h3 {
+    font-size: 22px;
+    margin-bottom: 8px;
+}
+
+.redeem-content p {
+    color: #94a3b8;
+    line-height: 1.6;
+    margin-bottom: 22px;
+}
+
+.redeem-form {
+    max-width: 560px;
+}
+
+.redeem-form input {
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 700;
+}
+
+.redeem-form small {
+    color: #64748b;
+    line-height: 1.4;
+}
+
+/* ================= VEHÍCULOS REGISTRADOS ================= */
+
+.registered-vehicle-card {
+    display: flex;
+    flex-direction: column;
+}
+
+.vehicle-card-body {
+    padding: 18px;
+}
+
+.vehicle-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 14px;
+    margin-bottom: 14px;
+}
+
+.vehicle-card-header h3 {
+    padding: 0;
+    margin-bottom: 6px;
+}
+
+.vehicle-reference {
+    padding: 0 !important;
+    font-size: 13px;
+    color: #93c5fd !important;
+}
+
+.registered-badge {
+    background: rgba(34, 197, 94, 0.14);
+    color: #86efac;
+    border: 1px solid rgba(34, 197, 94, 0.24);
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.vehicle-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    margin-top: 14px;
+}
+
+.vehicle-meta p {
+    padding: 0 !important;
+    color: #cbd5e1 !important;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.vehicle-meta i {
+    color: #818cf8;
+    width: 16px;
+}
+
+.vehicle-actions-row {
+    margin-top: 18px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.mini-action-btn {
+    background: rgba(255, 255, 255, 0.06);
+    color: #cbd5e1;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    padding: 9px 12px;
+    cursor: not-allowed;
+    opacity: 0.65;
+}
+
+.empty-vehicles-state {
+    background: #111827;
+    border: 1px dashed rgba(148, 163, 184, 0.25);
+    border-radius: 16px;
+    padding: 35px 25px;
+    text-align: center;
+}
+
+.empty-vehicles-state i {
+    font-size: 36px;
+    color: #818cf8;
+    margin-bottom: 16px;
+}
+
+.empty-vehicles-state h3 {
+    margin-bottom: 8px;
+}
+
+.empty-vehicles-state p {
+    color: #94a3b8;
+    max-width: 520px;
+    margin: 0 auto 22px;
+    line-height: 1.6;
+}
+
+.sidebar-link-like {
+    text-decoration: none;
+}
+
+
+
+
 /* ================= RESPONSIVE ================= */
 
 @media (max-width: 1100px) {
@@ -1073,6 +1235,22 @@ body {
     .profile-save-btn,
     .profile-upload-btn,
     .profile-logout-btn {
+        width: 100%;
+    }
+
+    .redeem-box {
+    grid-template-columns: 1fr;
+    }
+
+    .vehicle-card-header {
+        flex-direction: column;
+    }
+
+    .vehicle-actions-row {
+        flex-direction: column;
+    }
+
+    .mini-action-btn {
         width: 100%;
     }
 }
