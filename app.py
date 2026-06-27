@@ -6,14 +6,17 @@ from functools import wraps
 from datetime import timedelta, datetime
 import os
 import re
+import secrets
 from dotenv import load_dotenv
 import cloudinary
 import cloudinary.uploader
+
 
 app = Flask(__name__)
 app.secret_key = "vinova"
 app.permanent_session_lifetime = timedelta(days=1)
 app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024
+
 
 # ================= CONFIGURACIÓN DE ARCHIVOS LOCALES =================
 # Las imágenes de vehículos del catálogo se guardan localmente.
@@ -37,6 +40,7 @@ os.makedirs(app.config["VEHICLE_IMAGE_FOLDER"], exist_ok=True)
 os.makedirs(app.config["VEHICLE_3D_FOLDER"], exist_ok=True)
 
 EXTENSIONES_IMAGEN_VEHICULO = {"jpg", "jpeg", "png", "webp"}
+
 
 # ================= CONFIGURACIÓN DE CLOUDINARY =================
 
@@ -67,6 +71,21 @@ def crear_slug(texto):
     texto = re.sub(r"[^a-z0-9]+", "-", texto)
     texto = texto.strip("-")
     return texto or "vehiculo"
+
+
+def generar_codigo_canje():
+    """
+    Genera un código privado de canje para entregar al comprador.
+    Ejemplo: VNV-8F2K-91AD-Q7L2
+    """
+
+    caracteres = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+
+    bloque_1 = "".join(secrets.choice(caracteres) for _ in range(4))
+    bloque_2 = "".join(secrets.choice(caracteres) for _ in range(4))
+    bloque_3 = "".join(secrets.choice(caracteres) for _ in range(4))
+
+    return f"VNV-{bloque_1}-{bloque_2}-{bloque_3}"
 
 
 def guardar_imagen_vehiculo(archivo, codigo_catalogo):
@@ -223,12 +242,198 @@ def register():
 @login_required
 def perfil():
 
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    cursor.execute("""
+        SELECT
+            usuarios_vehiculos.*,
+            vehiculos.codigo_catalogo,
+            vehiculos.marca,
+            vehiculos.modelo,
+            vehiculos.anio,
+            vehiculos.tipo_vehiculo,
+            vehiculos.combustible,
+            vehiculos.transmision,
+            vehiculos.kilometraje,
+            vehiculos.precio,
+            vehiculos.imagen,
+            vehiculos.modelo_3d,
+            vehiculos.modelo_3d_id,
+            vehiculos.modelo_3d_tipo,
+            vehiculos.descripcion,
+            vehiculos.estado,
+            codigos_vehiculo.codigo AS codigo_canje
+        FROM usuarios_vehiculos
+        INNER JOIN vehiculos
+            ON vehiculos.id = usuarios_vehiculos.vehiculo_id
+        LEFT JOIN codigos_vehiculo
+            ON codigos_vehiculo.id = usuarios_vehiculos.codigo_vehiculo_id
+        WHERE usuarios_vehiculos.usuario_id = ?
+        ORDER BY usuarios_vehiculos.id DESC
+    """, (
+        session["usuario_id"],
+    ))
+
+    mis_vehiculos = cursor.fetchall()
+    conexion.close()
+
     return render_template(
         "profile.html",
         nombre=session["usuario"],
         rol=session["rol"],
-        foto_perfil=session.get("foto_perfil")
+        foto_perfil=session.get("foto_perfil"),
+        mis_vehiculos=mis_vehiculos
     )
+
+
+# ================= CANJEAR CÓDIGO DE VEHÍCULO =================
+
+@app.route("/perfil/vehiculo/agregar", methods=["POST"])
+@login_required
+def canjear_codigo_vehiculo():
+
+    codigo_ingresado = (
+        request.form.get("codigo_vehiculo")
+        or request.form.get("codigo_canje")
+        or request.form.get("codigo")
+        or ""
+    ).strip().upper()
+
+    if not codigo_ingresado:
+        flash("Ingresa el código de activación del vehículo.")
+        return redirect("/perfil")
+
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    try:
+        conexion.execute("BEGIN IMMEDIATE")
+
+        cursor.execute("""
+            SELECT
+                codigos_vehiculo.*,
+                vehiculos.id AS vehiculo_id_real,
+                vehiculos.codigo_catalogo,
+                vehiculos.marca,
+                vehiculos.modelo,
+                vehiculos.anio,
+                vehiculos.kilometraje,
+                vehiculos.estado AS estado_vehiculo,
+                vehiculos.activo AS vehiculo_activo
+            FROM codigos_vehiculo
+            INNER JOIN vehiculos
+                ON vehiculos.id = codigos_vehiculo.vehiculo_id
+            WHERE codigos_vehiculo.codigo = ?
+            LIMIT 1
+        """, (
+            codigo_ingresado,
+        ))
+
+        codigo = cursor.fetchone()
+
+        if not codigo:
+            conexion.rollback()
+            flash("Código inválido. Verifica el código entregado por la concesionaria.")
+            return redirect("/perfil")
+
+        if codigo["activo"] != 1:
+            conexion.rollback()
+            flash("Este código está inactivo. Contacta con la concesionaria.")
+            return redirect("/perfil")
+
+        if codigo["usado"] == 1:
+            conexion.rollback()
+            flash("Este código ya fue utilizado.")
+            return redirect("/perfil")
+
+        if codigo["vehiculo_activo"] != 1 or codigo["estado_vehiculo"] == "Vendido":
+            conexion.rollback()
+            flash("Este vehículo ya no está disponible para registro.")
+            return redirect("/perfil")
+
+        vehiculo_id = codigo["vehiculo_id_real"]
+
+        cursor.execute("""
+            SELECT id
+            FROM usuarios_vehiculos
+            WHERE vehiculo_id = ?
+            LIMIT 1
+        """, (
+            vehiculo_id,
+        ))
+
+        vehiculo_ya_registrado = cursor.fetchone()
+
+        if vehiculo_ya_registrado:
+            conexion.rollback()
+            flash("Este vehículo ya fue registrado por otro usuario.")
+            return redirect("/perfil")
+
+        ahora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        cursor.execute("""
+            INSERT INTO usuarios_vehiculos (
+                usuario_id,
+                vehiculo_id,
+                codigo_vehiculo_id,
+                kilometraje_inicial,
+                fecha_registro
+            )
+            VALUES (?, ?, ?, ?, ?)
+        """, (
+            session["usuario_id"],
+            vehiculo_id,
+            codigo["id"],
+            codigo["kilometraje"] or 0,
+            ahora
+        ))
+
+        cursor.execute("""
+            UPDATE codigos_vehiculo
+            SET
+                usado = 1,
+                usado_por = ?,
+                fecha_uso = ?
+            WHERE id = ?
+        """, (
+            session["usuario_id"],
+            ahora,
+            codigo["id"]
+        ))
+
+        cursor.execute("""
+            UPDATE vehiculos
+            SET
+                activo = 0,
+                estado = 'Vendido',
+                actualizado_en = ?
+            WHERE id = ?
+        """, (
+            ahora,
+            vehiculo_id
+        ))
+
+        conexion.commit()
+
+        flash(
+            f"Vehículo registrado correctamente: "
+            f"{codigo['marca']} {codigo['modelo']} {codigo['anio']}."
+        )
+
+    except sqlite3.IntegrityError:
+        conexion.rollback()
+        flash("Este vehículo ya fue registrado anteriormente.")
+
+    except Exception as error:
+        conexion.rollback()
+        print("Error al canjear código de vehículo:", error)
+        flash("No se pudo registrar el vehículo. Intenta nuevamente.")
+
+    finally:
+        conexion.close()
+
+    return redirect("/perfil")
 
 
 # ================= FOTO DE PERFIL =================
@@ -405,6 +610,28 @@ def admin_vehiculos():
         )
         vehiculo_editar = cursor.fetchone()
 
+    cursor.execute("""
+        SELECT
+            codigos_vehiculo.*,
+            usuarios.nombre AS usado_por_nombre
+        FROM codigos_vehiculo
+        LEFT JOIN usuarios
+            ON usuarios.id = codigos_vehiculo.usado_por
+        ORDER BY codigos_vehiculo.id DESC
+    """)
+
+    codigos = cursor.fetchall()
+
+    codigos_por_vehiculo = {}
+
+    for codigo in codigos:
+        vehiculo_id = codigo["vehiculo_id"]
+
+        if vehiculo_id not in codigos_por_vehiculo:
+            codigos_por_vehiculo[vehiculo_id] = []
+
+        codigos_por_vehiculo[vehiculo_id].append(codigo)
+
     cursor.execute("SELECT COUNT(*) FROM vehiculos")
     total_vehiculos = cursor.fetchone()[0]
 
@@ -422,7 +649,8 @@ def admin_vehiculos():
         vehiculo_editar=vehiculo_editar,
         total_vehiculos=total_vehiculos,
         vehiculos_activos=vehiculos_activos,
-        vehiculos_inactivos=vehiculos_inactivos
+        vehiculos_inactivos=vehiculos_inactivos,
+        codigos_por_vehiculo=codigos_por_vehiculo
     )
 
 
@@ -664,6 +892,138 @@ def admin_cambiar_estado_vehiculo(vehiculo_id):
     conexion.close()
 
     flash("Estado del vehículo actualizado.")
+    return redirect("/admin/vehiculos")
+
+
+@app.route("/admin/vehiculos/<int:vehiculo_id>/codigo/generar", methods=["POST"])
+@login_required
+@admin_required
+def admin_generar_codigo_vehiculo(vehiculo_id):
+
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    cursor.execute(
+        "SELECT * FROM vehiculos WHERE id = ?",
+        (vehiculo_id,)
+    )
+
+    vehiculo = cursor.fetchone()
+
+    if not vehiculo:
+        conexion.close()
+        flash("Vehículo no encontrado.")
+        return redirect("/admin/vehiculos")
+
+    cursor.execute("""
+        SELECT *
+        FROM codigos_vehiculo
+        WHERE vehiculo_id = ?
+          AND usado = 0
+          AND activo = 1
+        LIMIT 1
+    """, (
+        vehiculo_id,
+    ))
+
+    codigo_existente = cursor.fetchone()
+
+    if codigo_existente:
+        conexion.close()
+        flash(f"Este vehículo ya tiene un código activo: {codigo_existente['codigo']}")
+        return redirect("/admin/vehiculos")
+
+    ahora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    try:
+        codigo_generado = None
+
+        for intento in range(20):
+            codigo_generado = generar_codigo_canje()
+
+            try:
+                cursor.execute("""
+                    INSERT INTO codigos_vehiculo (
+                        vehiculo_id,
+                        codigo,
+                        usado,
+                        usado_por,
+                        fecha_uso,
+                        creado_por,
+                        creado_en,
+                        activo
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    vehiculo_id,
+                    codigo_generado,
+                    0,
+                    None,
+                    None,
+                    session["usuario_id"],
+                    ahora,
+                    1
+                ))
+
+                conexion.commit()
+                flash(f"Código de canje generado: {codigo_generado}")
+                break
+
+            except sqlite3.IntegrityError:
+                conexion.rollback()
+                codigo_generado = None
+
+        if not codigo_generado:
+            flash("No se pudo generar un código único. Intenta nuevamente.")
+
+    except Exception as error:
+        conexion.rollback()
+        print("Error al generar código de canje:", error)
+        flash("No se pudo generar el código de canje.")
+
+    finally:
+        conexion.close()
+
+    return redirect("/admin/vehiculos")
+
+
+@app.route("/admin/codigos/<int:codigo_id>/desactivar", methods=["POST"])
+@login_required
+@admin_required
+def admin_desactivar_codigo_vehiculo(codigo_id):
+
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    cursor.execute(
+        "SELECT * FROM codigos_vehiculo WHERE id = ?",
+        (codigo_id,)
+    )
+
+    codigo = cursor.fetchone()
+
+    if not codigo:
+        conexion.close()
+        flash("Código no encontrado.")
+        return redirect("/admin/vehiculos")
+
+    if codigo["usado"] == 1:
+        conexion.close()
+        flash("No puedes desactivar un código que ya fue usado.")
+        return redirect("/admin/vehiculos")
+
+    cursor.execute("""
+        UPDATE codigos_vehiculo
+        SET activo = 0
+        WHERE id = ?
+    """, (
+        codigo_id,
+    ))
+
+    conexion.commit()
+    conexion.close()
+
+    flash("Código de canje desactivado correctamente.")
     return redirect("/admin/vehiculos")
 
 

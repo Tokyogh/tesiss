@@ -407,12 +407,61 @@
                                         <strong class="admin-status inactive">Oculto</strong>
                                     {% endif %}
                                 </div>
+
+                                <div class="admin-codes-box">
+
+                                    <span class="admin-codes-title">Códigos de canje</span>
+
+                                    {% set codigos_unidad = codigos_por_vehiculo.get(vehiculo['id'], []) %}
+
+                                    {% if codigos_unidad %}
+
+                                        {% for codigo in codigos_unidad %}
+
+                                            <div class="admin-code-pill {% if codigo['usado'] == 1 %}used{% elif codigo['activo'] == 0 %}inactive{% else %}available{% endif %}">
+
+                                                <strong>{{ codigo['codigo'] }}</strong>
+
+                                                {% if codigo['usado'] == 1 %}
+                                                    <small>Usado por {{ codigo['usado_por_nombre'] or 'usuario' }}</small>
+                                                {% elif codigo['activo'] == 0 %}
+                                                    <small>Inactivo</small>
+                                                {% else %}
+                                                    <small>Disponible</small>
+                                                {% endif %}
+
+                                                {% if codigo['usado'] == 0 and codigo['activo'] == 1 %}
+                                                    <form action="{{ url_for('admin_desactivar_codigo_vehiculo', codigo_id=codigo['id']) }}" method="POST">
+                                                        <button type="submit" class="admin-code-action">
+                                                            Desactivar
+                                                        </button>
+                                                    </form>
+                                                {% endif %}
+
+                                            </div>
+
+                                        {% endfor %}
+
+                                    {% else %}
+
+                                        <p class="admin-no-code">Sin código de canje generado.</p>
+
+                                    {% endif %}
+
+                                </div>
+
                             </div>
 
                             <div class="admin-row-actions">
                                 <a href="{{ url_for('admin_vehiculos', editar=vehiculo['id']) }}" class="admin-mini-btn">
                                     Editar
                                 </a>
+
+                                <form action="{{ url_for('admin_generar_codigo_vehiculo', vehiculo_id=vehiculo['id']) }}" method="POST">
+                                    <button type="submit" class="admin-mini-btn admin-mini-btn-code">
+                                        Generar código
+                                    </button>
+                                </form>
 
                                 <form action="{{ url_for('admin_cambiar_estado_vehiculo', vehiculo_id=vehiculo['id']) }}" method="POST">
                                     <button type="submit" class="admin-mini-btn admin-mini-btn-muted">
