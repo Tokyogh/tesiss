@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VINOVA | Panel administrador</title>
+    <title>VINOVA | Administración</title>
 
     <script src="https://unpkg.com/lucide@latest"></script>
 
@@ -16,487 +17,1575 @@
 
 <body>
 
-<header class="navbar">
-    <div class="logo">
-        <h2>VINOVA</h2>
-    </div>
+<div class="admin-shell">
 
-    <nav>
-        <ul class="nav-links">
+    <!-- SIDEBAR ADMIN -->
 
-            <li>
-                <a href="{{ url_for('inicio') }}">Inicio</a>
-            </li>
+    <aside class="admin-sidebar">
 
-            <li class="dropdown">
-                <a href="#">Vehículos</a>
-
-                <div class="dropdown-menu">
-                    <a href="{{ url_for('catalog') }}">Catálogo</a>
-                    <a href="{{ url_for('admin_vehiculos') }}">Administrar vehículos</a>
-                </div>
-            </li>
-
-            <li>
-                <a href="{{ url_for('perfil') }}">Mi perfil</a>
-            </li>
-
-            <li class="dropdown">
-                <a href="#">Instituciones</a>
-
-                <div class="dropdown-menu">
-                    <a href="#">Instituciones Afiliadas</a>
-                    <a href="#">Concesionarios</a>
-                    <a href="#">Centros de servicio</a>
-                </div>
-            </li>
-
-            <li class="dropdown">
-                <a href="#">Contacto</a>
-
-                <div class="dropdown-menu">
-                    <a href="#">Servicio al cliente</a>
-                </div>
-            </li>
-
-        </ul>
-    </nav>
-
-    <div class="navbar-actions">
-
-        <div class="user-session-box">
-
-            <a href="{{ url_for('perfil') }}" class="user-avatar-link" title="Ir a mi perfil">
-
-                {% if session.get("foto_perfil") %}
-                    <img
-                        src="{{ session.get('foto_perfil') }}"
-                        alt="Foto de perfil de {{ session['usuario'] }}"
-                        class="user-avatar-img">
-                {% else %}
-                    <span class="user-avatar-initial">
-                        {{ session["usuario"][:1]|upper }}
-                    </span>
-                {% endif %}
-
-                <span class="user-status-dot"></span>
-            </a>
-
-            <a href="{{ url_for('perfil') }}" class="user-name-pill">
-                {{ session["usuario"] }}
-            </a>
-
-            <a href="{{ url_for('logout') }}" class="logout-icon-btn" title="Cerrar sesión" aria-label="Cerrar sesión">
-                <i data-lucide="log-out"></i>
-            </a>
-
-        </div>
-
-    </div>
-</header>
-
-<main class="admin-page">
-
-    <section class="admin-hero">
-        <div>
-            <span class="admin-eyebrow">PANEL ADMINISTRADOR</span>
-
-            {% if vehiculo_editar %}
-                <h1>Editar vehículo</h1>
-                <p>Actualiza la información del modelo seleccionado dentro del catálogo VINOVA.</p>
-            {% else %}
-                <h1>Administrar catálogo</h1>
-                <p>Crea, edita y activa los vehículos que aparecerán en el catálogo público.</p>
-            {% endif %}
-        </div>
-
-        <div class="admin-summary">
-            <article>
-                <i data-lucide="car-front"></i>
-                <strong>{{ total_vehiculos }}</strong>
-                <span>Total</span>
-            </article>
-
-            <article>
-                <i data-lucide="circle-check"></i>
-                <strong>{{ vehiculos_activos }}</strong>
-                <span>Activos</span>
-            </article>
-
-            <article>
-                <i data-lucide="circle-off"></i>
-                <strong>{{ vehiculos_inactivos }}</strong>
-                <span>Ocultos</span>
-            </article>
-        </div>
-    </section>
-
-    {% with messages = get_flashed_messages() %}
-        {% if messages %}
-            <div class="admin-message">
-                <i data-lucide="info"></i>
-                <span>{{ messages[0] }}</span>
+        <a href="{{ url_for('inicio') }}" class="admin-brand">
+            <div class="admin-brand-icon">
+                <i data-lucide="shield-check"></i>
             </div>
-        {% endif %}
-    {% endwith %}
 
-    <section class="admin-layout">
+            <div>
+                <h2>VINOVA</h2>
+                <span>Panel administrativo</span>
+            </div>
+        </a>
 
-        <section class="admin-panel admin-form-panel">
+        <nav class="admin-nav">
 
-            <div class="admin-panel-title">
+            <span class="admin-nav-label">GENERAL</span>
+
+            <a href="#admin-inicio" class="admin-nav-link active" data-admin-section="inicio">
+                <i data-lucide="layout-dashboard"></i>
+                <span>Resumen</span>
+            </a>
+
+            <span class="admin-nav-label">OPERACIÓN</span>
+
+            <a href="#admin-vehiculos" class="admin-nav-link" data-admin-section="vehiculos">
+                <i data-lucide="car-front"></i>
+                <span>Vehículos</span>
+            </a>
+
+            <a href="#admin-codigos" class="admin-nav-link" data-admin-section="codigos">
+                <i data-lucide="key-round"></i>
+                <span>Códigos de canje</span>
+            </a>
+
+            <a href="#admin-ventas" class="admin-nav-link" data-admin-section="ventas">
+                <i data-lucide="receipt-text"></i>
+                <span>Ventas y canjes</span>
+            </a>
+
+            <a href="#admin-archivados" class="admin-nav-link" data-admin-section="archivados">
+                <i data-lucide="archive"></i>
+                <span>Archivados</span>
+            </a>
+
+            <span class="admin-nav-label">PERSONAS</span>
+
+            <a href="#admin-usuarios" class="admin-nav-link" data-admin-section="usuarios">
+                <i data-lucide="users"></i>
+                <span>Usuarios</span>
+            </a>
+
+            <a href="#admin-trabajadores" class="admin-nav-link" data-admin-section="trabajadores">
+                <i data-lucide="briefcase-business"></i>
+                <span>Trabajadores</span>
+            </a>
+
+            <span class="admin-nav-label">SISTEMA</span>
+
+            <a href="#admin-configuracion" class="admin-nav-link" data-admin-section="configuracion">
+                <i data-lucide="settings"></i>
+                <span>Configuración</span>
+            </a>
+
+        </nav>
+
+        <div class="admin-sidebar-footer">
+            <a href="{{ url_for('inicio') }}" class="admin-sidebar-link">
+                <i data-lucide="home"></i>
+                <span>Ir al sitio</span>
+            </a>
+
+            <a href="{{ url_for('catalog') }}" class="admin-sidebar-link">
+                <i data-lucide="store"></i>
+                <span>Ver catálogo</span>
+            </a>
+
+            <a href="{{ url_for('logout') }}" class="admin-sidebar-link danger">
+                <i data-lucide="log-out"></i>
+                <span>Cerrar sesión</span>
+            </a>
+        </div>
+
+    </aside>
+
+    <!-- CONTENIDO ADMIN -->
+
+    <main class="admin-main">
+
+        <!-- TOPBAR -->
+
+        <header class="admin-topbar">
+
+            <div>
+                <span class="admin-eyebrow">ADMINISTRACIÓN VINOVA</span>
+                <h1>Centro de control</h1>
+                <p>Gestiona vehículos, códigos de canje, usuarios, trabajadores y registros internos.</p>
+            </div>
+
+            <div class="admin-session-card">
+
+                <div class="admin-session-avatar">
+                    {% if session.get("foto_perfil") %}
+                        <img
+                            src="{{ session.get('foto_perfil') }}"
+                            alt="Foto de {{ session.get('usuario', 'Administrador') }}">
+                    {% else %}
+                        <span>{{ session.get("usuario", "A")[:1]|upper }}</span>
+                    {% endif %}
+                </div>
+
+                <div>
+                    <strong>{{ session.get("usuario", "Administrador") }}</strong>
+                    <small>{{ session.get("rol", "ADMIN") }}</small>
+                </div>
+
+            </div>
+
+        </header>
+
+        <!-- FLASH MESSAGES -->
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="admin-messages">
+                    {% for category, message in messages %}
+                        <div class="admin-message {{ category }}">
+                            {% if category == 'success' %}
+                                <i data-lucide="circle-check"></i>
+                            {% elif category == 'error' %}
+                                <i data-lucide="circle-x"></i>
+                            {% elif category == 'warning' %}
+                                <i data-lucide="triangle-alert"></i>
+                            {% else %}
+                                <i data-lucide="info"></i>
+                            {% endif %}
+
+                            <span>{{ message }}</span>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <!-- SECCIÓN RESUMEN -->
+
+        <section class="admin-section active" id="admin-inicio" data-admin-content="inicio">
+
+            <div class="admin-section-header">
+                <div>
+                    <span>RESUMEN GENERAL</span>
+                    <h2>Panel principal</h2>
+                    <p>Vista rápida del estado operativo de VINOVA.</p>
+                </div>
+            </div>
+
+            <section class="admin-summary-grid">
+
+                <article class="admin-summary-card">
+                    <i data-lucide="car-front"></i>
+                    <div>
+                        <strong>{{ total_vehiculos|default(0) }}</strong>
+                        <span>Vehículos registrados</span>
+                    </div>
+                </article>
+
+                <article class="admin-summary-card">
+                    <i data-lucide="circle-check"></i>
+                    <div>
+                        <strong>{{ vehiculos_activos|default(0) }}</strong>
+                        <span>Visibles en catálogo</span>
+                    </div>
+                </article>
+
+                <article class="admin-summary-card">
+                    <i data-lucide="circle-off"></i>
+                    <div>
+                        <strong>{{ vehiculos_inactivos|default(0) }}</strong>
+                        <span>Ocultos o vendidos</span>
+                    </div>
+                </article>
+
+                <article class="admin-summary-card">
+                    <i data-lucide="archive"></i>
+                    <div>
+                        <strong>{{ vehiculos_archivados_total|default(0) }}</strong>
+                        <span>Archivados</span>
+                    </div>
+                </article>
+
+                <article class="admin-summary-card">
+                    <i data-lucide="users"></i>
+                    <div>
+                        <strong>{{ total_usuarios|default(0) }}</strong>
+                        <span>Usuarios</span>
+                    </div>
+                </article>
+
+                <article class="admin-summary-card">
+                    <i data-lucide="briefcase-business"></i>
+                    <div>
+                        <strong>{{ total_trabajadores|default(0) }}</strong>
+                        <span>Trabajadores</span>
+                    </div>
+                </article>
+
+            </section>
+
+            <section class="admin-dashboard-grid">
+
+                <article class="admin-panel">
+                    <div class="admin-panel-title">
+                        <div>
+                            <span>ACTIVIDAD</span>
+                            <h2>Últimos vehículos</h2>
+                        </div>
+
+                        <a href="#admin-vehiculos" class="admin-secondary-link admin-nav-link" data-admin-section="vehiculos">
+                            Ver todos
+                        </a>
+                    </div>
+
+                    <div class="admin-mini-list">
+
+                        {% if vehiculos %}
+
+                            {% for vehiculo in vehiculos[:4] %}
+
+                                <div class="admin-mini-item">
+                                    <div class="admin-mini-icon">
+                                        <i data-lucide="car"></i>
+                                    </div>
+
+                                    <div>
+                                        <strong>{{ vehiculo['marca'] }} {{ vehiculo['modelo'] }} {{ vehiculo['anio'] }}</strong>
+                                        <span>{{ vehiculo['codigo_catalogo'] }}</span>
+                                    </div>
+
+                                    {% if vehiculo['estado'] == 'Vendido' %}
+                                        <small class="admin-status sold">Vendido</small>
+                                    {% elif vehiculo['activo'] == 1 %}
+                                        <small class="admin-status active">Visible</small>
+                                    {% else %}
+                                        <small class="admin-status inactive">Oculto</small>
+                                    {% endif %}
+                                </div>
+
+                            {% endfor %}
+
+                        {% else %}
+
+                            <div class="admin-empty compact">
+                                <i data-lucide="car-front"></i>
+                                <h3>Sin vehículos</h3>
+                                <p>Aún no hay unidades registradas.</p>
+                            </div>
+
+                        {% endif %}
+
+                    </div>
+                </article>
+
+                <article class="admin-panel">
+                    <div class="admin-panel-title">
+                        <div>
+                            <span>CANJES</span>
+                            <h2>Códigos recientes</h2>
+                        </div>
+
+                        <a href="#admin-codigos" class="admin-secondary-link admin-nav-link" data-admin-section="codigos">
+                            Ver códigos
+                        </a>
+                    </div>
+
+                    <div class="admin-mini-list">
+
+                        {% set hay_codigos_resumen = false %}
+
+                        {% if vehiculos %}
+                            {% for vehiculo in vehiculos[:6] %}
+                                {% set codigos_unidad = codigos_por_vehiculo.get(vehiculo['id'], []) %}
+
+                                {% for codigo in codigos_unidad[:1] %}
+
+                                    {% set hay_codigos_resumen = true %}
+
+                                    <div class="admin-mini-item">
+                                        <div class="admin-mini-icon">
+                                            <i data-lucide="key-round"></i>
+                                        </div>
+
+                                        <div>
+                                            <strong>{{ codigo['codigo'] }}</strong>
+                                            <span>{{ vehiculo['marca'] }} {{ vehiculo['modelo'] }}</span>
+                                        </div>
+
+                                        {% if codigo['usado'] == 1 %}
+                                            <small class="admin-status sold">Usado</small>
+                                        {% elif codigo['activo'] == 0 %}
+                                            <small class="admin-status inactive">Inactivo</small>
+                                        {% else %}
+                                            <small class="admin-status active">Disponible</small>
+                                        {% endif %}
+                                    </div>
+
+                                {% endfor %}
+                            {% endfor %}
+                        {% endif %}
+
+                        {% if not hay_codigos_resumen %}
+                            <div class="admin-empty compact">
+                                <i data-lucide="key-round"></i>
+                                <h3>Sin códigos</h3>
+                                <p>Aún no se han generado códigos de canje.</p>
+                            </div>
+                        {% endif %}
+
+                    </div>
+                </article>
+
+            </section>
+
+        </section>
+
+        <!-- SECCIÓN VEHÍCULOS -->
+
+        <section class="admin-section" id="admin-vehiculos" data-admin-content="vehiculos">
+
+            <div class="admin-section-header">
                 <div>
                     <span>CATÁLOGO</span>
 
                     {% if vehiculo_editar %}
-                        <h2>Editar modelo</h2>
+                        <h2>Editar vehículo</h2>
+                        <p>Actualiza la información de la unidad seleccionada.</p>
                     {% else %}
-                        <h2>Nuevo vehículo</h2>
+                        <h2>Administrar vehículos</h2>
+                        <p>Crea, edita, oculta, vende o archiva unidades del catálogo VINOVA.</p>
                     {% endif %}
                 </div>
 
-                {% if vehiculo_editar %}
-                    <a href="{{ url_for('admin_vehiculos') }}" class="admin-secondary-link">
-                        Cancelar edición
+                <div class="admin-section-actions">
+                    {% if vehiculo_editar %}
+                        <a href="{{ url_for('admin_vehiculos') }}" class="admin-secondary-link">
+                            Cancelar edición
+                        </a>
+                    {% endif %}
+
+                    <a href="{{ url_for('catalog') }}" class="admin-secondary-link">
+                        Ver catálogo público
                     </a>
-                {% endif %}
-            </div>
-
-            <form action="{{ url_for('admin_guardar_vehiculo') }}" method="POST" enctype="multipart/form-data" class="admin-form">
-
-                {% if vehiculo_editar %}
-                    <input type="hidden" name="vehiculo_id" value="{{ vehiculo_editar['id'] }}">
-                {% endif %}
-
-                <div class="admin-form-grid">
-
-                    <label class="admin-field">
-                        <span>Código de catálogo</span>
-                        <input
-                            type="text"
-                            name="codigo_catalogo"
-                            placeholder="VIN-RAV4-2024"
-                            value="{{ vehiculo_editar['codigo_catalogo'] if vehiculo_editar else '' }}"
-                            required>
-                    </label>
-
-                    <label class="admin-field">
-                        <span>Marca</span>
-                        <input
-                            type="text"
-                            name="marca"
-                            placeholder="Toyota"
-                            value="{{ vehiculo_editar['marca'] if vehiculo_editar else '' }}"
-                            required>
-                    </label>
-
-                    <label class="admin-field">
-                        <span>Modelo</span>
-                        <input
-                            type="text"
-                            name="modelo"
-                            placeholder="RAV4"
-                            value="{{ vehiculo_editar['modelo'] if vehiculo_editar else '' }}"
-                            required>
-                    </label>
-
-                    <label class="admin-field">
-                        <span>Año</span>
-                        <input
-                            type="number"
-                            name="anio"
-                            min="1980"
-                            max="2035"
-                            placeholder="2024"
-                            value="{{ vehiculo_editar['anio'] if vehiculo_editar else '' }}"
-                            required>
-                    </label>
-
-                    <label class="admin-field">
-                        <span>Tipo de vehículo</span>
-
-                        {% set tipo_actual = vehiculo_editar['tipo_vehiculo'] if vehiculo_editar else '' %}
-
-                        <select name="tipo_vehiculo" required>
-                            <option value="">Seleccionar</option>
-                            <option value="SUV" {% if tipo_actual == 'SUV' %}selected{% endif %}>SUV</option>
-                            <option value="Sedán" {% if tipo_actual == 'Sedán' %}selected{% endif %}>Sedán</option>
-                            <option value="Camioneta" {% if tipo_actual == 'Camioneta' %}selected{% endif %}>Camioneta</option>
-                            <option value="Pickup" {% if tipo_actual == 'Pickup' %}selected{% endif %}>Pickup</option>
-                            <option value="Deportivo" {% if tipo_actual == 'Deportivo' %}selected{% endif %}>Deportivo</option>
-                            <option value="Hatchback" {% if tipo_actual == 'Hatchback' %}selected{% endif %}>Hatchback</option>
-                        </select>
-                    </label>
-
-                    <label class="admin-field">
-                        <span>Combustible</span>
-
-                        {% set combustible_actual = vehiculo_editar['combustible'] if vehiculo_editar else '' %}
-
-                        <select name="combustible" required>
-                            <option value="">Seleccionar</option>
-                            <option value="Gasolina" {% if combustible_actual == 'Gasolina' %}selected{% endif %}>Gasolina</option>
-                            <option value="Diésel" {% if combustible_actual == 'Diésel' %}selected{% endif %}>Diésel</option>
-                            <option value="Híbrido" {% if combustible_actual == 'Híbrido' %}selected{% endif %}>Híbrido</option>
-                            <option value="Eléctrico" {% if combustible_actual == 'Eléctrico' %}selected{% endif %}>Eléctrico</option>
-                        </select>
-                    </label>
-
-                    <label class="admin-field">
-                        <span>Transmisión</span>
-
-                        {% set transmision_actual = vehiculo_editar['transmision'] if vehiculo_editar else '' %}
-
-                        <select name="transmision" required>
-                            <option value="">Seleccionar</option>
-                            <option value="Automática" {% if transmision_actual == 'Automática' %}selected{% endif %}>Automática</option>
-                            <option value="Manual" {% if transmision_actual == 'Manual' %}selected{% endif %}>Manual</option>
-                        </select>
-                    </label>
-
-                    <label class="admin-field">
-                        <span>Kilometraje</span>
-                        <input
-                            type="number"
-                            name="kilometraje"
-                            min="0"
-                            placeholder="55430"
-                            value="{{ vehiculo_editar['kilometraje'] if vehiculo_editar else '0' }}">
-                    </label>
-
-                    <label class="admin-field">
-                        <span>Precio USD</span>
-                        <input
-                            type="number"
-                            name="precio"
-                            min="0"
-                            step="0.01"
-                            placeholder="28900"
-                            value="{{ vehiculo_editar['precio'] if vehiculo_editar else '0' }}">
-                    </label>
-
-                    <label class="admin-field">
-                        <span>Estado</span>
-
-                        {% set estado_actual = vehiculo_editar['estado'] if vehiculo_editar else 'Disponible' %}
-
-                        <select name="estado">
-                            <option value="Disponible" {% if estado_actual == 'Disponible' %}selected{% endif %}>Disponible</option>
-                            <option value="Reservado" {% if estado_actual == 'Reservado' %}selected{% endif %}>Reservado</option>
-                            <option value="No disponible" {% if estado_actual == 'No disponible' %}selected{% endif %}>No disponible</option>
-                        </select>
-                    </label>
-
-                    <label class="admin-field admin-field-wide">
-                        <span>Imagen del vehículo</span>
-                        <input type="file" name="imagen" accept="image/png,image/jpeg,image/webp">
-
-                        {% if vehiculo_editar and vehiculo_editar['imagen'] %}
-                            <small>Imagen actual: {{ vehiculo_editar['imagen'] }}</small>
-                        {% else %}
-                            <small>Se guardará en static/img/vehicles/</small>
-                        {% endif %}
-                    </label>
-
-                    <label class="admin-field">
-                        <span>ID modelo 3D</span>
-                        <input
-                            type="text"
-                            name="modelo_3d_id"
-                            placeholder="rav4_2024"
-                            value="{{ vehiculo_editar['modelo_3d_id'] if vehiculo_editar else '' }}">
-                    </label>
-
-                    <label class="admin-field">
-                        <span>Ruta modelo 3D</span>
-                        <input
-                            type="text"
-                            name="modelo_3d"
-                            placeholder="models/vehicles/rav4_2024.glb"
-                            value="{{ vehiculo_editar['modelo_3d'] if vehiculo_editar else '' }}">
-                    </label>
-
-                    <label class="admin-field">
-                        <span>Tipo modelo 3D</span>
-
-                        {% set modelo_3d_tipo_actual = vehiculo_editar['modelo_3d_tipo'] if vehiculo_editar else 'glb' %}
-
-                        <select name="modelo_3d_tipo">
-                            <option value="glb" {% if modelo_3d_tipo_actual == 'glb' %}selected{% endif %}>GLB</option>
-                            <option value="gltf" {% if modelo_3d_tipo_actual == 'gltf' %}selected{% endif %}>GLTF</option>
-                            <option value="pendiente" {% if modelo_3d_tipo_actual == 'pendiente' %}selected{% endif %}>Pendiente</option>
-                        </select>
-                    </label>
-
-                    <label class="admin-field admin-field-wide">
-                        <span>Descripción</span>
-                        <textarea name="descripcion" rows="4" placeholder="Descripción breve del vehículo...">{{ vehiculo_editar['descripcion'] if vehiculo_editar else '' }}</textarea>
-                    </label>
-
-                    <label class="admin-switch">
-                        <input
-                            type="checkbox"
-                            name="activo"
-                            {% if not vehiculo_editar or vehiculo_editar['activo'] == 1 %}checked{% endif %}>
-                        <span></span>
-                        Mostrar en catálogo
-                    </label>
-
-                </div>
-
-                <div class="admin-actions">
-                    <button type="submit" class="admin-primary-btn">
-                        <i data-lucide="save"></i>
-
-                        {% if vehiculo_editar %}
-                            Guardar cambios
-                        {% else %}
-                            Crear vehículo
-                        {% endif %}
-                    </button>
-                </div>
-
-            </form>
-
-        </section>
-
-        <section class="admin-panel admin-list-panel">
-
-            <div class="admin-panel-title">
-                <div>
-                    <span>REGISTROS</span>
-                    <h2>Vehículos creados</h2>
                 </div>
             </div>
 
-            <div class="admin-vehicle-list">
+            <section class="admin-layout">
 
-                {% if vehiculos %}
+                <!-- FORMULARIO VEHÍCULO -->
 
-                    {% for vehiculo in vehiculos %}
+                <section class="admin-panel admin-form-panel">
 
-                        <article class="admin-vehicle-row">
+                    <div class="admin-panel-title">
+                        <div>
+                            <span>GESTIÓN DE UNIDAD</span>
 
-                            <div class="admin-vehicle-img">
-                                {% if vehiculo['imagen'] %}
-                                    <img
-                                        src="{{ url_for('static', filename=vehiculo['imagen']) }}"
-                                        alt="{{ vehiculo['marca'] }} {{ vehiculo['modelo'] }}">
-                                {% else %}
-                                    <i data-lucide="car-front"></i>
-                                {% endif %}
-                            </div>
-
-                            <div class="admin-vehicle-info">
-                                <h3>{{ vehiculo['marca'] }} {{ vehiculo['modelo'] }} {{ vehiculo['anio'] }}</h3>
-
-                                <p>
-                                    {{ vehiculo['codigo_catalogo'] }}
-                                    · {{ vehiculo['tipo_vehiculo'] }}
-                                    · {{ vehiculo['combustible'] }}
-                                    · {{ vehiculo['transmision'] }}
-                                </p>
-
-                                <div class="admin-vehicle-meta">
-                                    <span>${{ "{:,.2f}".format(vehiculo['precio'] or 0) }}</span>
-                                    <span>{{ "{:,}".format(vehiculo['kilometraje'] or 0) }} km</span>
-
-                                    {% if vehiculo['activo'] == 1 %}
-                                        <strong class="admin-status active">Activo</strong>
-                                    {% else %}
-                                        <strong class="admin-status inactive">Oculto</strong>
-                                    {% endif %}
-                                </div>
-
-                                <div class="admin-codes-box">
-
-                                    <span class="admin-codes-title">Códigos de canje</span>
-
-                                    {% set codigos_unidad = codigos_por_vehiculo.get(vehiculo['id'], []) %}
-
-                                    {% if codigos_unidad %}
-
-                                        {% for codigo in codigos_unidad %}
-
-                                            <div class="admin-code-pill {% if codigo['usado'] == 1 %}used{% elif codigo['activo'] == 0 %}inactive{% else %}available{% endif %}">
-
-                                                <strong>{{ codigo['codigo'] }}</strong>
-
-                                                {% if codigo['usado'] == 1 %}
-                                                    <small>Usado por {{ codigo['usado_por_nombre'] or 'usuario' }}</small>
-                                                {% elif codigo['activo'] == 0 %}
-                                                    <small>Inactivo</small>
-                                                {% else %}
-                                                    <small>Disponible</small>
-                                                {% endif %}
-
-                                                {% if codigo['usado'] == 0 and codigo['activo'] == 1 %}
-                                                    <form action="{{ url_for('admin_desactivar_codigo_vehiculo', codigo_id=codigo['id']) }}" method="POST">
-                                                        <button type="submit" class="admin-code-action">
-                                                            Desactivar
-                                                        </button>
-                                                    </form>
-                                                {% endif %}
-
-                                            </div>
-
-                                        {% endfor %}
-
-                                    {% else %}
-
-                                        <p class="admin-no-code">Sin código de canje generado.</p>
-
-                                    {% endif %}
-
-                                </div>
-
-                            </div>
-
-                            <div class="admin-row-actions">
-                                <a href="{{ url_for('admin_vehiculos', editar=vehiculo['id']) }}" class="admin-mini-btn">
-                                    Editar
-                                </a>
-
-                                <form action="{{ url_for('admin_generar_codigo_vehiculo', vehiculo_id=vehiculo['id']) }}" method="POST">
-                                    <button type="submit" class="admin-mini-btn admin-mini-btn-code">
-                                        Generar código
-                                    </button>
-                                </form>
-
-                                <form action="{{ url_for('admin_cambiar_estado_vehiculo', vehiculo_id=vehiculo['id']) }}" method="POST">
-                                    <button type="submit" class="admin-mini-btn admin-mini-btn-muted">
-                                        {% if vehiculo['activo'] == 1 %}
-                                            Ocultar
-                                        {% else %}
-                                            Activar
-                                        {% endif %}
-                                    </button>
-                                </form>
-                            </div>
-
-                        </article>
-
-                    {% endfor %}
-
-                {% else %}
-
-                    <div class="admin-empty">
-                        <i data-lucide="car-front"></i>
-                        <h3>No hay vehículos creados</h3>
-                        <p>Usa el formulario para agregar el primer modelo al catálogo.</p>
+                            {% if vehiculo_editar %}
+                                <h2>Datos del vehículo</h2>
+                            {% else %}
+                                <h2>Nuevo vehículo</h2>
+                            {% endif %}
+                        </div>
                     </div>
 
-                {% endif %}
+                    <form action="{{ url_for('admin_guardar_vehiculo') }}" method="POST" enctype="multipart/form-data" class="admin-form">
 
-            </div>
+                        {% if vehiculo_editar %}
+                            <input type="hidden" name="vehiculo_id" value="{{ vehiculo_editar['id'] }}">
+                        {% endif %}
+
+                        <div class="admin-form-grid">
+
+                           {% set codigos_edicion = codigos_por_vehiculo.get(vehiculo_editar['id'], []) if vehiculo_editar else [] %}
+
+                            <label class="admin-field">
+                                <span>Código de catálogo</span>
+                                <input
+                                    type="text"
+                                    name="codigo_catalogo"
+                                    placeholder="VIN-RAV4-2024"
+                                    value="{{ vehiculo_editar['codigo_catalogo'] if vehiculo_editar else '' }}"
+                                    {% if vehiculo_editar and (vehiculo_editar['estado'] == 'Vendido' or codigos_edicion) %}readonly{% endif %}
+                                    required>
+
+                                {% if vehiculo_editar and vehiculo_editar['estado'] == 'Vendido' %}
+                                    <small>Referencia bloqueada porque el vehículo ya fue vendido o canjeado.</small>
+                                {% elif vehiculo_editar and codigos_edicion %}
+                                    <small>Referencia bloqueada porque este vehículo ya tiene código de canje.</small>
+                                {% else %}
+                                    <small>Referencia pública de la unidad. Ejemplo: VIN-RAV4-2024.</small>
+                                {% endif %}
+                            </label>
+
+                            <label class="admin-field">
+                                <span>Marca</span>
+                                <input
+                                    type="text"
+                                    name="marca"
+                                    placeholder="Toyota"
+                                    value="{{ vehiculo_editar['marca'] if vehiculo_editar else '' }}"
+                                    required>
+                            </label>
+
+                            <label class="admin-field">
+                                <span>Modelo</span>
+                                <input
+                                    type="text"
+                                    name="modelo"
+                                    placeholder="RAV4"
+                                    value="{{ vehiculo_editar['modelo'] if vehiculo_editar else '' }}"
+                                    required>
+                            </label>
+
+                            <label class="admin-field">
+                                <span>Año</span>
+                                <input
+                                    type="number"
+                                    name="anio"
+                                    min="1980"
+                                    max="2035"
+                                    placeholder="2024"
+                                    value="{{ vehiculo_editar['anio'] if vehiculo_editar else '' }}"
+                                    required>
+                            </label>
+
+                            <label class="admin-field">
+                                <span>Tipo de vehículo</span>
+
+                                {% set tipo_actual = vehiculo_editar['tipo_vehiculo'] if vehiculo_editar else '' %}
+
+                                <select name="tipo_vehiculo" required>
+                                    <option value="">Seleccionar</option>
+                                    <option value="SUV" {% if tipo_actual == 'SUV' %}selected{% endif %}>SUV</option>
+                                    <option value="Sedán" {% if tipo_actual == 'Sedán' %}selected{% endif %}>Sedán</option>
+                                    <option value="Camioneta" {% if tipo_actual == 'Camioneta' %}selected{% endif %}>Camioneta</option>
+                                    <option value="Pickup" {% if tipo_actual == 'Pickup' %}selected{% endif %}>Pickup</option>
+                                    <option value="Deportivo" {% if tipo_actual == 'Deportivo' %}selected{% endif %}>Deportivo</option>
+                                    <option value="Hatchback" {% if tipo_actual == 'Hatchback' %}selected{% endif %}>Hatchback</option>
+                                </select>
+                            </label>
+
+                            <label class="admin-field">
+                                <span>Combustible</span>
+
+                                {% set combustible_actual = vehiculo_editar['combustible'] if vehiculo_editar else '' %}
+
+                                <select name="combustible" required>
+                                    <option value="">Seleccionar</option>
+                                    <option value="Gasolina" {% if combustible_actual == 'Gasolina' %}selected{% endif %}>Gasolina</option>
+                                    <option value="Diésel" {% if combustible_actual == 'Diésel' %}selected{% endif %}>Diésel</option>
+                                    <option value="Híbrido" {% if combustible_actual == 'Híbrido' %}selected{% endif %}>Híbrido</option>
+                                    <option value="Eléctrico" {% if combustible_actual == 'Eléctrico' %}selected{% endif %}>Eléctrico</option>
+                                </select>
+                            </label>
+
+                            <label class="admin-field">
+                                <span>Transmisión</span>
+
+                                {% set transmision_actual = vehiculo_editar['transmision'] if vehiculo_editar else '' %}
+
+                                <select name="transmision" required>
+                                    <option value="">Seleccionar</option>
+                                    <option value="Automática" {% if transmision_actual == 'Automática' %}selected{% endif %}>Automática</option>
+                                    <option value="Manual" {% if transmision_actual == 'Manual' %}selected{% endif %}>Manual</option>
+                                </select>
+                            </label>
+
+                            <label class="admin-field">
+                                <span>Kilometraje</span>
+                                <input
+                                    type="number"
+                                    name="kilometraje"
+                                    min="0"
+                                    placeholder="55430"
+                                    value="{{ vehiculo_editar['kilometraje'] if vehiculo_editar else '0' }}">
+                            </label>
+
+                            <label class="admin-field">
+                                <span>Precio USD</span>
+                                <input
+                                    type="number"
+                                    name="precio"
+                                    min="0"
+                                    step="0.01"
+                                    placeholder="28900"
+                                    value="{{ vehiculo_editar['precio'] if vehiculo_editar else '0' }}">
+                            </label>
+
+                            <label class="admin-field">
+                                <span>Estado comercial</span>
+
+                                {% set estado_actual = vehiculo_editar['estado'] if vehiculo_editar else 'Disponible' %}
+
+                                <select name="estado">
+                                    <option value="Disponible" {% if estado_actual == 'Disponible' %}selected{% endif %}>Disponible</option>
+                                    <option value="Reservado" {% if estado_actual == 'Reservado' %}selected{% endif %}>Reservado</option>
+                                    <option value="No disponible" {% if estado_actual == 'No disponible' %}selected{% endif %}>No disponible</option>
+                                    <option value="Vendido" {% if estado_actual == 'Vendido' %}selected{% endif %}>Vendido</option>
+                                </select>
+                            </label>
+
+                            <label class="admin-field admin-field-wide">
+                                <span>Imagen del vehículo</span>
+                                <input type="file" name="imagen" accept="image/png,image/jpeg,image/webp">
+
+                                {% if vehiculo_editar and vehiculo_editar['imagen'] %}
+                                    <small>Imagen actual: {{ vehiculo_editar['imagen'] }}</small>
+                                {% else %}
+                                    <small>Se guardará en static/img/vehicles/</small>
+                                {% endif %}
+                            </label>
+
+                            <label class="admin-field">
+                                <span>ID modelo 3D</span>
+                                <input
+                                    type="text"
+                                    name="modelo_3d_id"
+                                    placeholder="rav4_2024"
+                                    value="{{ vehiculo_editar['modelo_3d_id'] if vehiculo_editar else '' }}">
+                            </label>
+
+                            <label class="admin-field">
+                                <span>Ruta modelo 3D</span>
+                                <input
+                                    type="text"
+                                    name="modelo_3d"
+                                    placeholder="models/vehicles/rav4_2024.glb"
+                                    value="{{ vehiculo_editar['modelo_3d'] if vehiculo_editar else '' }}">
+                            </label>
+
+                            <label class="admin-field">
+                                <span>Tipo modelo 3D</span>
+
+                                {% set modelo_3d_tipo_actual = vehiculo_editar['modelo_3d_tipo'] if vehiculo_editar else 'glb' %}
+
+                                <select name="modelo_3d_tipo">
+                                    <option value="glb" {% if modelo_3d_tipo_actual == 'glb' %}selected{% endif %}>GLB</option>
+                                    <option value="gltf" {% if modelo_3d_tipo_actual == 'gltf' %}selected{% endif %}>GLTF</option>
+                                    <option value="pendiente" {% if modelo_3d_tipo_actual == 'pendiente' %}selected{% endif %}>Pendiente</option>
+                                </select>
+                            </label>
+
+                            <label class="admin-field admin-field-wide">
+                                <span>Descripción</span>
+                                <textarea name="descripcion" rows="4" placeholder="Descripción breve del vehículo...">{{ vehiculo_editar['descripcion'] if vehiculo_editar else '' }}</textarea>
+                            </label>
+
+                            <label class="admin-switch">
+                                <input
+                                    type="checkbox"
+                                    name="activo"
+                                    {% if not vehiculo_editar or vehiculo_editar['activo'] == 1 %}checked{% endif %}>
+                                <span></span>
+                                Mostrar en catálogo
+                            </label>
+
+                        </div>
+
+                        <div class="admin-actions">
+                            <button type="submit" class="admin-primary-btn">
+                                <i data-lucide="save"></i>
+
+                                {% if vehiculo_editar %}
+                                    Guardar cambios
+                                {% else %}
+                                    Crear vehículo
+                                {% endif %}
+                            </button>
+                        </div>
+
+                    </form>
+
+                </section>
+
+                <!-- LISTADO VEHÍCULOS -->
+
+                <section class="admin-panel admin-list-panel">
+
+                    <div class="admin-panel-title">
+                        <div>
+                            <span>UNIDADES</span>
+                            <h2>Vehículos creados</h2>
+                        </div>
+
+                        <div class="admin-list-tools">
+                            <input
+                                type="text"
+                                class="admin-search-input"
+                                data-admin-search="vehicles"
+                                placeholder="Buscar vehículo...">
+                        </div>
+                    </div>
+
+                    <div class="admin-vehicle-list" data-admin-list="vehicles">
+
+                        {% if vehiculos %}
+
+                            {% for vehiculo in vehiculos %}
+
+                                <article class="admin-vehicle-row" data-admin-item>
+
+                                    <div class="admin-vehicle-img">
+                                        {% if vehiculo['imagen'] %}
+                                            <img
+                                                src="{{ url_for('static', filename=vehiculo['imagen']) }}"
+                                                alt="{{ vehiculo['marca'] }} {{ vehiculo['modelo'] }}">
+                                        {% else %}
+                                            <i data-lucide="car-front"></i>
+                                        {% endif %}
+                                    </div>
+
+                                    <div class="admin-vehicle-info">
+                                        <div class="admin-vehicle-heading">
+                                            <div>
+                                                <h3>{{ vehiculo['marca'] }} {{ vehiculo['modelo'] }} {{ vehiculo['anio'] }}</h3>
+                                                <p>
+                                                    {{ vehiculo['codigo_catalogo'] }}
+                                                    · {{ vehiculo['tipo_vehiculo'] }}
+                                                    · {{ vehiculo['combustible'] }}
+                                                    · {{ vehiculo['transmision'] }}
+                                                </p>
+                                            </div>
+
+                                            <div class="admin-status-group">
+                                                {% if vehiculo['estado'] == 'Vendido' %}
+                                                    <strong class="admin-status sold">Vendido</strong>
+                                                {% elif vehiculo['estado'] == 'Reservado' %}
+                                                    <strong class="admin-status warning">Reservado</strong>
+                                                {% elif vehiculo['estado'] == 'No disponible' %}
+                                                    <strong class="admin-status inactive">No disponible</strong>
+                                                {% else %}
+                                                    <strong class="admin-status active">Disponible</strong>
+                                                {% endif %}
+
+                                                {% if vehiculo['activo'] == 1 %}
+                                                    <strong class="admin-status visible">Visible</strong>
+                                                {% else %}
+                                                    <strong class="admin-status inactive">Oculto</strong>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+
+                                        <div class="admin-vehicle-meta">
+                                            <span>${{ "{:,.2f}".format(vehiculo['precio'] or 0) }}</span>
+                                            <span>{{ "{:,}".format(vehiculo['kilometraje'] or 0).replace(",", ".") }} km</span>
+                                        </div>
+
+                                        <div class="admin-codes-box">
+
+                                            <span class="admin-codes-title">Códigos de canje</span>
+
+                                            {% set codigos_unidad = codigos_por_vehiculo.get(vehiculo['id'], []) %}
+
+                                            {% if codigos_unidad %}
+
+                                                {% for codigo in codigos_unidad %}
+
+                                                    <div class="admin-code-pill {% if codigo['usado'] == 1 %}used{% elif codigo['activo'] == 0 %}inactive{% else %}available{% endif %}">
+
+                                                        <strong>{{ codigo['codigo'] }}</strong>
+
+                                                        {% if codigo['usado'] == 1 %}
+                                                            <small>Usado por {{ codigo['usado_por_nombre'] or 'usuario' }}</small>
+                                                        {% elif codigo['activo'] == 0 %}
+                                                            <small>Inactivo</small>
+                                                        {% else %}
+                                                            <small>Disponible</small>
+                                                        {% endif %}
+
+                                                        {% if codigo['usado'] == 0 and codigo['activo'] == 1 %}
+                                                            <form action="{{ url_for('admin_desactivar_codigo_vehiculo', codigo_id=codigo['id']) }}" method="POST">
+                                                                <button type="submit" class="admin-code-action">
+                                                                    Desactivar
+                                                                </button>
+                                                            </form>
+                                                        {% endif %}
+
+                                                    </div>
+
+                                                {% endfor %}
+
+                                            {% else %}
+
+                                                <p class="admin-no-code">Sin código de canje generado.</p>
+
+                                            {% endif %}
+
+                                        </div>
+
+                                    </div>
+
+                                    <div class="admin-row-actions">
+
+                                        <a href="{{ url_for('admin_vehiculos', editar=vehiculo['id']) }}#admin-vehiculos" class="admin-mini-btn">
+                                            Editar
+                                        </a>
+
+                                        {% set codigos_unidad_acciones = codigos_por_vehiculo.get(vehiculo['id'], []) %}
+
+                                        {% if codigos_unidad_acciones %}
+                                            <button type="button" class="admin-mini-btn admin-mini-btn-disabled" disabled>
+                                                Código generado
+                                            </button>
+                                        {% elif vehiculo['estado'] == 'Vendido' %}
+                                            <button type="button" class="admin-mini-btn admin-mini-btn-disabled" disabled>
+                                                Vendido
+                                            </button>
+                                        {% elif vehiculo['activo'] != 1 %}
+                                            <button type="button" class="admin-mini-btn admin-mini-btn-disabled" disabled>
+                                                Activar primero
+                                            </button>
+                                        {% else %}
+                                            <form action="{{ url_for('admin_generar_codigo_vehiculo', vehiculo_id=vehiculo['id']) }}" method="POST">
+                                                <button type="submit" class="admin-mini-btn admin-mini-btn-code">
+                                                    Generar código
+                                                </button>
+                                            </form>
+                                        {% endif %}
+
+                                        <form action="{{ url_for('admin_cambiar_estado_vehiculo', vehiculo_id=vehiculo['id']) }}" method="POST">
+                                            <button type="submit" class="admin-mini-btn admin-mini-btn-muted">
+                                                {% if vehiculo['activo'] == 1 %}
+                                                    Ocultar
+                                                {% else %}
+                                                    Activar
+                                                {% endif %}
+                                            </button>
+                                        </form>
+
+                                        <form
+                                            action="/admin/vehiculos/{{ vehiculo['id'] }}/archivar"
+                                            method="POST">
+
+                                            <input
+                                                type="hidden"
+                                                name="motivo_archivado"
+                                                value="Archivado manualmente desde administración">
+
+                                            <button type="submit" class="admin-mini-btn admin-mini-btn-danger">
+                                                Eliminar
+                                            </button>
+                                        </form>
+
+                                    </div>
+
+                                </article>
+
+                            {% endfor %}
+
+                        {% else %}
+
+                            <div class="admin-empty">
+                                <i data-lucide="car-front"></i>
+                                <h3>No hay vehículos creados</h3>
+                                <p>Usa el formulario para agregar la primera unidad al catálogo.</p>
+                            </div>
+
+                        {% endif %}
+
+                    </div>
+
+                </section>
+
+            </section>
 
         </section>
 
-    </section>
+        <!-- SECCIÓN CÓDIGOS -->
 
-</main>
+        <section class="admin-section" id="admin-codigos" data-admin-content="codigos">
 
-<script src="{{ url_for('static', filename='js/script.js') }}"></script>
+            <div class="admin-section-header">
+                <div>
+                    <span>CANJE DE VEHÍCULOS</span>
+                    <h2>Códigos de activación</h2>
+                    <p>Consulta códigos disponibles, usados e inactivos por unidad.</p>
+                </div>
+            </div>
+
+            <section class="admin-panel">
+
+                <div class="admin-panel-title">
+                    <div>
+                        <span>REGISTRO DE CÓDIGOS</span>
+                        <h2>Códigos generados</h2>
+                    </div>
+
+                    <div class="admin-list-tools">
+                        <input
+                            type="text"
+                            class="admin-search-input"
+                            data-admin-search="codes"
+                            placeholder="Buscar código, vehículo o usuario...">
+                    </div>
+                </div>
+
+                <div class="admin-code-list" data-admin-list="codes">
+
+                    {% set hay_codigos = false %}
+
+                    {% if vehiculos %}
+
+                        {% for vehiculo in vehiculos %}
+
+                            {% set codigos_unidad = codigos_por_vehiculo.get(vehiculo['id'], []) %}
+
+                            {% for codigo in codigos_unidad %}
+
+                                {% set hay_codigos = true %}
+
+                                <article class="admin-code-row" data-admin-item>
+
+                                    <div class="admin-code-main">
+
+                                        <div class="admin-code-icon">
+                                            <i data-lucide="key-round"></i>
+                                        </div>
+
+                                        <div>
+                                            <h3>{{ codigo['codigo'] }}</h3>
+                                            <p>
+                                                {{ vehiculo['marca'] }} {{ vehiculo['modelo'] }} {{ vehiculo['anio'] }}
+                                                · {{ vehiculo['codigo_catalogo'] }}
+                                            </p>
+                                        </div>
+
+                                    </div>
+
+                                    <div class="admin-code-state">
+
+                                        {% if codigo['usado'] == 1 %}
+                                            <strong class="admin-status sold">Usado</strong>
+                                            <span>Por {{ codigo['usado_por_nombre'] or 'usuario' }}</span>
+                                        {% elif codigo['activo'] == 0 %}
+                                            <strong class="admin-status inactive">Inactivo</strong>
+                                            <span>No disponible para canje</span>
+                                        {% else %}
+                                            <strong class="admin-status active">Disponible</strong>
+                                            <span>Listo para entregar</span>
+                                        {% endif %}
+
+                                    </div>
+
+                                    <div class="admin-row-actions">
+
+                                        {% if codigo['usado'] == 0 and codigo['activo'] == 1 %}
+                                            <form action="{{ url_for('admin_desactivar_codigo_vehiculo', codigo_id=codigo['id']) }}" method="POST">
+                                                <button type="submit" class="admin-mini-btn admin-mini-btn-muted">
+                                                    Desactivar
+                                                </button>
+                                            </form>
+                                        {% else %}
+                                            <button type="button" class="admin-mini-btn admin-mini-btn-disabled" disabled>
+                                                Sin acción
+                                            </button>
+                                        {% endif %}
+
+                                    </div>
+
+                                </article>
+
+                            {% endfor %}
+
+                        {% endfor %}
+
+                    {% endif %}
+
+                    {% if not hay_codigos %}
+                        <div class="admin-empty">
+                            <i data-lucide="key-round"></i>
+                            <h3>No hay códigos generados</h3>
+                            <p>Genera códigos desde la sección de vehículos.</p>
+                        </div>
+                    {% endif %}
+
+                </div>
+
+            </section>
+
+        </section>
+
+        <!-- SECCIÓN VENTAS Y CANJES -->
+
+        <section class="admin-section" id="admin-ventas" data-admin-content="ventas">
+
+            <div class="admin-section-header">
+                <div>
+                    <span>HISTORIAL OPERATIVO</span>
+                    <h2>Ventas y canjes</h2>
+                    <p>Registro interno de vehículos activados por usuarios mediante código y anulaciones administrativas.</p>
+                </div>
+            </div>
+
+            <section class="admin-panel">
+
+                <div class="admin-panel-title">
+                    <div>
+                        <span>REGISTROS ACTIVOS</span>
+                        <h2>Canjes realizados</h2>
+                    </div>
+
+                    <div class="admin-list-tools">
+                        <input
+                            type="text"
+                            class="admin-search-input"
+                            data-admin-search="sales"
+                            placeholder="Buscar canje, usuario o vehículo...">
+                    </div>
+                </div>
+
+                <div class="admin-table-wrap" data-admin-list="sales">
+
+                    {% if ventas_canje|default([]) %}
+
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>Vehículo</th>
+                                    <th>Referencia</th>
+                                    <th>Usuario</th>
+                                    <th>Código usado</th>
+                                    <th>Fecha</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+                                {% for venta in ventas_canje %}
+                                    <tr data-admin-item>
+                                        <td>
+                                            {{ venta['marca'] }} {{ venta['modelo'] }} {{ venta['anio'] }}
+                                        </td>
+
+                                        <td>{{ venta['codigo_catalogo'] }}</td>
+
+                                        <td>
+                                            <strong>{{ venta['usuario_nombre'] }}</strong>
+
+                                            {% if venta['usuario_correo'] %}
+                                                <br>
+                                                <small>{{ venta['usuario_correo'] }}</small>
+                                            {% endif %}
+                                        </td>
+
+                                        <td>{{ venta['codigo_canje'] or 'Sin código' }}</td>
+                                        <td>{{ venta['fecha_registro'] }}</td>
+
+                                        <td>
+                                            <span class="admin-status sold">Vendido por canje</span>
+                                        </td>
+
+                                        <td>
+                                            <form
+                                                action="{{ url_for('admin_reversar_canje', usuario_vehiculo_id=venta['id']) }}"
+                                                method="POST"
+                                                onsubmit="return confirm('¿Seguro que deseas reversar este canje? El vehículo saldrá del perfil del usuario y volverá a estar disponible.');">
+
+                                                <input
+                                                    type="hidden"
+                                                    name="motivo"
+                                                    value="Reversa administrativa desde panel VINOVA">
+
+                                                <button type="submit" class="admin-mini-btn admin-mini-btn-danger">
+                                                    Reversar
+                                                </button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+
+                    {% else %}
+
+                        <div class="admin-empty">
+                            <i data-lucide="receipt-text"></i>
+                            <h3>Aún no hay ventas o canjes registrados</h3>
+                            <p>Cuando un usuario active un código, el registro aparecerá aquí.</p>
+                        </div>
+
+                    {% endif %}
+
+                </div>
+
+            </section>
+
+            <section class="admin-panel" style="margin-top: 24px;">
+
+                <div class="admin-panel-title">
+                    <div>
+                        <span>AUDITORÍA</span>
+                        <h2>Canjes reversados</h2>
+                    </div>
+
+                    <div class="admin-list-tools">
+                        <input
+                            type="text"
+                            class="admin-search-input"
+                            data-admin-search="reversed-sales"
+                            placeholder="Buscar reversa, usuario o vehículo...">
+                    </div>
+                </div>
+
+                <div class="admin-table-wrap" data-admin-list="reversed-sales">
+
+                    {% if canjes_reversados|default([]) %}
+
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>Vehículo</th>
+                                    <th>Referencia</th>
+                                    <th>Usuario original</th>
+                                    <th>Código</th>
+                                    <th>Fecha original</th>
+                                    <th>Reversado</th>
+                                    <th>Motivo</th>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+                                {% for reversa in canjes_reversados %}
+                                    <tr data-admin-item>
+                                        <td>{{ reversa['vehiculo_descripcion'] }}</td>
+                                        <td>{{ reversa['vehiculo_referencia'] }}</td>
+                                        <td>
+                                            <strong>{{ reversa['usuario_nombre'] }}</strong>
+                                            {% if reversa['usuario_correo'] %}
+                                                <br>
+                                                <small>{{ reversa['usuario_correo'] }}</small>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ reversa['codigo_canje'] or 'Sin código' }}</td>
+                                        <td>{{ reversa['fecha_registro_original'] }}</td>
+                                        <td>
+                                            <span class="admin-status warning">{{ reversa['reversado_en'] }}</span>
+                                            <br>
+                                            <small>Por {{ reversa['reversado_por_nombre'] or 'Administrador' }}</small>
+                                        </td>
+                                        <td>{{ reversa['motivo'] or 'Sin motivo registrado' }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+
+                    {% else %}
+
+                        <div class="admin-empty">
+                            <i data-lucide="rotate-ccw"></i>
+                            <h3>No hay canjes reversados</h3>
+                            <p>Cuando se anule un canje, quedará registrado aquí para auditoría.</p>
+                        </div>
+
+                    {% endif %}
+
+                </div>
+
+            </section>
+
+        </section>
+
+        <!-- SECCIÓN ARCHIVADOS -->
+
+        <section class="admin-section" id="admin-archivados" data-admin-content="archivados">
+
+            <div class="admin-section-header">
+                <div>
+                    <span>HISTORIAL INTERNO</span>
+                    <h2>Vehículos archivados</h2>
+                    <p>Unidades eliminadas visualmente del panel principal, conservadas para consulta empresarial.</p>
+                </div>
+            </div>
+
+            <section class="admin-panel">
+
+                <div class="admin-panel-title">
+                    <div>
+                        <span>ARCHIVO</span>
+                        <h2>Registros conservados</h2>
+                    </div>
+                </div>
+
+                <div class="admin-vehicle-list">
+
+                    {% if vehiculos_archivados|default([]) %}
+
+                        {% for vehiculo in vehiculos_archivados %}
+
+                            <article class="admin-vehicle-row archived">
+
+                                <div class="admin-vehicle-img">
+                                    {% if vehiculo['imagen'] %}
+                                        <img
+                                            src="{{ url_for('static', filename=vehiculo['imagen']) }}"
+                                            alt="{{ vehiculo['marca'] }} {{ vehiculo['modelo'] }}">
+                                    {% else %}
+                                        <i data-lucide="archive"></i>
+                                    {% endif %}
+                                </div>
+
+                                <div class="admin-vehicle-info">
+                                    <h3>{{ vehiculo['marca'] }} {{ vehiculo['modelo'] }} {{ vehiculo['anio'] }}</h3>
+
+                                    <p>
+                                        {{ vehiculo['codigo_catalogo'] }}
+                                        · Estado: {{ vehiculo['estado'] }}
+                                    </p>
+
+                                    <div class="admin-vehicle-meta">
+                                        <span>Archivado: {{ vehiculo['archivado_en'] or 'Sin fecha' }}</span>
+                                        <span>Por: {{ vehiculo['archivado_por_nombre'] or 'Administrador' }}</span>
+                                    </div>
+
+                                    {% if vehiculo['motivo_archivado'] %}
+                                        <p class="admin-archive-reason">
+                                            Motivo: {{ vehiculo['motivo_archivado'] }}
+                                        </p>
+                                    {% endif %}
+                                </div>
+
+                                <div class="admin-row-actions">
+                                    <button type="button" class="admin-mini-btn admin-mini-btn-disabled" disabled>
+                                        Solo consulta
+                                    </button>
+                                </div>
+
+                            </article>
+
+                        {% endfor %}
+
+                    {% else %}
+
+                        <div class="admin-empty">
+                            <i data-lucide="archive"></i>
+                            <h3>No hay vehículos archivados</h3>
+                            <p>Cuando elimines un vehículo del panel principal, se conservará aquí.</p>
+                        </div>
+
+                    {% endif %}
+
+                </div>
+
+            </section>
+
+        </section>
+
+        <!-- SECCIÓN USUARIOS -->
+
+        <section class="admin-section" id="admin-usuarios" data-admin-content="usuarios">
+
+            <div class="admin-section-header">
+                <div>
+                    <span>CUENTAS</span>
+                    <h2>Usuarios</h2>
+                    <p>Crea clientes, consulta sus vehículos activados y administra el estado de sus cuentas.</p>
+                </div>
+            </div>
+
+            <section class="admin-layout">
+
+                <section class="admin-panel admin-form-panel">
+
+                    <div class="admin-panel-title">
+                        <div>
+                            <span>NUEVA CUENTA</span>
+                            <h2>Crear usuario</h2>
+                        </div>
+                    </div>
+
+                    <form action="/admin/usuarios/crear" method="POST" class="admin-form">
+
+                        <div class="admin-form-grid">
+
+                            <label class="admin-field">
+                                <span>Nombre</span>
+                                <input type="text" name="nombre" placeholder="Nombre completo" required>
+                            </label>
+
+                            <label class="admin-field">
+                                <span>Correo</span>
+                                <input type="email" name="correo" placeholder="cliente@correo.com" required>
+                            </label>
+
+                            <label class="admin-field">
+                                <span>Contraseña temporal</span>
+                                <input type="password" name="password" placeholder="Mínimo 8 caracteres" minlength="8" required>
+                            </label>
+
+                            <label class="admin-field">
+                                <span>Rol</span>
+                                <select name="rol" required>
+                                    <option value="USUARIO" selected>Usuario / Cliente</option>
+                                    <option value="TRABAJADOR">Trabajador</option>
+                                
+                                </select>
+                            </label>
+
+                        </div>
+
+                        <div class="admin-actions">
+                            <button type="submit" class="admin-primary-btn">
+                                <i data-lucide="user-plus"></i>
+                                Crear usuario
+                            </button>
+                        </div>
+
+                    </form>
+
+                </section>
+
+                <section class="admin-panel admin-list-panel">
+
+                    <div class="admin-panel-title">
+                        <div>
+                            <span>CLIENTES Y CUENTAS</span>
+                            <h2>Usuarios registrados</h2>
+                        </div>
+
+                        <div class="admin-list-tools">
+                            <input
+                                type="text"
+                                class="admin-search-input"
+                                data-admin-search="users"
+                                placeholder="Buscar usuario...">
+                        </div>
+                    </div>
+
+                    <div class="admin-table-wrap" data-admin-list="users">
+
+                        {% if usuarios_admin|default([]) %}
+
+                            <table class="admin-table">
+                                <thead>
+                                    <tr>
+                                        <th>Nombre</th>
+                                        <th>Correo</th>
+                                        <th>Rol</th>
+                                        <th>Vehículos</th>
+                                        <th>Estado</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+
+                                <tbody>
+                                    {% for usuario in usuarios_admin %}
+                                        {% set usuario_activo = usuario['activo']|default(1)|int %}
+
+                                        <tr data-admin-item>
+                                            <td>{{ usuario['nombre'] }}</td>
+                                            <td>{{ usuario['correo'] }}</td>
+                                            <td>{{ usuario['rol'] }}</td>
+                                            <td>{{ usuario['total_vehiculos']|default(0) }}</td>
+                                            <td>
+                                                {% if usuario_activo == 1 %}
+                                                    <span class="admin-status active">Activo</span>
+                                                {% else %}
+                                                    <span class="admin-status inactive">Inactivo</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <div class="admin-row-actions">
+                                                    <form action="/admin/usuarios/{{ usuario['id'] }}/rol" method="POST">
+                                                        <select name="rol" class="admin-inline-select">
+                                                            <option value="USUARIO" {% if usuario['rol'] == 'USUARIO' %}selected{% endif %}>Usuario</option>
+                                                            <option value="TRABAJADOR" {% if usuario['rol'] == 'TRABAJADOR' %}selected{% endif %}>Trabajador</option>
+                                                        </select>
+
+                                                        <button type="submit" class="admin-mini-btn admin-mini-btn-muted">
+                                                            Guardar rol
+                                                        </button>
+                                                    </form>
+
+                                                    {% if usuario['id'] == session.get('usuario_id') %}
+                                                        <button type="button" class="admin-mini-btn admin-mini-btn-disabled" disabled>
+                                                            Sesión actual
+                                                        </button>
+                                                    {% else %}
+                                                        <form action="/admin/usuarios/{{ usuario['id'] }}/estado" method="POST">
+                                                            <button type="submit" class="admin-mini-btn {% if usuario_activo == 1 %}admin-mini-btn-danger{% else %}admin-mini-btn-code{% endif %}">
+                                                                {% if usuario_activo == 1 %}
+                                                                    Desactivar
+                                                                {% else %}
+                                                                    Activar
+                                                                {% endif %}
+                                                            </button>
+                                                        </form>
+                                                    {% endif %}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+
+                        {% else %}
+
+                            <div class="admin-empty">
+                                <i data-lucide="users"></i>
+                                <h3>No hay usuarios registrados</h3>
+                                <p>Crea la primera cuenta desde el formulario.</p>
+                            </div>
+
+                        {% endif %}
+
+                    </div>
+
+                </section>
+
+            </section>
+
+        </section>
+
+        <!-- SECCIÓN TRABAJADORES -->
+
+        <section class="admin-section" id="admin-trabajadores" data-admin-content="trabajadores">
+
+            <div class="admin-section-header">
+                <div>
+                    <span>EQUIPO INTERNO</span>
+                    <h2>Trabajadores</h2>
+                    <p>Crea y administra asesores, técnicos, vendedores y administradores de VINOVA.</p>
+                </div>
+            </div>
+
+            <section class="admin-layout">
+
+                <section class="admin-panel admin-form-panel">
+
+                    <div class="admin-panel-title">
+                        <div>
+                            <span>NUEVO PERSONAL</span>
+                            <h2>Crear trabajador</h2>
+                        </div>
+                    </div>
+
+                    <form action="/admin/usuarios/crear" method="POST" class="admin-form">
+
+                        <div class="admin-form-grid">
+
+                            <label class="admin-field">
+                                <span>Nombre</span>
+                                <input type="text" name="nombre" placeholder="Nombre del trabajador" required>
+                            </label>
+
+                            <label class="admin-field">
+                                <span>Correo</span>
+                                <input type="email" name="correo" placeholder="trabajador@vinova.com" required>
+                            </label>
+
+                            <label class="admin-field">
+                                <span>Contraseña temporal</span>
+                                <input type="password" name="password" placeholder="Mínimo 8 caracteres" minlength="8" required>
+                            </label>
+
+                            <label class="admin-field">
+                                <span>Rol interno</span>
+                                <select name="rol" required>
+                                    <option value="TRABAJADOR" selected>Trabajador</option>
+                                </select>
+                            </label>
+
+                        </div>
+
+                        <div class="admin-actions">
+                            <button type="submit" class="admin-primary-btn">
+                                <i data-lucide="user-round-plus"></i>
+                                Crear trabajador
+                            </button>
+                        </div>
+
+                    </form>
+
+                </section>
+
+                <section class="admin-panel admin-list-panel">
+
+                    <div class="admin-panel-title">
+                        <div>
+                            <span>PERSONAL</span>
+                            <h2>Equipo VINOVA</h2>
+                        </div>
+
+                        <div class="admin-list-tools">
+                            <input
+                                type="text"
+                                class="admin-search-input"
+                                data-admin-search="workers"
+                                placeholder="Buscar trabajador...">
+                        </div>
+                    </div>
+
+                    <div class="admin-table-wrap" data-admin-list="workers">
+
+                        {% if trabajadores_admin|default([]) %}
+
+                            <table class="admin-table">
+                                <thead>
+                                    <tr>
+                                        <th>Nombre</th>
+                                        <th>Cargo</th>
+                                        <th>Correo</th>
+                                        <th>Estado</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+
+                                <tbody>
+                                    {% for trabajador in trabajadores_admin %}
+                                        {% set trabajador_activo = trabajador['activo']|default(1)|int %}
+
+                                        <tr data-admin-item>
+                                            <td>{{ trabajador['nombre'] }}</td>
+                                            <td>{{ trabajador['cargo'] }}</td>
+                                            <td>{{ trabajador['correo'] }}</td>
+                                            <td>
+                                                {% if trabajador_activo == 1 %}
+                                                    <span class="admin-status active">Activo</span>
+                                                {% else %}
+                                                    <span class="admin-status inactive">Inactivo</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <div class="admin-row-actions">
+                                                    <form action="/admin/usuarios/{{ trabajador['id'] }}/rol" method="POST">
+                                                        <select name="rol" class="admin-inline-select">
+                                                            <option value="TRABAJADOR" {% if trabajador['cargo'] == 'TRABAJADOR' %}selected{% endif %}>Trabajador</option>
+                                                            <option value="ADMIN" {% if trabajador['cargo'] == 'ADMIN' %}selected{% endif %}>Admin</option>
+                                                        </select>
+
+                                                        <button type="submit" class="admin-mini-btn admin-mini-btn-muted">
+                                                            Guardar rol
+                                                        </button>
+                                                    </form>
+
+                                                    {% if trabajador['id'] == session.get('usuario_id') %}
+                                                        <button type="button" class="admin-mini-btn admin-mini-btn-disabled" disabled>
+                                                            Sesión actual
+                                                        </button>
+                                                    {% else %}
+                                                        <form action="/admin/usuarios/{{ trabajador['id'] }}/estado" method="POST">
+                                                            <button type="submit" class="admin-mini-btn {% if trabajador_activo == 1 %}admin-mini-btn-danger{% else %}admin-mini-btn-code{% endif %}">
+                                                                {% if trabajador_activo == 1 %}
+                                                                    Desactivar
+                                                                {% else %}
+                                                                    Activar
+                                                                {% endif %}
+                                                            </button>
+                                                        </form>
+                                                    {% endif %}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+
+                        {% else %}
+
+                            <div class="admin-empty">
+                                <i data-lucide="briefcase-business"></i>
+                                <h3>No hay trabajadores registrados</h3>
+                                <p>Crea personal interno desde el formulario.</p>
+                            </div>
+
+                        {% endif %}
+
+                    </div>
+
+                </section>
+
+            </section>
+
+        </section>
+
+        <!-- SECCIÓN CONFIGURACIÓN -->
+
+        <section class="admin-section" id="admin-configuracion" data-admin-content="configuracion">
+
+            <div class="admin-section-header">
+                <div>
+                    <span>SISTEMA</span>
+                    <h2>Configuración administrativa</h2>
+                    <p>Parámetros generales del panel y reglas internas del flujo de canje.</p>
+                </div>
+            </div>
+
+            <section class="admin-config-grid">
+
+                <article class="admin-panel">
+                    <div class="admin-panel-title">
+                        <div>
+                            <span>CANJE</span>
+                            <h2>Reglas activas</h2>
+                        </div>
+                    </div>
+
+                    <div class="admin-config-list">
+                        <div class="admin-config-item">
+                            <i data-lucide="check-circle"></i>
+                            <div>
+                                <strong>Canje por código privado</strong>
+                                <span>Los usuarios solo pueden registrar vehículos mediante código VNV.</span>
+                            </div>
+                        </div>
+
+                        <div class="admin-config-item">
+                            <i data-lucide="check-circle"></i>
+                            <div>
+                                <strong>Venta automática</strong>
+                                <span>Al canjear, el vehículo queda vendido y oculto del catálogo.</span>
+                            </div>
+                        </div>
+
+                        <div class="admin-config-item">
+                            <i data-lucide="archive"></i>
+                            <div>
+                                <strong>Eliminación visual</strong>
+                                <span>Eliminar desde admin archivará el vehículo sin destruir historial.</span>
+                            </div>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="admin-panel danger-zone">
+                    <div class="admin-panel-title">
+                        <div>
+                            <span>SESIÓN</span>
+                            <h2>Cuenta administrativa</h2>
+                        </div>
+                    </div>
+
+                    <p class="admin-muted-text">
+                        Estás usando una sesión con permisos administrativos. Cierra sesión al terminar.
+                    </p>
+
+                    <a href="{{ url_for('logout') }}" class="admin-danger-link">
+                        <i data-lucide="log-out"></i>
+                        Cerrar sesión
+                    </a>
+                </article>
+
+            </section>
+
+        </section>
+
+    </main>
+
+</div>
+
+<script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+
+<script>
+    if (window.lucide) {
+        lucide.createIcons();
+    }
+</script>
 
 </body>
+
 </html>

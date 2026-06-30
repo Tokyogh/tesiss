@@ -14,6 +14,7 @@
 </head>
 
 <body>
+{% set es_admin = session.get("rol", "")|upper == "ADMIN" %}
 
 <header class="navbar">
     <div class="logo">
@@ -32,11 +33,23 @@
 
                 <div class="dropdown-menu">
                     <a href="{{ url_for('catalog') }}">Catálogo</a>
+
+                    {% if es_admin %}
+                        <a href="{{ url_for('admin_vehiculos') }}">Administrar vehículos</a>
+                    {% endif %}
                 </div>
             </li>
 
-            <li>
-                <a href="{{ url_for('perfil') }}">Mi perfil</a>
+            <li class="dropdown">
+                <a href="#">Mi perfil</a>
+
+                <div class="dropdown-menu">
+                    <a href="{{ url_for('perfil') }}">Mi perfil</a>
+
+                    {% if es_admin %}
+                        <a href="{{ url_for('admin_vehiculos') }}">Panel admin</a>
+                    {% endif %}
+                </div>
             </li>
 
             <li class="dropdown">
@@ -226,4 +239,7 @@
 <script src="{{ url_for('static', filename='js/script.js') }}"></script>
 
 </body>
+
+
+
 </html>

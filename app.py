@@ -7,15 +7,23 @@ from datetime import timedelta, datetime
 import os
 import re
 import secrets
+import time
+import html
 from dotenv import load_dotenv
+from markupsafe import Markup
 import cloudinary
 import cloudinary.uploader
 
 
+load_dotenv()
+
 app = Flask(__name__)
-app.secret_key = "vinova"
+app.secret_key = os.getenv("FLASK_SECRET_KEY", "vinova")
 app.permanent_session_lifetime = timedelta(days=1)
 app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SESSION_COOKIE_SECURE"] = os.getenv("FLASK_COOKIE_SECURE", "0") == "1"
 
 
 # ================= CONFIGURACIÓN DE ARCHIVOS LOCALES =================
@@ -42,9 +50,24 @@ os.makedirs(app.config["VEHICLE_3D_FOLDER"], exist_ok=True)
 EXTENSIONES_IMAGEN_VEHICULO = {"jpg", "jpeg", "png", "webp"}
 
 
-# ================= CONFIGURACIÓN DE CLOUDINARY =================
+# ================= SEGURIDAD BÁSICA =================
+# CSRF se valida en todos los formularios POST.
+# El token se inyecta automáticamente en respuestas HTML para no tener que
+# editar todos los templates existentes.
 
-load_dotenv()
+CSRF_FORM_FIELD = "csrf_token"
+
+# Rate limit simple en memoria para login. Para producción con varios procesos
+# conviene mover esto a Redis o una tabla dedicada.
+LOGIN_ATTEMPTS = {}
+LOGIN_MAX_ATTEMPTS = int(os.getenv("LOGIN_MAX_ATTEMPTS", "5"))
+LOGIN_WINDOW_SECONDS = int(os.getenv("LOGIN_WINDOW_SECONDS", "900"))
+LOGIN_LOCK_SECONDS = int(os.getenv("LOGIN_LOCK_SECONDS", "900"))
+
+ROLES_CREABLES_DESDE_PANEL = {"USUARIO", "TRABAJADOR"}
+
+
+# ================= CONFIGURACIÓN DE CLOUDINARY =================
 
 cloudinary.config(
     cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
@@ -116,6 +139,70 @@ def normalizar_kilometraje(valor):
     return int(texto)
 
 
+def normalizar_precio(valor):
+    """
+    Convierte precios escritos con separadores comunes a float.
+
+    Acepta valores como:
+    - 28900
+    - "28900"
+    - "28,900"
+    - "28.900"
+    - "28,900.50"
+    - "28.900,50"
+
+    Devuelve None si el valor está vacío, no es numérico o es negativo.
+    """
+
+    if valor is None:
+        return None
+
+    if isinstance(valor, (int, float)):
+        precio = float(valor)
+        return precio if precio >= 0 else None
+
+    texto = str(valor).strip().lower()
+
+    if not texto:
+        return None
+
+    texto = texto.replace("$", "")
+    texto = texto.replace("usd", "")
+    texto = texto.replace("dólares", "")
+    texto = texto.replace("dolares", "")
+    texto = re.sub(r"\s+", "", texto)
+
+    if "," in texto and "." in texto:
+        # Si la coma aparece después del punto, asumimos formato latino:
+        # 28.900,50 -> 28900.50
+        if texto.rfind(",") > texto.rfind("."):
+            texto = texto.replace(".", "").replace(",", ".")
+        else:
+            # 28,900.50 -> 28900.50
+            texto = texto.replace(",", "")
+
+    elif "," in texto:
+        partes = texto.split(",")
+
+        if len(partes) == 2 and len(partes[1]) == 3 and partes[0].isdigit() and partes[1].isdigit():
+            texto = "".join(partes)
+        else:
+            texto = texto.replace(",", ".")
+
+    elif "." in texto:
+        partes = texto.split(".")
+
+        if len(partes) == 2 and len(partes[1]) == 3 and partes[0].isdigit() and partes[1].isdigit():
+            texto = "".join(partes)
+
+    try:
+        precio = float(texto)
+    except ValueError:
+        return None
+
+    return precio if precio >= 0 else None
+
+
 def obtener_nombre_imagen_vehiculo(ruta_imagen):
     """
     Normaliza la imagen del vehículo para profile.html.
@@ -140,6 +227,167 @@ def obtener_nombre_imagen_vehiculo(ruta_imagen):
         return None
 
     return os.path.basename(ruta_limpia)
+
+
+def ejecutar_sql_seguro(cursor, sql, descripcion="operación SQL"):
+    """
+    Ejecuta SQL de mantenimiento sin romper el arranque si ya existen datos
+    duplicados. Esto es útil para índices UNIQUE en bases antiguas.
+    """
+
+    try:
+        cursor.execute(sql)
+    except sqlite3.IntegrityError as error:
+        print(f"Advertencia: no se pudo aplicar {descripcion}: {error}")
+
+
+def agregar_columna_si_falta(cursor, tabla, columna, definicion):
+    cursor.execute(f"PRAGMA table_info({tabla})")
+    columnas = {fila[1] for fila in cursor.fetchall()}
+
+    if columna not in columnas:
+        cursor.execute(
+            f"ALTER TABLE {tabla} ADD COLUMN {columna} {definicion}"
+        )
+
+
+def tabla_existe(cursor, nombre_tabla):
+    cursor.execute("""
+        SELECT name
+        FROM sqlite_master
+        WHERE type = 'table'
+          AND name = ?
+    """, (
+        nombre_tabla,
+    ))
+
+    return cursor.fetchone() is not None
+
+
+def asegurar_migraciones_admin():
+    """
+    Asegura estructuras administrativas sin romper bases existentes.
+
+    Incluye:
+    - Archivado de vehículos.
+    - Auditoría de canjes reversados.
+    - Estado activo/fechas para usuarios.
+    - Índices UNIQUE para datos críticos cuando no existen duplicados previos.
+    """
+
+    conexion = sqlite3.connect("vinova.db")
+    cursor = conexion.cursor()
+
+    if tabla_existe(cursor, "vehiculos"):
+        columnas_vehiculos = {
+            "archivado": "INTEGER DEFAULT 0",
+            "archivado_en": "TEXT",
+            "archivado_por": "INTEGER",
+            "motivo_archivado": "TEXT",
+            "actualizado_en": "TEXT"
+        }
+
+        for columna, definicion in columnas_vehiculos.items():
+            agregar_columna_si_falta(cursor, "vehiculos", columna, definicion)
+
+        ejecutar_sql_seguro(
+            cursor,
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_vehiculos_codigo_catalogo_unico
+            ON vehiculos(codigo_catalogo)
+            WHERE codigo_catalogo IS NOT NULL AND TRIM(codigo_catalogo) != ''
+            """,
+            "índice único de código de catálogo"
+        )
+
+    if tabla_existe(cursor, "codigos_vehiculo"):
+        ejecutar_sql_seguro(
+            cursor,
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_codigos_vehiculo_codigo_unico
+            ON codigos_vehiculo(codigo)
+            WHERE codigo IS NOT NULL AND TRIM(codigo) != ''
+            """,
+            "índice único de código de canje"
+        )
+
+        ejecutar_sql_seguro(
+            cursor,
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_codigos_vehiculo_un_codigo_por_vehiculo
+            ON codigos_vehiculo(vehiculo_id)
+            WHERE vehiculo_id IS NOT NULL
+            """,
+            "índice único de un código por vehículo"
+        )
+
+    if tabla_existe(cursor, "usuarios"):
+        columnas_usuarios = {
+            "activo": "INTEGER DEFAULT 1",
+            "creado_en": "TEXT",
+            "actualizado_en": "TEXT"
+        }
+
+        for columna, definicion in columnas_usuarios.items():
+            agregar_columna_si_falta(cursor, "usuarios", columna, definicion)
+
+        ejecutar_sql_seguro(
+            cursor,
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_usuarios_correo_unico
+            ON usuarios(correo)
+            WHERE correo IS NOT NULL AND TRIM(correo) != ''
+            """,
+            "índice único de correo de usuario"
+        )
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS canjes_reversados (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            usuario_vehiculo_id INTEGER,
+            usuario_id INTEGER,
+            vehiculo_id INTEGER,
+            codigo_vehiculo_id INTEGER,
+            codigo_canje TEXT,
+            usuario_nombre TEXT,
+            usuario_correo TEXT,
+            vehiculo_referencia TEXT,
+            vehiculo_descripcion TEXT,
+            kilometraje_inicial INTEGER,
+            fecha_registro_original TEXT,
+            reversado_por INTEGER,
+            reversado_en TEXT,
+            motivo TEXT
+        )
+    """)
+
+    conexion.commit()
+    conexion.close()
+
+def fecha_actual():
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def redirigir_admin(seccion="vehiculos"):
+    return redirect(f"/admin/vehiculos#admin-{seccion}")
+
+
+def tiene_canje_real(cursor, vehiculo_id):
+    """
+    Un vehículo tiene canje real cuando ya existe en usuarios_vehiculos.
+    Eso significa que fue agregado al perfil de un usuario mediante el flujo
+    de canje y no debe reactivarse con el botón normal.
+    """
+
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM usuarios_vehiculos
+        WHERE vehiculo_id = ?
+    """, (
+        vehiculo_id,
+    ))
+
+    return cursor.fetchone()[0] > 0
 
 
 def generar_codigo_canje():
@@ -182,13 +430,182 @@ def guardar_imagen_vehiculo(archivo, codigo_catalogo):
     return f"img/vehicles/{nombre_archivo}"
 
 
+
+# ================= CSRF =================
+
+def obtener_csrf_token():
+    token = session.get(CSRF_FORM_FIELD)
+
+    if not token:
+        token = secrets.token_urlsafe(32)
+        session[CSRF_FORM_FIELD] = token
+
+    return token
+
+
+def crear_csrf_input():
+    token = html.escape(obtener_csrf_token(), quote=True)
+    return Markup(
+        f'<input type="hidden" name="{CSRF_FORM_FIELD}" value="{token}">'
+    )
+
+
+@app.context_processor
+def contexto_csrf():
+    return {
+        "csrf_token": obtener_csrf_token,
+        "csrf_input": crear_csrf_input
+    }
+
+
+@app.before_request
+def validar_csrf_en_post():
+    if request.method not in {"POST", "PUT", "PATCH", "DELETE"}:
+        return None
+
+    token_sesion = session.get(CSRF_FORM_FIELD)
+    token_enviado = (
+        request.form.get(CSRF_FORM_FIELD)
+        or request.headers.get("X-CSRFToken")
+        or request.headers.get("X-CSRF-Token")
+    )
+
+    if not token_sesion or not token_enviado:
+        flash("La solicitud expiró o no es válida. Intenta nuevamente.", "error")
+        return redirect(request.referrer or url_for("inicio"))
+
+    if not secrets.compare_digest(str(token_sesion), str(token_enviado)):
+        flash("La solicitud no pudo verificarse por seguridad. Intenta nuevamente.", "error")
+        return redirect(request.referrer or url_for("inicio"))
+
+    return None
+
+
+@app.after_request
+def inyectar_csrf_en_formularios(response):
+    if request.method != "GET":
+        return response
+
+    content_type = response.headers.get("Content-Type", "")
+
+    if "text/html" not in content_type.lower():
+        return response
+
+    if response.direct_passthrough:
+        return response
+
+    try:
+        contenido = response.get_data(as_text=True)
+    except RuntimeError:
+        return response
+
+    patron_form_post = re.compile(
+        r'(<form\b(?=[^>]*\bmethod=["\']?post["\']?)[^>]*>)',
+        re.IGNORECASE
+    )
+
+    if not patron_form_post.search(contenido):
+        return response
+
+    token = html.escape(obtener_csrf_token(), quote=True)
+    campo_csrf = f'\n    <input type="hidden" name="{CSRF_FORM_FIELD}" value="{token}">'
+
+    contenido = patron_form_post.sub(r'\1' + campo_csrf, contenido)
+    response.set_data(contenido)
+    response.headers["Content-Length"] = str(len(response.get_data()))
+
+    return response
+
+
+# ================= RATE LIMIT LOGIN =================
+
+def obtener_ip_cliente():
+    forwarded_for = request.headers.get("X-Forwarded-For", "")
+
+    if forwarded_for:
+        return forwarded_for.split(",")[0].strip()
+
+    return request.remote_addr or "desconocida"
+
+
+def clave_rate_login(correo):
+    correo_normalizado = (correo or "").strip().lower()
+    return f"{obtener_ip_cliente()}:{correo_normalizado}"
+
+
+def segundos_bloqueo_login(correo):
+    clave = clave_rate_login(correo)
+    registro = LOGIN_ATTEMPTS.get(clave)
+    ahora = time.time()
+
+    if not registro:
+        return 0
+
+    bloqueado_hasta = registro.get("bloqueado_hasta", 0)
+
+    if bloqueado_hasta > ahora:
+        return int(bloqueado_hasta - ahora)
+
+    if ahora - registro.get("inicio", ahora) > LOGIN_WINDOW_SECONDS:
+        LOGIN_ATTEMPTS.pop(clave, None)
+
+    return 0
+
+
+def registrar_login_fallido(correo):
+    clave = clave_rate_login(correo)
+    ahora = time.time()
+    registro = LOGIN_ATTEMPTS.get(clave)
+
+    if not registro or ahora - registro.get("inicio", ahora) > LOGIN_WINDOW_SECONDS:
+        LOGIN_ATTEMPTS[clave] = {
+            "intentos": 1,
+            "inicio": ahora,
+            "bloqueado_hasta": 0
+        }
+        return
+
+    registro["intentos"] += 1
+
+    if registro["intentos"] >= LOGIN_MAX_ATTEMPTS:
+        registro["bloqueado_hasta"] = ahora + LOGIN_LOCK_SECONDS
+
+
+def limpiar_login_fallido(correo):
+    LOGIN_ATTEMPTS.pop(clave_rate_login(correo), None)
+
+
+def usuario_es_ultimo_admin_activo(cursor, usuario_id):
+    cursor.execute("""
+        SELECT rol, COALESCE(activo, 1) AS activo
+        FROM usuarios
+        WHERE id = ?
+    """, (
+        usuario_id,
+    ))
+
+    usuario = cursor.fetchone()
+
+    if not usuario or usuario["rol"] != "ADMIN" or usuario["activo"] != 1:
+        return False
+
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM usuarios
+        WHERE rol = 'ADMIN'
+          AND COALESCE(activo, 1) = 1
+    """)
+
+    return cursor.fetchone()[0] <= 1
+
+
 # ================= PROTEGER RUTAS =================
 
 def login_required(ruta):
     @wraps(ruta)
     def wrapper(*args, **kwargs):
         if "usuario_id" not in session:
-            flash("Debes iniciar sesión para acceder a tu perfil.")
+            flash("Debes iniciar sesión para acceder a tu perfil.", "info")
             return redirect("/login")
         return ruta(*args, **kwargs)
     return wrapper
@@ -198,11 +615,11 @@ def admin_required(ruta):
     @wraps(ruta)
     def wrapper(*args, **kwargs):
         if "usuario_id" not in session:
-            flash("Debes iniciar sesión.")
+            flash("Debes iniciar sesión.", "info")
             return redirect("/login")
 
         if session.get("rol") != "ADMIN":
-            flash("No tienes permisos para acceder al panel de administración.")
+            flash("No tienes permisos para acceder al panel de administración.", "warning")
             return redirect("/perfil")
 
         return ruta(*args, **kwargs)
@@ -230,6 +647,15 @@ def login():
     correo = request.form["email"].strip().lower()
     password = request.form["password"]
 
+    segundos_restantes = segundos_bloqueo_login(correo)
+
+    if segundos_restantes > 0:
+        minutos = max(1, segundos_restantes // 60)
+        flash(f"Demasiados intentos fallidos. Intenta nuevamente en {minutos} minuto(s).", "warning")
+        return redirect("/login")
+
+    asegurar_migraciones_admin()
+
     conexion = conectar_db()
     cursor = conexion.cursor()
 
@@ -242,12 +668,21 @@ def login():
     conexion.close()
 
     if not usuario:
-        flash("Usuario no encontrado.")
+        registrar_login_fallido(correo)
+        flash("Correo o contraseña incorrectos.", "error")
         return redirect("/login")
 
     if not check_password_hash(usuario["password"], password):
-        flash("Contraseña incorrecta.")
+        registrar_login_fallido(correo)
+        flash("Correo o contraseña incorrectos.", "error")
         return redirect("/login")
+
+    if usuario.keys() and "activo" in usuario.keys() and usuario["activo"] == 0:
+        registrar_login_fallido(correo)
+        flash("Esta cuenta está desactivada. Contacta con administración.", "warning")
+        return redirect("/login")
+
+    limpiar_login_fallido(correo)
 
     session.permanent = True
     session["usuario_id"] = usuario["id"]
@@ -267,6 +702,8 @@ def register():
     correo = request.form["correo"].strip().lower()
     password = request.form["password"]
 
+    asegurar_migraciones_admin()
+
     conexion = conectar_db()
     cursor = conexion.cursor()
 
@@ -277,30 +714,36 @@ def register():
 
     if cursor.fetchone():
         conexion.close()
-        flash("Este correo ya está registrado.")
+        flash("Este correo ya está registrado.", "warning")
         return redirect("/login")
 
     password_hash = generate_password_hash(password)
+
+    ahora = fecha_actual()
 
     cursor.execute("""
         INSERT INTO usuarios (
             nombre,
             correo,
             password,
-            rol
+            rol,
+            activo,
+            creado_en
         )
-        VALUES (?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?)
     """, (
         nombre,
         correo,
         password_hash,
-        "USUARIO"
+        "USUARIO",
+        1,
+        ahora
     ))
 
     conexion.commit()
     conexion.close()
 
-    flash("Cuenta creada correctamente.")
+    flash("Cuenta creada correctamente.", "success")
 
     return redirect("/login")
 
@@ -407,8 +850,10 @@ def canjear_codigo_vehiculo():
     ).strip().upper()
 
     if not codigo_ingresado:
-        flash("Ingresa el código de activación del vehículo.")
+        flash("Ingresa el código de activación del vehículo.", "warning")
         return redirect("/perfil")
+
+    asegurar_migraciones_admin()
 
     conexion = conectar_db()
     cursor = conexion.cursor()
@@ -426,7 +871,8 @@ def canjear_codigo_vehiculo():
                 vehiculos.anio,
                 vehiculos.kilometraje,
                 vehiculos.estado AS estado_vehiculo,
-                vehiculos.activo AS vehiculo_activo
+                vehiculos.activo AS vehiculo_activo,
+                COALESCE(vehiculos.archivado, 0) AS vehiculo_archivado
             FROM codigos_vehiculo
             INNER JOIN vehiculos
                 ON vehiculos.id = codigos_vehiculo.vehiculo_id
@@ -440,22 +886,26 @@ def canjear_codigo_vehiculo():
 
         if not codigo:
             conexion.rollback()
-            flash("Código inválido. Verifica el código entregado por la concesionaria.")
+            flash("Código inválido. Verifica el código entregado por la concesionaria.", "error")
             return redirect("/perfil")
 
         if codigo["activo"] != 1:
             conexion.rollback()
-            flash("Este código está inactivo. Contacta con la concesionaria.")
+            flash("Este código está inactivo. Contacta con la concesionaria.", "warning")
             return redirect("/perfil")
 
         if codigo["usado"] == 1:
             conexion.rollback()
-            flash("Este código ya fue utilizado.")
+            flash("Este código ya fue utilizado.", "warning")
             return redirect("/perfil")
 
-        if codigo["vehiculo_activo"] != 1 or codigo["estado_vehiculo"] == "Vendido":
+        if (
+            codigo["vehiculo_activo"] != 1
+            or codigo["estado_vehiculo"] == "Vendido"
+            or codigo["vehiculo_archivado"] == 1
+        ):
             conexion.rollback()
-            flash("Este vehículo ya no está disponible para registro.")
+            flash("Este vehículo ya no está disponible para registro.", "warning")
             return redirect("/perfil")
 
         vehiculo_id = codigo["vehiculo_id_real"]
@@ -473,7 +923,7 @@ def canjear_codigo_vehiculo():
 
         if vehiculo_ya_registrado:
             conexion.rollback()
-            flash("Este vehículo ya fue registrado por otro usuario.")
+            flash("Este vehículo ya fue registrado por otro usuario.", "warning")
             return redirect("/perfil")
 
         ahora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -524,17 +974,18 @@ def canjear_codigo_vehiculo():
 
         flash(
             f"Vehículo registrado correctamente: "
-            f"{codigo['marca']} {codigo['modelo']} {codigo['anio']}."
+            f"{codigo['marca']} {codigo['modelo']} {codigo['anio']}.",
+            "success"
         )
 
     except sqlite3.IntegrityError:
         conexion.rollback()
-        flash("Este vehículo ya fue registrado anteriormente.")
+        flash("Este vehículo ya fue registrado anteriormente.", "warning")
 
     except Exception as error:
         conexion.rollback()
         print("Error al canjear código de vehículo:", error)
-        flash("No se pudo registrar el vehículo. Intenta nuevamente.")
+        flash("No se pudo registrar el vehículo. Intenta nuevamente.", "error")
 
     finally:
         conexion.close()
@@ -549,13 +1000,13 @@ def canjear_codigo_vehiculo():
 def actualizar_foto_perfil():
 
     if "foto_perfil" not in request.files:
-        flash("No seleccionaste ninguna imagen.")
+        flash("No seleccionaste ninguna imagen.", "warning")
         return redirect("/perfil")
 
     archivo = request.files["foto_perfil"]
 
     if archivo.filename == "":
-        flash("No seleccionaste ninguna imagen.")
+        flash("No seleccionaste ninguna imagen.", "warning")
         return redirect("/perfil")
 
     extensiones_permitidas = {"jpg", "jpeg", "png", "webp"}
@@ -563,7 +1014,7 @@ def actualizar_foto_perfil():
     extension = archivo.filename.rsplit(".", 1)[-1].lower()
 
     if extension not in extensiones_permitidas:
-        flash("Formato no permitido. Usa JPG, PNG o WEBP.")
+        flash("Formato no permitido. Usa JPG, PNG o WEBP.", "warning")
         return redirect("/perfil")
 
     try:
@@ -589,7 +1040,7 @@ def actualizar_foto_perfil():
 
     except Exception as error:
         print("Error al subir imagen a Cloudinary:", error)
-        flash("No se pudo subir la imagen. Intenta nuevamente.")
+        flash("No se pudo subir la imagen. Intenta nuevamente.", "error")
         return redirect("/perfil")
 
     conexion = conectar_db()
@@ -605,7 +1056,7 @@ def actualizar_foto_perfil():
 
     session["foto_perfil"] = foto_url
 
-    flash("Foto de perfil actualizada correctamente.")
+    flash("Foto de perfil actualizada correctamente.", "success")
     return redirect("/perfil")
 
 
@@ -625,6 +1076,8 @@ def logout():
 @app.route("/catalog")
 def catalog():
 
+    asegurar_migraciones_admin()
+
     conexion = conectar_db()
     cursor = conexion.cursor()
 
@@ -632,38 +1085,52 @@ def catalog():
         SELECT *
         FROM vehiculos
         WHERE activo = 1
+          AND COALESCE(archivado, 0) = 0
         ORDER BY id DESC
     """)
     vehiculos = cursor.fetchall()
 
-    cursor.execute("SELECT COUNT(*) FROM vehiculos WHERE activo = 1")
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM vehiculos
+        WHERE activo = 1
+          AND COALESCE(archivado, 0) = 0
+    """)
     total_vehiculos = cursor.fetchone()[0]
 
     cursor.execute("""
         SELECT COUNT(*)
         FROM vehiculos
-        WHERE activo = 1 AND tipo_vehiculo IN ('SUV', 'Suv', 'suv')
+        WHERE activo = 1
+          AND COALESCE(archivado, 0) = 0
+          AND tipo_vehiculo IN ('SUV', 'Suv', 'suv')
     """)
     total_suv = cursor.fetchone()[0]
 
     cursor.execute("""
         SELECT COUNT(*)
         FROM vehiculos
-        WHERE activo = 1 AND tipo_vehiculo IN ('Camioneta', 'Pickup')
+        WHERE activo = 1
+          AND COALESCE(archivado, 0) = 0
+          AND tipo_vehiculo IN ('Camioneta', 'Pickup')
     """)
     total_camionetas = cursor.fetchone()[0]
 
     cursor.execute("""
         SELECT COUNT(*)
         FROM vehiculos
-        WHERE activo = 1 AND combustible IN ('Híbrido', 'Eléctrico')
+        WHERE activo = 1
+          AND COALESCE(archivado, 0) = 0
+          AND combustible IN ('Híbrido', 'Eléctrico')
     """)
     total_hibridos = cursor.fetchone()[0]
 
     cursor.execute("""
         SELECT COUNT(*)
         FROM vehiculos
-        WHERE activo = 1 AND estado = 'Disponible'
+        WHERE activo = 1
+          AND COALESCE(archivado, 0) = 0
+          AND estado = 'Disponible'
     """)
     total_disponibles = cursor.fetchone()[0]
 
@@ -686,13 +1153,15 @@ def catalog():
 @login_required
 @admin_required
 def admin_inicio():
-    return redirect("/admin/vehiculos")
+    return redirigir_admin("vehiculos")
 
 
 @app.route("/admin/vehiculos")
 @login_required
 @admin_required
 def admin_vehiculos():
+
+    asegurar_migraciones_admin()
 
     editar_id = request.args.get("editar", type=int)
 
@@ -702,6 +1171,7 @@ def admin_vehiculos():
     cursor.execute("""
         SELECT *
         FROM vehiculos
+        WHERE COALESCE(archivado, 0) = 0
         ORDER BY id DESC
     """)
 
@@ -710,11 +1180,20 @@ def admin_vehiculos():
     vehiculo_editar = None
 
     if editar_id:
-        cursor.execute(
-            "SELECT * FROM vehiculos WHERE id = ?",
-            (editar_id,)
-        )
+        cursor.execute("""
+            SELECT *
+            FROM vehiculos
+            WHERE id = ?
+              AND COALESCE(archivado, 0) = 0
+        """, (
+            editar_id,
+        ))
         vehiculo_editar = cursor.fetchone()
+
+        if not vehiculo_editar:
+            flash("El vehículo no existe o fue archivado.", "warning")
+            conexion.close()
+            return redirigir_admin("vehiculos")
 
     cursor.execute("""
         SELECT
@@ -738,14 +1217,119 @@ def admin_vehiculos():
 
         codigos_por_vehiculo[vehiculo_id].append(codigo)
 
-    cursor.execute("SELECT COUNT(*) FROM vehiculos")
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM vehiculos
+        WHERE COALESCE(archivado, 0) = 0
+    """)
     total_vehiculos = cursor.fetchone()[0]
 
-    cursor.execute("SELECT COUNT(*) FROM vehiculos WHERE activo = 1")
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM vehiculos
+        WHERE activo = 1
+          AND COALESCE(archivado, 0) = 0
+    """)
     vehiculos_activos = cursor.fetchone()[0]
 
-    cursor.execute("SELECT COUNT(*) FROM vehiculos WHERE activo = 0")
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM vehiculos
+        WHERE activo = 0
+          AND COALESCE(archivado, 0) = 0
+    """)
     vehiculos_inactivos = cursor.fetchone()[0]
+
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM vehiculos
+        WHERE COALESCE(archivado, 0) = 1
+    """)
+    vehiculos_archivados_total = cursor.fetchone()[0]
+
+    cursor.execute("""
+        SELECT
+            vehiculos.*,
+            usuarios.nombre AS archivado_por_nombre
+        FROM vehiculos
+        LEFT JOIN usuarios
+            ON usuarios.id = vehiculos.archivado_por
+        WHERE COALESCE(vehiculos.archivado, 0) = 1
+        ORDER BY vehiculos.archivado_en DESC, vehiculos.id DESC
+    """)
+    vehiculos_archivados = cursor.fetchall()
+
+    cursor.execute("""
+        SELECT
+            usuarios_vehiculos.id,
+            usuarios_vehiculos.fecha_registro,
+            usuarios_vehiculos.kilometraje_inicial,
+            usuarios.nombre AS usuario_nombre,
+            usuarios.correo AS usuario_correo,
+            vehiculos.codigo_catalogo,
+            vehiculos.marca,
+            vehiculos.modelo,
+            vehiculos.anio,
+            codigos_vehiculo.codigo AS codigo_canje
+        FROM usuarios_vehiculos
+        INNER JOIN usuarios
+            ON usuarios.id = usuarios_vehiculos.usuario_id
+        INNER JOIN vehiculos
+            ON vehiculos.id = usuarios_vehiculos.vehiculo_id
+        LEFT JOIN codigos_vehiculo
+            ON codigos_vehiculo.id = usuarios_vehiculos.codigo_vehiculo_id
+        ORDER BY usuarios_vehiculos.id DESC
+    """)
+    ventas_canje = cursor.fetchall()
+
+    cursor.execute("""
+        SELECT
+            usuarios.id,
+            usuarios.nombre,
+            usuarios.correo,
+            usuarios.rol,
+            usuarios.foto_perfil,
+            COALESCE(usuarios.activo, 1) AS activo,
+            usuarios.creado_en,
+            usuarios.actualizado_en,
+            COUNT(usuarios_vehiculos.id) AS total_vehiculos
+        FROM usuarios
+        LEFT JOIN usuarios_vehiculos
+            ON usuarios_vehiculos.usuario_id = usuarios.id
+        GROUP BY usuarios.id
+        ORDER BY usuarios.id DESC
+    """)
+    usuarios_admin = cursor.fetchall()
+
+    cursor.execute("""
+        SELECT
+            usuarios.id,
+            usuarios.nombre,
+            usuarios.correo,
+            usuarios.rol AS cargo,
+            usuarios.foto_perfil,
+            COALESCE(usuarios.activo, 1) AS activo,
+            usuarios.creado_en,
+            usuarios.actualizado_en
+        FROM usuarios
+        WHERE usuarios.rol != 'USUARIO'
+        ORDER BY usuarios.id DESC
+    """)
+    trabajadores_admin = cursor.fetchall()
+
+    cursor.execute("""
+        SELECT
+            canjes_reversados.*,
+            usuarios.nombre AS reversado_por_nombre
+        FROM canjes_reversados
+        LEFT JOIN usuarios
+            ON usuarios.id = canjes_reversados.reversado_por
+        ORDER BY canjes_reversados.id DESC
+    """)
+    canjes_reversados = cursor.fetchall()
+
+    total_usuarios = len(usuarios_admin)
+    total_trabajadores = len(trabajadores_admin)
 
     conexion.close()
 
@@ -756,6 +1340,14 @@ def admin_vehiculos():
         total_vehiculos=total_vehiculos,
         vehiculos_activos=vehiculos_activos,
         vehiculos_inactivos=vehiculos_inactivos,
+        vehiculos_archivados_total=vehiculos_archivados_total,
+        vehiculos_archivados=vehiculos_archivados,
+        ventas_canje=ventas_canje,
+        usuarios_admin=usuarios_admin,
+        trabajadores_admin=trabajadores_admin,
+        canjes_reversados=canjes_reversados,
+        total_usuarios=total_usuarios,
+        total_trabajadores=total_trabajadores,
         codigos_por_vehiculo=codigos_por_vehiculo
     )
 
@@ -764,6 +1356,8 @@ def admin_vehiculos():
 @login_required
 @admin_required
 def admin_guardar_vehiculo():
+
+    asegurar_migraciones_admin()
 
     vehiculo_id = request.form.get("vehiculo_id", "").strip()
 
@@ -782,40 +1376,120 @@ def admin_guardar_vehiculo():
     modelo_3d = request.form.get("modelo_3d", "").strip()
     modelo_3d_tipo = request.form.get("modelo_3d_tipo", "glb").strip()
 
+    estados_permitidos = {
+        "Disponible",
+        "Reservado",
+        "No disponible",
+        "Vendido"
+    }
+
+    if estado not in estados_permitidos:
+        estado = "Disponible"
+
     activo = 1 if request.form.get("activo") == "on" else 0
 
+    # Si el admin marca manualmente un vehículo como vendido, debe quedar oculto.
+    # Si luego fue un error y NO existe canje real, podrá cambiarse de vuelta
+    # a Disponible y activarse normalmente.
+    if estado == "Vendido":
+        activo = 0
+
     if not codigo_catalogo or not marca or not modelo or not anio:
-        flash("Código, marca, modelo y año son obligatorios.")
-        return redirect("/admin/vehiculos")
+        flash("Código, marca, modelo y año son obligatorios.", "warning")
+        return redirigir_admin("vehiculos")
 
     try:
         anio = int(anio)
         kilometraje = normalizar_kilometraje(kilometraje)
-        precio = float(str(precio or 0).replace(",", "."))
+        precio = normalizar_precio(precio)
     except ValueError:
-        flash("Año, kilometraje y precio deben ser valores numéricos.")
-        return redirect("/admin/vehiculos")
+        flash("Año, kilometraje y precio deben ser valores numéricos.", "warning")
+        return redirigir_admin("vehiculos")
 
     if kilometraje is None:
-        flash("El kilometraje debe ser un valor numérico válido.")
-        return redirect("/admin/vehiculos")
+        flash("El kilometraje debe ser un valor numérico válido.", "warning")
+        return redirigir_admin("vehiculos")
+
+    if precio is None:
+        flash("El precio debe ser un valor numérico válido.", "warning")
+        return redirigir_admin("vehiculos")
 
     archivo_imagen = request.files.get("imagen")
-
-    try:
-        imagen_guardada = guardar_imagen_vehiculo(archivo_imagen, codigo_catalogo)
-    except ValueError as error:
-        flash(str(error))
-        return redirect("/admin/vehiculos")
 
     conexion = conectar_db()
     cursor = conexion.cursor()
 
     try:
-        ahora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        ahora = fecha_actual()
+
+        vehiculo_actual = None
+        vehiculo_tiene_codigo = False
+        vehiculo_tiene_registro_usuario = False
 
         if vehiculo_id:
             vehiculo_id = int(vehiculo_id)
+
+            cursor.execute("""
+                SELECT *
+                FROM vehiculos
+                WHERE id = ?
+                  AND COALESCE(archivado, 0) = 0
+            """, (
+                vehiculo_id,
+            ))
+
+            vehiculo_actual = cursor.fetchone()
+
+            if not vehiculo_actual:
+                flash("El vehículo no existe o fue archivado.", "warning")
+                return redirigir_admin("vehiculos")
+
+            cursor.execute("""
+                SELECT COUNT(*)
+                FROM codigos_vehiculo
+                WHERE vehiculo_id = ?
+            """, (
+                vehiculo_id,
+            ))
+            vehiculo_tiene_codigo = cursor.fetchone()[0] > 0
+
+            cursor.execute("""
+                SELECT COUNT(*)
+                FROM usuarios_vehiculos
+                WHERE vehiculo_id = ?
+            """, (
+                vehiculo_id,
+            ))
+            vehiculo_tiene_registro_usuario = cursor.fetchone()[0] > 0
+
+            # Si existe en usuarios_vehiculos, el vehículo fue registrado por un
+            # usuario. En ese caso no se puede "desvender" desde edición normal,
+            # porque quedaría disponible en catálogo pero seguiría en el perfil.
+            # Debe usarse la ruta de reversa de canje.
+            if vehiculo_tiene_registro_usuario:
+                if estado != "Vendido" or activo == 1:
+                    flash("Este vehículo fue vendido por canje. Para corregirlo usa la reversa/anulación del canje.", "warning")
+                    return redirigir_admin("ventas")
+
+                estado = "Vendido"
+                activo = 0
+
+            referencia_bloqueada = (
+                vehiculo_tiene_codigo
+                or vehiculo_tiene_registro_usuario
+            )
+
+            if referencia_bloqueada and codigo_catalogo != vehiculo_actual["codigo_catalogo"]:
+                flash("No puedes cambiar el código de catálogo de un vehículo que ya tiene código, venta o registro.", "warning")
+                return redirigir_admin("vehiculos")
+
+        try:
+            imagen_guardada = guardar_imagen_vehiculo(archivo_imagen, codigo_catalogo)
+        except ValueError as error:
+            flash(str(error), "warning")
+            return redirigir_admin("vehiculos")
+
+        if vehiculo_id:
 
             if imagen_guardada:
                 cursor.execute("""
@@ -901,7 +1575,7 @@ def admin_guardar_vehiculo():
                     vehiculo_id
                 ))
 
-            flash("Vehículo actualizado correctamente.")
+            flash("Vehículo actualizado correctamente.", "success")
 
         else:
             cursor.execute("""
@@ -923,9 +1597,10 @@ def admin_guardar_vehiculo():
                     estado,
                     activo,
                     creado_por,
-                    creado_en
+                    creado_en,
+                    archivado
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 codigo_catalogo,
                 marca,
@@ -944,26 +1619,27 @@ def admin_guardar_vehiculo():
                 estado,
                 activo,
                 session["usuario_id"],
-                ahora
+                ahora,
+                0
             ))
 
-            flash("Vehículo creado correctamente.")
+            flash("Vehículo creado correctamente.", "success")
 
         conexion.commit()
 
     except sqlite3.IntegrityError:
         conexion.rollback()
-        flash("Ya existe un vehículo con ese código de catálogo.")
+        flash("Ya existe un vehículo con ese código de catálogo.", "warning")
 
     except Exception as error:
         conexion.rollback()
         print("Error al guardar vehículo:", error)
-        flash("No se pudo guardar el vehículo. Revisa los datos e intenta nuevamente.")
+        flash("No se pudo guardar el vehículo. Revisa los datos e intenta nuevamente.", "error")
 
     finally:
         conexion.close()
 
-    return redirect("/admin/vehiculos")
+    return redirigir_admin("vehiculos")
 
 
 @app.route("/admin/vehiculos/<int:vehiculo_id>/estado", methods=["POST"])
@@ -971,20 +1647,58 @@ def admin_guardar_vehiculo():
 @admin_required
 def admin_cambiar_estado_vehiculo(vehiculo_id):
 
+    asegurar_migraciones_admin()
+
     conexion = conectar_db()
     cursor = conexion.cursor()
 
-    cursor.execute(
-        "SELECT activo FROM vehiculos WHERE id = ?",
-        (vehiculo_id,)
-    )
+    cursor.execute("""
+        SELECT
+            activo,
+            estado,
+            COALESCE(archivado, 0) AS archivado
+        FROM vehiculos
+        WHERE id = ?
+    """, (
+        vehiculo_id,
+    ))
 
     vehiculo = cursor.fetchone()
 
     if not vehiculo:
         conexion.close()
-        flash("Vehículo no encontrado.")
-        return redirect("/admin/vehiculos")
+        flash("Vehículo no encontrado.", "warning")
+        return redirigir_admin("vehiculos")
+
+    if vehiculo["archivado"] == 1:
+        conexion.close()
+        flash("No puedes cambiar la visibilidad de un vehículo archivado.", "warning")
+        return redirigir_admin("vehiculos")
+
+    if vehiculo["estado"] == "Vendido":
+        if tiene_canje_real(cursor, vehiculo_id):
+            conexion.close()
+            flash("Este vehículo fue vendido por canje. Para reactivarlo primero debes reversar/anular el canje.", "warning")
+            return redirigir_admin("ventas")
+
+        # Vendido manualmente por error: se permite corregir desde el botón normal.
+        cursor.execute("""
+            UPDATE vehiculos
+            SET
+                activo = 1,
+                estado = 'Disponible',
+                actualizado_en = ?
+            WHERE id = ?
+        """, (
+            fecha_actual(),
+            vehiculo_id
+        ))
+
+        conexion.commit()
+        conexion.close()
+
+        flash("Venta manual corregida. El vehículo volvió a Disponible y visible en catálogo.", "success")
+        return redirigir_admin("vehiculos")
 
     nuevo_estado = 0 if vehiculo["activo"] == 1 else 1
 
@@ -994,15 +1708,19 @@ def admin_cambiar_estado_vehiculo(vehiculo_id):
         WHERE id = ?
     """, (
         nuevo_estado,
-        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        fecha_actual(),
         vehiculo_id
     ))
 
     conexion.commit()
     conexion.close()
 
-    flash("Estado del vehículo actualizado.")
-    return redirect("/admin/vehiculos")
+    if nuevo_estado == 1:
+        flash("Vehículo activado en el catálogo.", "success")
+    else:
+        flash("Vehículo ocultado del catálogo.", "success")
+
+    return redirigir_admin("vehiculos")
 
 
 @app.route("/admin/vehiculos/<int:vehiculo_id>/codigo/generar", methods=["POST"])
@@ -1010,27 +1728,50 @@ def admin_cambiar_estado_vehiculo(vehiculo_id):
 @admin_required
 def admin_generar_codigo_vehiculo(vehiculo_id):
 
+    asegurar_migraciones_admin()
+
     conexion = conectar_db()
     cursor = conexion.cursor()
 
-    cursor.execute(
-        "SELECT * FROM vehiculos WHERE id = ?",
-        (vehiculo_id,)
-    )
+    cursor.execute("""
+        SELECT
+            *,
+            COALESCE(archivado, 0) AS archivado_normalizado
+        FROM vehiculos
+        WHERE id = ?
+    """, (
+        vehiculo_id,
+    ))
 
     vehiculo = cursor.fetchone()
 
     if not vehiculo:
         conexion.close()
-        flash("Vehículo no encontrado.")
-        return redirect("/admin/vehiculos")
+        flash("Vehículo no encontrado.", "warning")
+        return redirigir_admin("vehiculos")
 
+    if vehiculo["archivado_normalizado"] == 1:
+        conexion.close()
+        flash("No puedes generar código para un vehículo archivado.", "warning")
+        return redirigir_admin("vehiculos")
+
+    if vehiculo["estado"] == "Vendido":
+        conexion.close()
+        flash("No puedes generar código para un vehículo vendido.", "warning")
+        return redirigir_admin("vehiculos")
+
+    if vehiculo["activo"] != 1:
+        conexion.close()
+        flash("El vehículo debe estar activo en catálogo para generar un código.", "warning")
+        return redirigir_admin("vehiculos")
+
+    # Regla de negocio:
+    # 1 vehículo real = máximo 1 código VNV, sin importar si está usado,
+    # activo o inactivo.
     cursor.execute("""
         SELECT *
         FROM codigos_vehiculo
         WHERE vehiculo_id = ?
-          AND usado = 0
-          AND activo = 1
         LIMIT 1
     """, (
         vehiculo_id,
@@ -1040,10 +1781,17 @@ def admin_generar_codigo_vehiculo(vehiculo_id):
 
     if codigo_existente:
         conexion.close()
-        flash(f"Este vehículo ya tiene un código activo: {codigo_existente['codigo']}")
-        return redirect("/admin/vehiculos")
 
-    ahora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        if codigo_existente["usado"] == 1:
+            flash(f"Este vehículo ya tuvo un código usado: {codigo_existente['codigo']}", "warning")
+        elif codigo_existente["activo"] == 0:
+            flash(f"Este vehículo ya tiene un código inactivo: {codigo_existente['codigo']}", "warning")
+        else:
+            flash(f"Este vehículo ya tiene un código generado: {codigo_existente['codigo']}", "warning")
+
+        return redirigir_admin("vehiculos")
+
+    ahora = fecha_actual()
 
     try:
         codigo_generado = None
@@ -1076,7 +1824,7 @@ def admin_generar_codigo_vehiculo(vehiculo_id):
                 ))
 
                 conexion.commit()
-                flash(f"Código de canje generado: {codigo_generado}")
+                flash(f"Código de canje generado: {codigo_generado}", "success")
                 break
 
             except sqlite3.IntegrityError:
@@ -1084,23 +1832,235 @@ def admin_generar_codigo_vehiculo(vehiculo_id):
                 codigo_generado = None
 
         if not codigo_generado:
-            flash("No se pudo generar un código único. Intenta nuevamente.")
+            flash("No se pudo generar un código único. Intenta nuevamente.", "error")
 
     except Exception as error:
         conexion.rollback()
         print("Error al generar código de canje:", error)
-        flash("No se pudo generar el código de canje.")
+        flash("No se pudo generar el código de canje.", "error")
 
     finally:
         conexion.close()
 
-    return redirect("/admin/vehiculos")
+    return redirigir_admin("vehiculos")
+
+
+@app.route("/admin/vehiculos/<int:vehiculo_id>/archivar", methods=["POST"])
+@login_required
+@admin_required
+def admin_archivar_vehiculo(vehiculo_id):
+
+    asegurar_migraciones_admin()
+
+    motivo = request.form.get("motivo_archivado", "").strip()
+    ahora = fecha_actual()
+
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT
+                *,
+                COALESCE(archivado, 0) AS archivado_normalizado
+            FROM vehiculos
+            WHERE id = ?
+        """, (
+            vehiculo_id,
+        ))
+
+        vehiculo = cursor.fetchone()
+
+        if not vehiculo:
+            flash("Vehículo no encontrado.", "warning")
+            return redirigir_admin("vehiculos")
+
+        if vehiculo["archivado_normalizado"] == 1:
+            flash("Este vehículo ya estaba archivado.", "warning")
+            return redirigir_admin("archivados")
+
+        cursor.execute("""
+            UPDATE vehiculos
+            SET
+                archivado = 1,
+                archivado_en = ?,
+                archivado_por = ?,
+                motivo_archivado = ?,
+                activo = 0,
+                actualizado_en = ?
+            WHERE id = ?
+        """, (
+            ahora,
+            session["usuario_id"],
+            motivo or "Archivado manualmente desde administración",
+            ahora,
+            vehiculo_id
+        ))
+
+        conexion.commit()
+        flash("Vehículo archivado correctamente. Se conservará en el historial interno.", "success")
+
+    except Exception as error:
+        conexion.rollback()
+        print("Error al archivar vehículo:", error)
+        flash("No se pudo archivar el vehículo.", "error")
+
+    finally:
+        conexion.close()
+
+    return redirigir_admin("archivados")
+
+
+@app.route("/admin/canjes/<int:usuario_vehiculo_id>/reversar", methods=["POST"])
+@login_required
+@admin_required
+def admin_reversar_canje(usuario_vehiculo_id):
+
+    asegurar_migraciones_admin()
+
+    motivo = request.form.get("motivo", "").strip()
+    ahora = fecha_actual()
+
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    try:
+        conexion.execute("BEGIN IMMEDIATE")
+
+        cursor.execute("""
+            SELECT
+                usuarios_vehiculos.id AS usuario_vehiculo_id,
+                usuarios_vehiculos.usuario_id,
+                usuarios_vehiculos.vehiculo_id,
+                usuarios_vehiculos.codigo_vehiculo_id,
+                usuarios_vehiculos.kilometraje_inicial,
+                usuarios_vehiculos.fecha_registro,
+                usuarios.nombre AS usuario_nombre,
+                usuarios.correo AS usuario_correo,
+                vehiculos.codigo_catalogo,
+                vehiculos.marca,
+                vehiculos.modelo,
+                vehiculos.anio,
+                COALESCE(vehiculos.archivado, 0) AS vehiculo_archivado,
+                codigos_vehiculo.codigo AS codigo_canje
+            FROM usuarios_vehiculos
+            INNER JOIN usuarios
+                ON usuarios.id = usuarios_vehiculos.usuario_id
+            INNER JOIN vehiculos
+                ON vehiculos.id = usuarios_vehiculos.vehiculo_id
+            LEFT JOIN codigos_vehiculo
+                ON codigos_vehiculo.id = usuarios_vehiculos.codigo_vehiculo_id
+            WHERE usuarios_vehiculos.id = ?
+            LIMIT 1
+        """, (
+            usuario_vehiculo_id,
+        ))
+
+        canje = cursor.fetchone()
+
+        if not canje:
+            conexion.rollback()
+            flash("Registro de canje no encontrado.", "warning")
+            return redirigir_admin("ventas")
+
+        vehiculo_descripcion = (
+            f"{canje['marca']} {canje['modelo']} {canje['anio']}"
+        )
+
+        cursor.execute("""
+            INSERT INTO canjes_reversados (
+                usuario_vehiculo_id,
+                usuario_id,
+                vehiculo_id,
+                codigo_vehiculo_id,
+                codigo_canje,
+                usuario_nombre,
+                usuario_correo,
+                vehiculo_referencia,
+                vehiculo_descripcion,
+                kilometraje_inicial,
+                fecha_registro_original,
+                reversado_por,
+                reversado_en,
+                motivo
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            canje["usuario_vehiculo_id"],
+            canje["usuario_id"],
+            canje["vehiculo_id"],
+            canje["codigo_vehiculo_id"],
+            canje["codigo_canje"],
+            canje["usuario_nombre"],
+            canje["usuario_correo"],
+            canje["codigo_catalogo"],
+            vehiculo_descripcion,
+            canje["kilometraje_inicial"],
+            canje["fecha_registro"],
+            session["usuario_id"],
+            ahora,
+            motivo or "Reversa administrativa de canje"
+        ))
+
+        cursor.execute("""
+            DELETE FROM usuarios_vehiculos
+            WHERE id = ?
+        """, (
+            usuario_vehiculo_id,
+        ))
+
+        if canje["codigo_vehiculo_id"]:
+            cursor.execute("""
+                UPDATE codigos_vehiculo
+                SET
+                    usado = 0,
+                    usado_por = NULL,
+                    fecha_uso = NULL,
+                    activo = 1
+                WHERE id = ?
+            """, (
+                canje["codigo_vehiculo_id"],
+            ))
+
+        nuevo_activo = 0 if canje["vehiculo_archivado"] == 1 else 1
+
+        cursor.execute("""
+            UPDATE vehiculos
+            SET
+                estado = 'Disponible',
+                activo = ?,
+                actualizado_en = ?
+            WHERE id = ?
+        """, (
+            nuevo_activo,
+            ahora,
+            canje["vehiculo_id"]
+        ))
+
+        conexion.commit()
+
+        if nuevo_activo == 1:
+            flash("Canje reversado correctamente. El vehículo volvió a Disponible y visible en catálogo.", "success")
+        else:
+            flash("Canje reversado correctamente. El vehículo sigue oculto porque está archivado.", "success")
+
+    except Exception as error:
+        conexion.rollback()
+        print("Error al reversar canje:", error)
+        flash("No se pudo reversar el canje. Intenta nuevamente.", "error")
+
+    finally:
+        conexion.close()
+
+    return redirigir_admin("ventas")
 
 
 @app.route("/admin/codigos/<int:codigo_id>/desactivar", methods=["POST"])
 @login_required
 @admin_required
 def admin_desactivar_codigo_vehiculo(codigo_id):
+
+    asegurar_migraciones_admin()
 
     conexion = conectar_db()
     cursor = conexion.cursor()
@@ -1114,13 +2074,13 @@ def admin_desactivar_codigo_vehiculo(codigo_id):
 
     if not codigo:
         conexion.close()
-        flash("Código no encontrado.")
-        return redirect("/admin/vehiculos")
+        flash("Código no encontrado.", "warning")
+        return redirigir_admin("vehiculos")
 
     if codigo["usado"] == 1:
         conexion.close()
-        flash("No puedes desactivar un código que ya fue usado.")
-        return redirect("/admin/vehiculos")
+        flash("No puedes desactivar un código que ya fue usado.", "warning")
+        return redirigir_admin("vehiculos")
 
     cursor.execute("""
         UPDATE codigos_vehiculo
@@ -1133,19 +2093,223 @@ def admin_desactivar_codigo_vehiculo(codigo_id):
     conexion.commit()
     conexion.close()
 
-    flash("Código de canje desactivado correctamente.")
-    return redirect("/admin/vehiculos")
+    flash("Código de canje desactivado correctamente.", "success")
+    return redirigir_admin("vehiculos")
+
+
+
+# ================= ADMIN USUARIOS / TRABAJADORES =================
+
+@app.route("/admin/usuarios/crear", methods=["POST"])
+@login_required
+@admin_required
+def admin_crear_usuario():
+
+    asegurar_migraciones_admin()
+
+    nombre = request.form.get("nombre", "").strip()
+    correo = request.form.get("correo", "").strip().lower()
+    password = request.form.get("password", "").strip()
+    rol = request.form.get("rol", "USUARIO").strip().upper()
+
+    if rol == "ADMIN":
+        flash("Los administradores solo pueden crearse desde consola raíz del proyecto.", "warning")
+        return redirigir_admin("usuarios")
+
+    if rol not in ROLES_CREABLES_DESDE_PANEL:
+        flash("Rol no permitido desde el panel administrativo.", "warning")
+        return redirigir_admin("usuarios")
+
+    if not nombre or not correo or not password:
+        flash("Nombre, correo y contraseña son obligatorios para crear la cuenta.", "warning")
+        return redirigir_admin("usuarios")
+
+    if len(password) < 8:
+        flash("La contraseña debe tener al menos 8 caracteres.", "warning")
+        return redirigir_admin("usuarios")
+
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    try:
+        ahora = fecha_actual()
+        password_hash = generate_password_hash(password)
+
+        cursor.execute("""
+            INSERT INTO usuarios (
+                nombre,
+                correo,
+                password,
+                rol,
+                activo,
+                creado_en
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (
+            nombre,
+            correo,
+            password_hash,
+            rol,
+            1,
+            ahora
+        ))
+
+        conexion.commit()
+
+        if rol == "USUARIO":
+            flash("Usuario creado correctamente.", "success")
+            return redirigir_admin("usuarios")
+
+        flash("Trabajador creado correctamente.", "success")
+        return redirigir_admin("trabajadores")
+
+    except sqlite3.IntegrityError:
+        conexion.rollback()
+        flash("Ya existe una cuenta con ese correo.", "warning")
+
+    except Exception as error:
+        conexion.rollback()
+        print("Error al crear usuario:", error)
+        flash("No se pudo crear la cuenta. Intenta nuevamente.", "error")
+
+    finally:
+        conexion.close()
+
+    return redirigir_admin("usuarios")
+
+
+@app.route("/admin/usuarios/<int:usuario_id>/rol", methods=["POST"])
+@login_required
+@admin_required
+def admin_actualizar_rol_usuario(usuario_id):
+
+    asegurar_migraciones_admin()
+
+    nuevo_rol = request.form.get("rol", "").strip().upper()
+
+    if nuevo_rol == "ADMIN":
+        flash("No puedes convertir usuarios en administradores desde el panel web.", "warning")
+        return redirigir_admin("usuarios")
+
+    if nuevo_rol not in ROLES_CREABLES_DESDE_PANEL:
+        flash("Rol no permitido desde el panel administrativo.", "warning")
+        return redirigir_admin("usuarios")
+
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    try:
+        cursor.execute("SELECT * FROM usuarios WHERE id = ?", (usuario_id,))
+        usuario = cursor.fetchone()
+
+        if not usuario:
+            flash("Usuario no encontrado.", "warning")
+            return redirigir_admin("usuarios")
+
+        if usuario["rol"] == "ADMIN":
+            flash("Las cuentas administradoras solo se modifican desde consola raíz del proyecto.", "warning")
+            return redirigir_admin("usuarios")
+
+        cursor.execute("""
+            UPDATE usuarios
+            SET rol = ?, actualizado_en = ?
+            WHERE id = ?
+        """, (
+            nuevo_rol,
+            fecha_actual(),
+            usuario_id
+        ))
+
+        conexion.commit()
+        flash("Rol actualizado correctamente.", "success")
+
+    except Exception as error:
+        conexion.rollback()
+        print("Error al actualizar rol:", error)
+        flash("No se pudo actualizar el rol del usuario.", "error")
+
+    finally:
+        conexion.close()
+
+    return redirigir_admin("usuarios")
+
+
+@app.route("/admin/usuarios/<int:usuario_id>/estado", methods=["POST"])
+@login_required
+@admin_required
+def admin_cambiar_estado_usuario(usuario_id):
+
+    asegurar_migraciones_admin()
+
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT id, nombre, rol, COALESCE(activo, 1) AS activo
+            FROM usuarios
+            WHERE id = ?
+        """, (
+            usuario_id,
+        ))
+
+        usuario = cursor.fetchone()
+
+        if not usuario:
+            flash("Usuario no encontrado.", "warning")
+            return redirigir_admin("usuarios")
+
+        if usuario_id == session.get("usuario_id"):
+            flash("No puedes desactivar tu propia cuenta desde esta sesión.", "warning")
+            return redirigir_admin("usuarios")
+
+        if usuario["rol"] == "ADMIN":
+            flash("Las cuentas administradoras solo se activan o desactivan desde consola raíz del proyecto.", "warning")
+            return redirigir_admin("usuarios")
+
+        nuevo_estado = 0 if usuario["activo"] == 1 else 1
+
+        cursor.execute("""
+            UPDATE usuarios
+            SET activo = ?, actualizado_en = ?
+            WHERE id = ?
+        """, (
+            nuevo_estado,
+            fecha_actual(),
+            usuario_id
+        ))
+
+        conexion.commit()
+
+        if nuevo_estado == 1:
+            flash("Cuenta activada correctamente.", "success")
+        else:
+            flash("Cuenta desactivada correctamente.", "success")
+
+    except Exception as error:
+        conexion.rollback()
+        print("Error al cambiar estado de usuario:", error)
+        flash("No se pudo actualizar el estado de la cuenta.", "error")
+
+    finally:
+        conexion.close()
+
+    return redirigir_admin("usuarios")
 
 
 # ================= ERROR PESO =================
 
 @app.errorhandler(413)
 def archivo_demasiado_grande(error):
-    flash("La imagen es demasiado pesada. Intenta con una imagen más pequeña.")
+    flash("La imagen es demasiado pesada. Intenta con una imagen más pequeña.", "warning")
     return redirect(request.referrer or "/perfil")
 
 
 # ================= APP =================
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    debug = os.getenv("FLASK_DEBUG", "0") == "1"
+    host = os.getenv("FLASK_HOST", "127.0.0.1")
+    port = int(os.getenv("FLASK_PORT", "5000"))
+
+    app.run(host=host, port=port, debug=debug)
