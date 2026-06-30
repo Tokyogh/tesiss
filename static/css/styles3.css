@@ -1435,3 +1435,469 @@ a.catalog-modal-secondary:visited {
         flex-wrap: wrap;
     }
 }
+
+
+/* ============================= */
+/* FILTROS FUNCIONALES / FORM */
+/* ============================= */
+
+.catalog-filter-form {
+    display: block;
+}
+
+.catalog-filter-empty {
+    margin: 0;
+    color: var(--catalog-muted-2);
+    font-size: 0.82rem;
+    line-height: 1.45;
+}
+
+.catalog-checkbox-row input:checked ~ .custom-check,
+.catalog-type-card input:checked + span {
+    color: #ffffff;
+}
+
+.catalog-checkbox-row.is-selected {
+    color: #ffffff;
+}
+
+.catalog-type-card {
+    position: relative;
+}
+
+.catalog-type-card input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.catalog-type-card.is-selected,
+.catalog-type-card:has(input:checked) {
+    color: #ffffff;
+    transform: translateY(-2px);
+    border-color: rgba(var(--tone-rgb), 0.72);
+    box-shadow:
+        0 0 16px rgba(var(--tone-rgb), 0.27),
+        inset 0 0 16px rgba(var(--tone-rgb), 0.075);
+}
+
+.catalog-number-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.catalog-number-field {
+    display: grid;
+    gap: 7px;
+}
+
+.catalog-number-field span {
+    color: var(--catalog-muted-2);
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+
+.catalog-number-field input,
+.catalog-sort-select,
+.catalog-page-size-select {
+    width: 100%;
+    min-height: 38px;
+    padding: 0 11px;
+    color: #ffffff;
+    font-family: inherit;
+    font-size: 0.82rem;
+    font-weight: 700;
+    outline: none;
+    border-radius: 9px;
+    background: rgba(2, 8, 20, 0.76);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    transition:
+        border-color 0.2s ease,
+        box-shadow 0.2s ease,
+        background 0.2s ease;
+}
+
+.catalog-number-field input:hover,
+.catalog-number-field input:focus,
+.catalog-sort-select:hover,
+.catalog-sort-select:focus,
+.catalog-page-size-select:hover,
+.catalog-page-size-select:focus {
+    border-color: rgba(59, 130, 246, 0.52);
+    background: rgba(3, 10, 23, 0.88);
+    box-shadow:
+        0 0 0 3px rgba(59, 130, 246, 0.11),
+        0 0 14px rgba(59, 130, 246, 0.16);
+}
+
+.catalog-number-field input::-webkit-outer-spin-button,
+.catalog-number-field input::-webkit-inner-spin-button {
+    margin: 0;
+}
+
+.catalog-range-control {
+    height: 34px;
+    margin: 5px 2px 0;
+}
+
+.catalog-range-track {
+    position: absolute;
+    top: 15px;
+    left: 0;
+    right: 0;
+    height: 4px;
+    border-radius: 999px;
+    background: rgba(30, 41, 59, 0.92);
+    overflow: hidden;
+}
+
+.catalog-range-fill {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: var(--range-left, 0%);
+    right: calc(100% - var(--range-right, 100%));
+    border-radius: 999px;
+    background: linear-gradient(90deg, #1e40af, #2563eb, #38bdf8);
+    box-shadow: 0 0 13px rgba(59, 130, 246, 0.55);
+}
+
+.catalog-range-input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 34px;
+    margin: 0;
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
+    pointer-events: none;
+}
+
+.catalog-range-input::-webkit-slider-thumb {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #3b82f6;
+    border: 2px solid #dbeafe;
+    box-shadow: 0 0 12px rgba(59, 130, 246, 0.78);
+    cursor: pointer;
+    pointer-events: auto;
+}
+
+.catalog-range-input::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border: 0;
+    border-radius: 50%;
+    background: #3b82f6;
+    outline: 2px solid #dbeafe;
+    box-shadow: 0 0 12px rgba(59, 130, 246, 0.78);
+    cursor: pointer;
+    pointer-events: auto;
+}
+
+.catalog-range-input::-webkit-slider-runnable-track {
+    height: 4px;
+    background: transparent;
+}
+
+.catalog-range-input::-moz-range-track {
+    height: 4px;
+    background: transparent;
+}
+
+.catalog-range-input-min {
+    z-index: 3;
+}
+
+.catalog-range-input-max {
+    z-index: 4;
+}
+
+.catalog-filter-actions {
+    display: grid;
+    gap: 10px;
+    margin-top: 16px;
+}
+
+.catalog-apply-filters {
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: #ffffff;
+    cursor: pointer;
+    border: 1px solid rgba(59, 130, 246, 0.38);
+    border-radius: 10px;
+    background: linear-gradient(135deg, #1e40af, #2563eb, #0ea5e9);
+    font-family: inherit;
+    font-size: 0.84rem;
+    font-weight: 850;
+    box-shadow: 0 0 16px rgba(59, 130, 246, 0.2);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.catalog-apply-filters:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 24px rgba(59, 130, 246, 0.35);
+}
+
+.catalog-apply-filters svg {
+    width: 17px;
+    height: 17px;
+}
+
+.catalog-active-filters {
+    margin: 14px 0 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.catalog-filter-chip {
+    min-height: 28px;
+    padding: 0 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #bfdbfe;
+    text-decoration: none;
+    font-size: 0.72rem;
+    font-weight: 800;
+    border-radius: 999px;
+    background: rgba(37, 99, 235, 0.14);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    transition: 0.2s ease;
+}
+
+.catalog-filter-chip:hover {
+    color: #ffffff;
+    border-color: rgba(59, 130, 246, 0.62);
+    box-shadow: 0 0 12px rgba(59, 130, 246, 0.22);
+}
+
+.catalog-filter-chip svg {
+    width: 13px;
+    height: 13px;
+}
+
+/* ============================= */
+/* TOOLBAR FUNCIONAL */
+/* ============================= */
+
+.catalog-sort-control form,
+.catalog-sort-inline,
+.catalog-items-form {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.catalog-sort-select,
+.catalog-page-size-select {
+    min-width: 175px;
+    padding-right: 35px;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background:
+        linear-gradient(180deg, rgba(2, 8, 20, 0.82), rgba(3, 10, 23, 0.82)),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='17' height='17' viewBox='0 0 24 24' fill='none' stroke='%2393c5fd' stroke-width='2.3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 11px center;
+    background-size: 17px;
+}
+
+.catalog-sort-select option,
+.catalog-page-size-select option {
+    color: #e5efff;
+    background-color: #07101f;
+    font-weight: 700;
+}
+
+/* ============================= */
+/* ESTADOS DE VEHÍCULO */
+/* ============================= */
+
+.badge-yellow {
+    color: #fde68a;
+    background: rgba(245, 158, 11, 0.16);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.13);
+}
+
+.available.reserved {
+    color: var(--yellow);
+}
+
+.available.reserved .status-dot {
+    background: var(--yellow);
+    box-shadow: 0 0 8px rgba(245, 158, 11, 0.65);
+}
+
+.catalog-vehicle-meta-code {
+    max-width: 100%;
+}
+
+.catalog-vehicle-card[data-hidden-by-search="true"] {
+    display: none;
+}
+
+/* ============================= */
+/* PAGINACIÓN REAL */
+/* ============================= */
+
+.pagination-btn[disabled],
+.pagination-btn.is-disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.pagination-btn[data-catalog-page] {
+    text-decoration: none;
+}
+
+.pagination-dots {
+    min-width: 28px;
+    text-align: center;
+}
+
+.catalog-footer-empty {
+    display: none;
+}
+
+/* ============================= */
+/* MODAL MEJORADO */
+/* ============================= */
+
+.catalog-modal-state {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: 14px;
+    color: #86efac;
+    font-size: 0.8rem;
+    font-weight: 850;
+}
+
+.catalog-modal-state.reserved {
+    color: #fde68a;
+}
+
+.catalog-modal-state .status-dot {
+    width: 8px;
+    height: 8px;
+}
+
+.catalog-modal-primary[disabled] {
+    opacity: 0.62;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.catalog-modal-login-note {
+    width: 100%;
+    color: #a6b0c2;
+    font-size: 0.78rem;
+    line-height: 1.4;
+}
+
+/* ============================= */
+/* NAVBAR CATÁLOGO */
+/* ============================= */
+
+.catalog-admin-link {
+    color: #bfdbfe !important;
+}
+
+/* ============================= */
+/* SCROLLBAR CATÁLOGO */
+/* ============================= */
+
+.catalog-sidebar,
+.catalog-modal-grid,
+.catalog-content {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(59, 130, 246, 0.58) rgba(4, 11, 22, 0.62);
+}
+
+.catalog-sidebar::-webkit-scrollbar,
+.catalog-modal-grid::-webkit-scrollbar,
+.catalog-content::-webkit-scrollbar {
+    width: 9px;
+    height: 9px;
+}
+
+.catalog-sidebar::-webkit-scrollbar-track,
+.catalog-modal-grid::-webkit-scrollbar-track,
+.catalog-content::-webkit-scrollbar-track {
+    background: rgba(4, 11, 22, 0.62);
+    border-radius: 999px;
+}
+
+.catalog-sidebar::-webkit-scrollbar-thumb,
+.catalog-modal-grid::-webkit-scrollbar-thumb,
+.catalog-content::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: linear-gradient(180deg, rgba(59, 130, 246, 0.95), rgba(14, 165, 233, 0.72));
+    border: 2px solid rgba(4, 11, 22, 0.82);
+    box-shadow: 0 0 10px rgba(59, 130, 246, 0.28);
+}
+
+/* ============================= */
+/* RESPONSIVE EXTRA */
+/* ============================= */
+
+@media (max-width: 900px) {
+    .catalog-sort-inline,
+    .catalog-items-form {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .catalog-sort-select,
+    .catalog-page-size-select {
+        min-width: 180px;
+    }
+
+    .catalog-active-filters {
+        margin-top: 12px;
+    }
+}
+
+@media (max-width: 700px) {
+    .catalog-number-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .catalog-sort-inline,
+    .catalog-items-form {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .catalog-sort-select,
+    .catalog-page-size-select {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .catalog-modal-grid {
+        grid-template-columns: 1fr;
+        padding: 24px;
+    }
+
+    .catalog-modal-image-box {
+        min-height: 230px;
+    }
+}

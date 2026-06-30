@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VINOVA | Panel trabajador</title>
+
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/trabajador.css') }}">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+    <script src="{{ url_for('static', filename='js/trabajador.js') }}" defer></script>
+</head>
+
+<body>
+
+{% set vehiculos_lista = vehiculos|default([]) %}
+{% set codigos_lista = codigos|default([]) %}
+{% set ventas_lista = ventas_canje|default(canjes|default([])) %}
+{% set generar_codigo_base_url = trabajador_generar_codigo_url|default('') %}
+
+<div class="worker-shell">
+
+    <aside class="worker-sidebar">
+        <a href="{{ url_for('inicio') }}" class="worker-brand">
+            <div class="worker-brand-icon">
+                <i data-lucide="briefcase-business"></i>
+            </div>
+
+            <div>
+                <h2>VINOVA</h2>
+                <span>Panel trabajador</span>
+            </div>
+        </a>
+
+        <nav class="worker-nav">
+            <span class="worker-nav-label">OPERACIÓN</span>
+
+            <a href="#trabajador-inicio" class="worker-nav-link active" data-worker-section="inicio">
+                <i data-lucide="layout-dashboard"></i>
+                <span>Resumen</span>
+            </a>
+
+            <a href="#trabajador-vehiculos" class="worker-nav-link" data-worker-section="vehiculos">
+                <i data-lucide="car-front"></i>
+                <span>Vehículos</span>
+            </a>
+
+            <a href="#trabajador-codigos" class="worker-nav-link" data-worker-section="codigos">
+                <i data-lucide="key-round"></i>
+                <span>Códigos de canje</span>
+            </a>
+
+            <a href="#trabajador-canjes" class="worker-nav-link" data-worker-section="canjes">
+                <i data-lucide="receipt-text"></i>
+                <span>Ventas y canjes</span>
+            </a>
+
+            <span class="worker-nav-label">SOPORTE</span>
+
+            <a href="#trabajador-ayuda" class="worker-nav-link" data-worker-section="ayuda">
+                <i data-lucide="circle-help"></i>
+                <span>Guía rápida</span>
+            </a>
+        </nav>
+
+        <div class="worker-sidebar-footer">
+            <a href="{{ url_for('inicio') }}" class="worker-sidebar-link">
+                <i data-lucide="home"></i>
+                <span>Ir al sitio</span>
+            </a>
+
+            <a href="{{ url_for('catalog') }}" class="worker-sidebar-link">
+                <i data-lucide="store"></i>
+                <span>Ver catálogo</span>
+            </a>
+
+            <a href="{{ url_for('perfil') }}" class="worker-sidebar-link">
+                <i data-lucide="user-round"></i>
+                <span>Mi perfil</span>
+            </a>
+
+            <a href="{{ url_for('logout') }}" class="worker-sidebar-link danger">
+                <i data-lucide="log-out"></i>
+                <span>Cerrar sesión</span>
+            </a>
+        </div>
+    </aside>
+
+    <main class="worker-main">
+
+        <header class="worker-topbar">
+            <div>
+                <span class="worker-eyebrow">OPERACIÓN VINOVA</span>
+                <h1>Centro de atención</h1>
+                <p>Consulta unidades, códigos de canje y ventas registradas sin permisos críticos de administración.</p>
+            </div>
+
+            <div class="worker-session-card">
+                <div class="worker-session-avatar">
+                    {% if session.get("foto_perfil") %}
+                        <img src="{{ session.get('foto_perfil') }}" alt="Foto de {{ session.get('usuario', 'Trabajador') }}">
+                    {% else %}
+                        <span>{{ session.get("usuario", "T")[:1]|upper }}</span>
+                    {% endif %}
+                </div>
+
+                <div>
+                    <strong>{{ session.get("usuario", trabajador_nombre|default("Trabajador")) }}</strong>
+                    <small>{{ session.get("rol", "TRABAJADOR") }}</small>
+                </div>
+            </div>
+        </header>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="worker-messages">
+                    {% for category, message in messages %}
+                        <div class="worker-message {{ category }}">
+                            {% if category == 'success' %}
+                                <i data-lucide="circle-check"></i>
+                            {% elif category == 'error' %}
+                                <i data-lucide="circle-x"></i>
+                            {% elif category == 'warning' %}
+                                <i data-lucide="triangle-alert"></i>
+                            {% else %}
+                                <i data-lucide="info"></i>
+                            {% endif %}
+                            <span>{{ message }}</span>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <section class="worker-section active" id="trabajador-inicio" data-worker-content="inicio">
+            <div class="worker-section-header">
+                <div>
+                    <span>RESUMEN</span>
+                    <h2>Panel principal</h2>
+                    <p>Estado general de la operación comercial.</p>
+                </div>
+            </div>
+
+            <section class="worker-summary-grid">
+                <article class="worker-summary-card">
+                    <i data-lucide="car-front"></i>
+                    <div>
+                        <strong>{{ total_vehiculos|default(vehiculos_lista|length) }}</strong>
+                        <span>Vehículos registrados</span>
+                    </div>
+                </article>
+
+                <article class="worker-summary-card">
+                    <i data-lucide="circle-check"></i>
+                    <div>
+                        <strong>{{ vehiculos_disponibles|default(0) }}</strong>
+                        <span>Disponibles</span>
+                    </div>
+                </article>
+
+                <article class="worker-summary-card">
+                    <i data-lucide="clock-3"></i>
+                    <div>
+                        <strong>{{ vehiculos_reservados|default(0) }}</strong>
+                        <span>Reservados</span>
+                    </div>
+                </article>
+
+                <article class="worker-summary-card">
+                    <i data-lucide="key-round"></i>
+                    <div>
+                        <strong>{{ codigos_disponibles|default(0) }}</strong>
+                        <span>Códigos disponibles</span>
+                    </div>
+                </article>
+
+                <article class="worker-summary-card">
+                    <i data-lucide="receipt-text"></i>
+                    <div>
+                        <strong>{{ total_canjes|default(ventas_lista|length) }}</strong>
+                        <span>Canjes registrados</span>
+                    </div>
+                </article>
+            </section>
+
+            <section class="worker-dashboard-grid">
+                <article class="worker-panel">
+                    <div class="worker-panel-title">
+                        <div>
+                            <span>UNIDADES</span>
+                            <h2>Vehículos recientes</h2>
+                        </div>
+                        <a href="#trabajador-vehiculos" class="worker-secondary-link worker-nav-link" data-worker-section="vehiculos">Ver todos</a>
+                    </div>
+
+                    <div class="worker-mini-list">
+                        {% if vehiculos_lista %}
+                            {% for vehiculo in vehiculos_lista[:5] %}
+                                <div class="worker-mini-item">
+                                    <div class="worker-mini-icon"><i data-lucide="car"></i></div>
+                                    <div>
+                                        <strong>{{ vehiculo.marca }} {{ vehiculo.modelo }} {{ vehiculo.anio }}</strong>
+                                        <span>{{ vehiculo.codigo_catalogo|default('Sin referencia') }}</span>
+                                    </div>
+                                    <small class="worker-status {{ 'sold' if vehiculo.estado == 'Vendido' else 'active' if vehiculo.activo == 1 else 'inactive' }}">
+                                        {{ vehiculo.estado|default('Disponible') }}
+                                    </small>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="worker-empty compact">
+                                <i data-lucide="car-front"></i>
+                                <h3>Sin vehículos</h3>
+                                <p>Aún no hay unidades para consultar.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </article>
+
+                <article class="worker-panel">
+                    <div class="worker-panel-title">
+                        <div>
+                            <span>CANJES</span>
+                            <h2>Códigos recientes</h2>
+                        </div>
+                        <a href="#trabajador-codigos" class="worker-secondary-link worker-nav-link" data-worker-section="codigos">Ver códigos</a>
+                    </div>
+
+                    <div class="worker-mini-list">
+                        {% if codigos_lista %}
+                            {% for codigo in codigos_lista[:5] %}
+                                <div class="worker-mini-item">
+                                    <div class="worker-mini-icon"><i data-lucide="key-round"></i></div>
+                                    <div>
+                                        <strong class="worker-code-text">{{ codigo.codigo }}</strong>
+                                        <span>{{ codigo.marca|default('') }} {{ codigo.modelo|default('') }}</span>
+                                    </div>
+                                    {% if codigo.usado == 1 %}
+                                        <small class="worker-status sold">Usado</small>
+                                    {% elif codigo.activo == 0 %}
+                                        <small class="worker-status inactive">Inactivo</small>
+                                    {% else %}
+                                        <small class="worker-status active">Disponible</small>
+                                    {% endif %}
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="worker-empty compact">
+                                <i data-lucide="key-round"></i>
+                                <h3>Sin códigos</h3>
+                                <p>Aún no hay códigos generados.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </article>
+            </section>
+        </section>
+
+        <section class="worker-section" id="trabajador-vehiculos" data-worker-content="vehiculos">
+            <div class="worker-section-header">
+                <div>
+                    <span>CATÁLOGO INTERNO</span>
+                    <h2>Vehículos</h2>
+                    <p>Consulta unidades disponibles, reservadas, vendidas u ocultas. Los trabajadores no pueden editar ni archivar vehículos.</p>
+                </div>
+
+                <div class="worker-section-actions">
+                    <a href="{{ url_for('catalog') }}" class="worker-secondary-link">Ver catálogo público</a>
+                </div>
+            </div>
+
+            <section class="worker-panel">
+                <div class="worker-panel-title">
+                    <div>
+                        <span>UNIDADES</span>
+                        <h2>Listado operativo</h2>
+                    </div>
+                    <input type="text" class="worker-search-input" data-worker-search="vehicles" placeholder="Buscar vehículo...">
+                </div>
+
+                <div class="worker-vehicle-list" data-worker-list="vehicles">
+                    {% if vehiculos_lista %}
+                        {% for vehiculo in vehiculos_lista %}
+                            {% set codigo_actual = vehiculo.codigo_canje|default('') %}
+                            {% set puede_generar = vehiculo.estado == 'Disponible' and vehiculo.activo == 1 and not codigo_actual %}
+                            {% set generar_url = generar_codigo_base_url.replace('__ID__', vehiculo.id|string) if generar_codigo_base_url else '' %}
+
+                            <article class="worker-vehicle-row" data-worker-item>
+                                <div class="worker-vehicle-img">
+                                    {% if vehiculo.imagen %}
+                                        {% set img = vehiculo.imagen|string %}
+                                        {% if img.startswith('http') or img.startswith('/static/') %}
+                                            <img src="{{ img }}" alt="{{ vehiculo.marca }} {{ vehiculo.modelo }}">
+                                        {% else %}
+                                            <img src="{{ url_for('static', filename=img) }}" alt="{{ vehiculo.marca }} {{ vehiculo.modelo }}">
+                                        {% endif %}
+                                    {% else %}
+                                        <i data-lucide="car-front"></i>
+                                    {% endif %}
+                                </div>
+
+                                <div class="worker-vehicle-info">
+                                    <div class="worker-vehicle-heading">
+                                        <div>
+                                            <h3>{{ vehiculo.marca }} {{ vehiculo.modelo }} {{ vehiculo.anio }}</h3>
+                                            <p>
+                                                {{ vehiculo.codigo_catalogo|default('Sin referencia') }}
+                                                · {{ vehiculo.tipo_vehiculo|default('Vehículo') }}
+                                                · {{ vehiculo.combustible|default('N/D') }}
+                                                · {{ vehiculo.transmision|default('N/D') }}
+                                            </p>
+                                        </div>
+
+                                        <div class="worker-status-group">
+                                            {% if vehiculo.estado == 'Vendido' %}
+                                                <span class="worker-status sold">Vendido</span>
+                                            {% elif vehiculo.activo == 1 %}
+                                                <span class="worker-status active">Visible</span>
+                                            {% else %}
+                                                <span class="worker-status inactive">Oculto</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+
+                                    <div class="worker-vehicle-meta">
+                                        <span><i data-lucide="calendar"></i> {{ vehiculo.anio|default('N/D') }}</span>
+                                        <span><i data-lucide="gauge"></i> {{ "{:,.0f}".format(vehiculo.kilometraje|default(0)|float) }} km</span>
+                                        <span><i data-lucide="badge-dollar-sign"></i> ${{ "{:,.2f}".format(vehiculo.precio|default(0)|float) }}</span>
+                                        {% if codigo_actual %}
+                                            <span><i data-lucide="key-round"></i> Ya tiene código</span>
+                                        {% endif %}
+                                    </div>
+
+                                    <div class="worker-actions">
+                                        {% if puede_generar and generar_url %}
+                                            <form method="POST" action="{{ generar_url }}" class="worker-inline-form" data-worker-confirm="¿Generar un código de canje para esta unidad?">
+                                                <button type="submit" class="worker-primary-btn">
+                                                    <i data-lucide="key-round"></i>
+                                                    Generar código
+                                                </button>
+                                            </form>
+                                        {% else %}
+                                            <button type="button" class="worker-mini-btn" disabled>
+                                                {% if codigo_actual %}
+                                                    Código existente
+                                                {% elif vehiculo.estado == 'Vendido' %}
+                                                    Vendido
+                                                {% elif vehiculo.activo != 1 %}
+                                                    No visible
+                                                {% else %}
+                                                    No disponible
+                                                {% endif %}
+                                            </button>
+                                        {% endif %}
+
+                                        <button type="button" class="worker-mini-btn worker-disabled-action">
+                                            Ver detalles
+                                        </button>
+                                    </div>
+                                </div>
+                            </article>
+                        {% endfor %}
+                    {% else %}
+                        <div class="worker-empty">
+                            <i data-lucide="car-front"></i>
+                            <h3>No hay vehículos registrados</h3>
+                            <p>Cuando administración cree unidades, aparecerán aquí para consulta operativa.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </section>
+        </section>
+
+        <section class="worker-section" id="trabajador-codigos" data-worker-content="codigos">
+            <div class="worker-section-header">
+                <div>
+                    <span>CÓDIGOS DE CANJE</span>
+                    <h2>Códigos</h2>
+                    <p>Consulta y copia códigos para atención al cliente. No se pueden desactivar ni eliminar desde esta vista.</p>
+                </div>
+            </div>
+
+            <section class="worker-panel">
+                <div class="worker-panel-title">
+                    <div>
+                        <span>REGISTRO</span>
+                        <h2>Códigos generados</h2>
+                    </div>
+                    <input type="text" class="worker-search-input" data-worker-search="codes" placeholder="Buscar código, vehículo o usuario...">
+                </div>
+
+                <div class="worker-table-wrap">
+                    <table class="worker-table" data-worker-list="codes">
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Vehículo</th>
+                                <th>Estado</th>
+                                <th>Uso</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if codigos_lista %}
+                                {% for codigo in codigos_lista %}
+                                    <tr data-worker-item>
+                                        <td><strong class="worker-code-text">{{ codigo.codigo }}</strong></td>
+                                        <td>
+                                            <span>{{ codigo.codigo_catalogo|default('Sin referencia') }}</span>
+                                            <small>{{ codigo.marca|default('') }} {{ codigo.modelo|default('') }} {{ codigo.anio|default('') }}</small>
+                                        </td>
+                                        <td>
+                                            {% if codigo.activo == 0 %}
+                                                <span class="worker-status inactive">Inactivo</span>
+                                            {% else %}
+                                                <span class="worker-status active">Activo</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if codigo.usado == 1 %}
+                                                <span class="worker-status sold">Usado</span>
+                                                {% if codigo.usado_por_nombre|default('') %}
+                                                    <small>por {{ codigo.usado_por_nombre }}</small>
+                                                {% endif %}
+                                            {% else %}
+                                                <span class="worker-status active">Disponible</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <button type="button" class="worker-mini-btn" data-copy-code="{{ codigo.codigo }}">
+                                                Copiar
+                                            </button>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="5">
+                                        <div class="worker-empty compact">
+                                            <i data-lucide="key-round"></i>
+                                            <h3>Sin códigos</h3>
+                                            <p>Aún no se han generado códigos de canje.</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </section>
+
+        <section class="worker-section" id="trabajador-canjes" data-worker-content="canjes">
+            <div class="worker-section-header">
+                <div>
+                    <span>VENTAS Y CANJES</span>
+                    <h2>Historial operativo</h2>
+                    <p>Consulta registros de vehículos agregados a perfiles de clientes.</p>
+                </div>
+            </div>
+
+            <section class="worker-panel">
+                <div class="worker-panel-title">
+                    <div>
+                        <span>REGISTROS</span>
+                        <h2>Canjes recientes</h2>
+                    </div>
+                    <input type="text" class="worker-search-input" data-worker-search="sales" placeholder="Buscar cliente, correo, vehículo o código...">
+                </div>
+
+                <div class="worker-table-wrap">
+                    <table class="worker-table" data-worker-list="sales">
+                        <thead>
+                            <tr>
+                                <th>Cliente</th>
+                                <th>Vehículo</th>
+                                <th>Código</th>
+                                <th>Kilometraje</th>
+                                <th>Fecha</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if ventas_lista %}
+                                {% for venta in ventas_lista %}
+                                    <tr data-worker-item>
+                                        <td>
+                                            <strong>{{ venta.usuario_nombre }}</strong>
+                                            <small>{{ venta.usuario_correo }}</small>
+                                        </td>
+                                        <td>
+                                            <span>{{ venta.codigo_catalogo|default('Sin referencia') }}</span>
+                                            <small>{{ venta.marca }} {{ venta.modelo }} {{ venta.anio }}</small>
+                                        </td>
+                                        <td><span class="worker-code-text">{{ venta.codigo_canje|default('N/D') }}</span></td>
+                                        <td>{{ "{:,.0f}".format(venta.kilometraje_inicial|default(0)|float) }} km</td>
+                                        <td>{{ venta.fecha_registro|default('N/D') }}</td>
+                                    </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="5">
+                                        <div class="worker-empty compact">
+                                            <i data-lucide="receipt-text"></i>
+                                            <h3>Sin canjes</h3>
+                                            <p>Aún no hay ventas o canjes registrados.</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </section>
+
+        <section class="worker-section" id="trabajador-ayuda" data-worker-content="ayuda">
+            <div class="worker-section-header">
+                <div>
+                    <span>GUÍA RÁPIDA</span>
+                    <h2>Permisos del trabajador</h2>
+                    <p>Esta vista está pensada para operar ventas y apoyar a clientes sin permisos críticos.</p>
+                </div>
+            </div>
+
+            <section class="worker-permission-grid">
+                <article class="worker-panel worker-permission-card allowed">
+                    <i data-lucide="circle-check"></i>
+                    <h3>Puede hacer</h3>
+                    <ul>
+                        <li>Ver vehículos disponibles, reservados, vendidos u ocultos.</li>
+                        <li>Consultar códigos de canje.</li>
+                        <li>Generar códigos para vehículos disponibles sin código previo.</li>
+                        <li>Consultar historial básico de canjes.</li>
+                        <li>Ayudar al cliente a registrar su vehículo.</li>
+                    </ul>
+                </article>
+
+                <article class="worker-panel worker-permission-card denied">
+                    <i data-lucide="circle-x"></i>
+                    <h3>No puede hacer</h3>
+                    <ul>
+                        <li>Crear administradores o trabajadores.</li>
+                        <li>Cambiar roles de usuarios.</li>
+                        <li>Archivar o eliminar vehículos.</li>
+                        <li>Reversar canjes.</li>
+                        <li>Tocar configuración crítica del sistema.</li>
+                    </ul>
+                </article>
+            </section>
+        </section>
+
+    </main>
+</div>
+
+<div class="worker-toast" id="workerToast" role="status" aria-live="polite"></div>
+
+</body>
+</html>

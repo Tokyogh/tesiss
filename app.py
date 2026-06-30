@@ -625,6 +625,266 @@ def admin_required(ruta):
         return ruta(*args, **kwargs)
     return wrapper
 
+def personal_required(ruta):
+    @wraps(ruta)
+    def wrapper(*args, **kwargs):
+        if "usuario_id" not in session:
+            flash("Debes iniciar sesión.", "info")
+            return redirect("/login")
+
+        rol = str(session.get("rol", "")).upper()
+
+        if rol not in {"ADMIN", "TRABAJADOR"}:
+            flash("No tienes permisos para acceder al panel operativo.", "warning")
+            return redirect("/perfil")
+
+        return ruta(*args, **kwargs)
+
+    return wrapper
+
+
+@app.context_processor
+def contexto_panel_trabajador():
+    panel_url = ""
+
+    if str(session.get("rol", "")).upper() == "TRABAJADOR":
+        try:
+            panel_url = url_for("trabajador_panel")
+        except Exception:
+            panel_url = ""
+
+    return {
+        "trabajador_panel_url": panel_url
+    }
+
+
+@app.route("/trabajador")
+@login_required
+@personal_required
+def trabajador_panel():
+
+    asegurar_migraciones_admin()
+
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    cursor.execute("""
+        SELECT
+            vehiculos.*,
+            codigos_vehiculo.codigo AS codigo_canje,
+            codigos_vehiculo.usado AS codigo_usado,
+            codigos_vehiculo.activo AS codigo_activo
+        FROM vehiculos
+        LEFT JOIN codigos_vehiculo
+            ON codigos_vehiculo.vehiculo_id = vehiculos.id
+        WHERE COALESCE(vehiculos.archivado, 0) = 0
+        ORDER BY vehiculos.id DESC
+    """)
+    vehiculos = cursor.fetchall()
+
+    cursor.execute("""
+        SELECT
+            codigos_vehiculo.*,
+            vehiculos.codigo_catalogo,
+            vehiculos.marca,
+            vehiculos.modelo,
+            vehiculos.anio,
+            usuarios.nombre AS usado_por_nombre
+        FROM codigos_vehiculo
+        INNER JOIN vehiculos
+            ON vehiculos.id = codigos_vehiculo.vehiculo_id
+        LEFT JOIN usuarios
+            ON usuarios.id = codigos_vehiculo.usado_por
+        ORDER BY codigos_vehiculo.id DESC
+    """)
+    codigos = cursor.fetchall()
+
+    cursor.execute("""
+        SELECT
+            usuarios_vehiculos.id,
+            usuarios_vehiculos.fecha_registro,
+            usuarios_vehiculos.kilometraje_inicial,
+            usuarios.nombre AS usuario_nombre,
+            usuarios.correo AS usuario_correo,
+            vehiculos.codigo_catalogo,
+            vehiculos.marca,
+            vehiculos.modelo,
+            vehiculos.anio,
+            codigos_vehiculo.codigo AS codigo_canje
+        FROM usuarios_vehiculos
+        INNER JOIN usuarios
+            ON usuarios.id = usuarios_vehiculos.usuario_id
+        INNER JOIN vehiculos
+            ON vehiculos.id = usuarios_vehiculos.vehiculo_id
+        LEFT JOIN codigos_vehiculo
+            ON codigos_vehiculo.id = usuarios_vehiculos.codigo_vehiculo_id
+        ORDER BY usuarios_vehiculos.id DESC
+    """)
+    ventas_canje = cursor.fetchall()
+
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM vehiculos
+        WHERE COALESCE(archivado, 0) = 0
+    """)
+    total_vehiculos = cursor.fetchone()[0]
+
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM vehiculos
+        WHERE COALESCE(archivado, 0) = 0
+          AND activo = 1
+          AND COALESCE(NULLIF(TRIM(estado), ''), 'Disponible') = 'Disponible'
+    """)
+    vehiculos_disponibles = cursor.fetchone()[0]
+
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM vehiculos
+        WHERE COALESCE(archivado, 0) = 0
+          AND COALESCE(NULLIF(TRIM(estado), ''), 'Disponible') = 'Reservado'
+    """)
+    vehiculos_reservados = cursor.fetchone()[0]
+
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM codigos_vehiculo
+        WHERE activo = 1
+          AND usado = 0
+    """)
+    codigos_disponibles = cursor.fetchone()[0]
+
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM usuarios_vehiculos
+    """)
+    total_canjes = cursor.fetchone()[0]
+
+    conexion.close()
+
+    return render_template(
+        "trabajador.html",
+        vehiculos=vehiculos,
+        codigos=codigos,
+        ventas_canje=ventas_canje,
+        total_vehiculos=total_vehiculos,
+        vehiculos_disponibles=vehiculos_disponibles,
+        vehiculos_reservados=vehiculos_reservados,
+        codigos_disponibles=codigos_disponibles,
+        total_canjes=total_canjes,
+        trabajador_generar_codigo_url="/trabajador/vehiculos/__ID__/codigo/generar"
+    )
+
+
+@app.route("/trabajador/vehiculos/<int:vehiculo_id>/codigo/generar", methods=["POST"])
+@login_required
+@personal_required
+def trabajador_generar_codigo_vehiculo(vehiculo_id):
+
+    asegurar_migraciones_admin()
+
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    cursor.execute("""
+        SELECT
+            *,
+            COALESCE(archivado, 0) AS archivado_normalizado
+        FROM vehiculos
+        WHERE id = ?
+    """, (
+        vehiculo_id,
+    ))
+    vehiculo = cursor.fetchone()
+
+    if not vehiculo:
+        conexion.close()
+        flash("Vehículo no encontrado.", "warning")
+        return redirect(url_for("trabajador_panel") + "#trabajador-vehiculos")
+
+    if vehiculo["archivado_normalizado"] == 1:
+        conexion.close()
+        flash("No se puede generar código para un vehículo archivado.", "warning")
+        return redirect(url_for("trabajador_panel") + "#trabajador-vehiculos")
+
+    if vehiculo["estado"] == "Vendido":
+        conexion.close()
+        flash("No se puede generar código para un vehículo vendido.", "warning")
+        return redirect(url_for("trabajador_panel") + "#trabajador-vehiculos")
+
+    if vehiculo["activo"] != 1:
+        conexion.close()
+        flash("El vehículo debe estar activo para generar un código.", "warning")
+        return redirect(url_for("trabajador_panel") + "#trabajador-vehiculos")
+
+    cursor.execute("""
+        SELECT *
+        FROM codigos_vehiculo
+        WHERE vehiculo_id = ?
+        LIMIT 1
+    """, (
+        vehiculo_id,
+    ))
+    codigo_existente = cursor.fetchone()
+
+    if codigo_existente:
+        conexion.close()
+        flash(f"Este vehículo ya tiene un código asociado: {codigo_existente['codigo']}", "warning")
+        return redirect(url_for("trabajador_panel") + "#trabajador-codigos")
+
+    ahora = fecha_actual()
+
+    try:
+        codigo_generado = None
+
+        for intento in range(20):
+            codigo_generado = generar_codigo_canje()
+
+            try:
+                cursor.execute("""
+                    INSERT INTO codigos_vehiculo (
+                        vehiculo_id,
+                        codigo,
+                        usado,
+                        usado_por,
+                        fecha_uso,
+                        creado_por,
+                        creado_en,
+                        activo
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    vehiculo_id,
+                    codigo_generado,
+                    0,
+                    None,
+                    None,
+                    session["usuario_id"],
+                    ahora,
+                    1
+                ))
+
+                conexion.commit()
+                flash(f"Código de canje generado: {codigo_generado}", "success")
+                break
+
+            except sqlite3.IntegrityError:
+                conexion.rollback()
+                codigo_generado = None
+
+        if not codigo_generado:
+            flash("No se pudo generar un código único. Intenta nuevamente.", "error")
+
+    except Exception as error:
+        conexion.rollback()
+        print("Error al generar código desde panel trabajador:", error)
+        flash("No se pudo generar el código de canje.", "error")
+
+    finally:
+        conexion.close()
+
+    return redirect(url_for("trabajador_panel") + "#trabajador-codigos")
+
 
 # ================= INICIO =================
 
@@ -1071,7 +1331,167 @@ def logout():
 
 
 # ================= CATALOG =================
-# Catálogo público
+# Catálogo público conectado a datos reales
+
+CATALOG_ESTADO_NORMALIZADO_SQL = "COALESCE(NULLIF(TRIM(estado), ''), 'Disponible')"
+CATALOG_BASE_WHERE_SQL = f"""
+    activo = 1
+    AND COALESCE(archivado, 0) = 0
+    AND {CATALOG_ESTADO_NORMALIZADO_SQL} IN ('Disponible', 'Reservado')
+"""
+CATALOG_PER_PAGE_PERMITIDOS = {8, 12, 16, 24}
+CATALOG_ORDENES_SQL = {
+    "recientes": "id DESC",
+    "precio_asc": "COALESCE(precio, 0) ASC, id DESC",
+    "precio_desc": "COALESCE(precio, 0) DESC, id DESC",
+    "anio_desc": "COALESCE(anio, 0) DESC, id DESC",
+    "km_asc": "COALESCE(kilometraje, 0) ASC, id DESC",
+    "marca_asc": "LOWER(COALESCE(marca, '')) ASC, LOWER(COALESCE(modelo, '')) ASC, id DESC",
+}
+
+
+def limpiar_texto_catalogo(valor, maximo=80):
+    texto = str(valor or "").strip()
+    texto = re.sub(r"[\x00-\x1f\x7f]+", "", texto)
+    texto = re.sub(r"\s+", " ", texto)
+    return texto[:maximo]
+
+
+def escapar_like_sql(valor):
+    return (
+        str(valor or "")
+        .replace("\\", "\\\\")
+        .replace("%", "\\%")
+        .replace("_", "\\_")
+    )
+
+
+def obtener_lista_filtro_catalogo(nombre, limite=30, maximo_texto=60):
+    valores = []
+
+    for valor in request.args.getlist(nombre):
+        partes = str(valor or "").split(",")
+
+        for parte in partes:
+            texto = limpiar_texto_catalogo(parte, maximo_texto)
+
+            if not texto:
+                continue
+
+            if texto not in valores:
+                valores.append(texto)
+
+            if len(valores) >= limite:
+                return valores
+
+    return valores
+
+
+def obtener_entero_filtro_catalogo(nombre, predeterminado=None, minimo=None, maximo=None):
+    valor = request.args.get(nombre)
+
+    if valor is None or str(valor).strip() == "":
+        return predeterminado
+
+    try:
+        numero = int(float(str(valor).replace(",", ".")))
+    except (TypeError, ValueError):
+        return predeterminado
+
+    if minimo is not None:
+        numero = max(minimo, numero)
+
+    if maximo is not None:
+        numero = min(maximo, numero)
+
+    return numero
+
+
+def obtener_precio_filtro_catalogo(nombre, predeterminado=None, minimo=None, maximo=None):
+    valor = request.args.get(nombre)
+
+    if valor is None or str(valor).strip() == "":
+        return predeterminado
+
+    numero = normalizar_precio(valor)
+
+    if numero is None:
+        return predeterminado
+
+    if minimo is not None:
+        numero = max(float(minimo), numero)
+
+    if maximo is not None:
+        numero = min(float(maximo), numero)
+
+    return numero
+
+
+def construir_paginas_catalogo(pagina_actual, total_paginas):
+    if total_paginas <= 1:
+        return [1]
+
+    if total_paginas <= 7:
+        return list(range(1, total_paginas + 1))
+
+    paginas = [1]
+    inicio = max(2, pagina_actual - 1)
+    fin = min(total_paginas - 1, pagina_actual + 1)
+
+    if inicio > 2:
+        paginas.append("...")
+
+    for pagina in range(inicio, fin + 1):
+        paginas.append(pagina)
+
+    if fin < total_paginas - 1:
+        paginas.append("...")
+
+    paginas.append(total_paginas)
+    return paginas
+
+
+def obtener_opciones_catalogo(cursor, columna, alias_estado=False):
+    if alias_estado:
+        expresion = CATALOG_ESTADO_NORMALIZADO_SQL
+    else:
+        expresion = f"TRIM(COALESCE({columna}, ''))"
+
+    cursor.execute(f"""
+        SELECT
+            {expresion} AS valor,
+            COUNT(*) AS total
+        FROM vehiculos
+        WHERE {CATALOG_BASE_WHERE_SQL}
+          AND {expresion} IS NOT NULL
+          AND TRIM({expresion}) != ''
+        GROUP BY {expresion}
+        ORDER BY LOWER({expresion}) ASC
+    """)
+
+    return [
+        {
+            "valor": fila["valor"],
+            "total": fila["total"]
+        }
+        for fila in cursor.fetchall()
+        if fila["valor"]
+    ]
+
+
+def obtener_total_catalogo(cursor, condicion_extra="", parametros=()):
+    sql = f"""
+        SELECT COUNT(*)
+        FROM vehiculos
+        WHERE {CATALOG_BASE_WHERE_SQL}
+    """
+
+    if condicion_extra:
+        sql += f" AND {condicion_extra}"
+
+    cursor.execute(sql, tuple(parametros))
+    return cursor.fetchone()[0]
+
 
 @app.route("/catalog")
 def catalog():
@@ -1081,69 +1501,244 @@ def catalog():
     conexion = conectar_db()
     cursor = conexion.cursor()
 
-    cursor.execute("""
-        SELECT *
-        FROM vehiculos
-        WHERE activo = 1
-          AND COALESCE(archivado, 0) = 0
-        ORDER BY id DESC
-    """)
-    vehiculos = cursor.fetchall()
+    try:
+        cursor.execute(f"""
+            SELECT
+                COALESCE(MIN(precio), 0) AS precio_min,
+                COALESCE(MAX(precio), 0) AS precio_max,
+                COALESCE(MIN(anio), 1980) AS anio_min,
+                COALESCE(MAX(anio), 2035) AS anio_max,
+                COALESCE(MIN(kilometraje), 0) AS kilometraje_min,
+                COALESCE(MAX(kilometraje), 0) AS kilometraje_max
+            FROM vehiculos
+            WHERE {CATALOG_BASE_WHERE_SQL}
+        """)
+        limites = cursor.fetchone()
 
-    cursor.execute("""
-        SELECT COUNT(*)
-        FROM vehiculos
-        WHERE activo = 1
-          AND COALESCE(archivado, 0) = 0
-    """)
-    total_vehiculos = cursor.fetchone()[0]
+        precio_min_catalogo = int(limites["precio_min"] or 0)
+        precio_max_catalogo = int(limites["precio_max"] or 0)
+        anio_min_catalogo = int(limites["anio_min"] or 1980)
+        anio_max_catalogo = int(limites["anio_max"] or 2035)
+        kilometraje_min_catalogo = int(limites["kilometraje_min"] or 0)
+        kilometraje_max_catalogo = int(limites["kilometraje_max"] or 0)
 
-    cursor.execute("""
-        SELECT COUNT(*)
-        FROM vehiculos
-        WHERE activo = 1
-          AND COALESCE(archivado, 0) = 0
-          AND tipo_vehiculo IN ('SUV', 'Suv', 'suv')
-    """)
-    total_suv = cursor.fetchone()[0]
+        # Evita sliders con mínimo y máximo idénticos cuando hay una sola unidad.
+        if precio_max_catalogo <= precio_min_catalogo:
+            precio_max_catalogo = precio_min_catalogo + 1000
 
-    cursor.execute("""
-        SELECT COUNT(*)
-        FROM vehiculos
-        WHERE activo = 1
-          AND COALESCE(archivado, 0) = 0
-          AND tipo_vehiculo IN ('Camioneta', 'Pickup')
-    """)
-    total_camionetas = cursor.fetchone()[0]
+        if anio_max_catalogo <= anio_min_catalogo:
+            anio_max_catalogo = anio_min_catalogo + 1
 
-    cursor.execute("""
-        SELECT COUNT(*)
-        FROM vehiculos
-        WHERE activo = 1
-          AND COALESCE(archivado, 0) = 0
-          AND combustible IN ('Híbrido', 'Eléctrico')
-    """)
-    total_hibridos = cursor.fetchone()[0]
+        if kilometraje_max_catalogo <= kilometraje_min_catalogo:
+            kilometraje_max_catalogo = kilometraje_min_catalogo + 1000
 
-    cursor.execute("""
-        SELECT COUNT(*)
-        FROM vehiculos
-        WHERE activo = 1
-          AND COALESCE(archivado, 0) = 0
-          AND estado = 'Disponible'
-    """)
-    total_disponibles = cursor.fetchone()[0]
+        q = limpiar_texto_catalogo(request.args.get("q", ""), 80)
+        marcas = obtener_lista_filtro_catalogo("marca")
+        tipos = obtener_lista_filtro_catalogo("tipo")
+        combustibles = obtener_lista_filtro_catalogo("combustible")
+        transmisiones = obtener_lista_filtro_catalogo("transmision")
+        estados = obtener_lista_filtro_catalogo("estado")
 
-    conexion.close()
+        precio_min = obtener_precio_filtro_catalogo(
+            "precio_min",
+            precio_min_catalogo,
+            precio_min_catalogo,
+            precio_max_catalogo
+        )
+        precio_max = obtener_precio_filtro_catalogo(
+            "precio_max",
+            precio_max_catalogo,
+            precio_min_catalogo,
+            precio_max_catalogo
+        )
+
+        if precio_min > precio_max:
+            precio_min, precio_max = precio_max, precio_min
+
+        anio_min = obtener_entero_filtro_catalogo(
+            "anio_min",
+            anio_min_catalogo,
+            anio_min_catalogo,
+            anio_max_catalogo
+        )
+        anio_max = obtener_entero_filtro_catalogo(
+            "anio_max",
+            anio_max_catalogo,
+            anio_min_catalogo,
+            anio_max_catalogo
+        )
+
+        if anio_min > anio_max:
+            anio_min, anio_max = anio_max, anio_min
+
+        kilometraje_min = obtener_entero_filtro_catalogo(
+            "kilometraje_min",
+            kilometraje_min_catalogo,
+            kilometraje_min_catalogo,
+            kilometraje_max_catalogo
+        )
+        kilometraje_max = obtener_entero_filtro_catalogo(
+            "kilometraje_max",
+            kilometraje_max_catalogo,
+            kilometraje_min_catalogo,
+            kilometraje_max_catalogo
+        )
+
+        if kilometraje_min > kilometraje_max:
+            kilometraje_min, kilometraje_max = kilometraje_max, kilometraje_min
+
+        ordenar = limpiar_texto_catalogo(request.args.get("ordenar", "recientes"), 30)
+
+        if ordenar not in CATALOG_ORDENES_SQL:
+            ordenar = "recientes"
+
+        per_page = obtener_entero_filtro_catalogo("per_page", 8, 1, 100)
+
+        if per_page not in CATALOG_PER_PAGE_PERMITIDOS:
+            per_page = 8
+
+        pagina_actual = obtener_entero_filtro_catalogo("page", 1, 1, 10_000)
+
+        filtros_where = [CATALOG_BASE_WHERE_SQL]
+        parametros = []
+
+        if q:
+            like_q = f"%{escapar_like_sql(q.lower())}%"
+            filtros_where.append(f"""
+                (
+                    LOWER(COALESCE(marca, '')) LIKE ? ESCAPE '\\'
+                    OR LOWER(COALESCE(modelo, '')) LIKE ? ESCAPE '\\'
+                    OR LOWER(COALESCE(codigo_catalogo, '')) LIKE ? ESCAPE '\\'
+                    OR LOWER(COALESCE(tipo_vehiculo, '')) LIKE ? ESCAPE '\\'
+                    OR LOWER(COALESCE(combustible, '')) LIKE ? ESCAPE '\\'
+                    OR LOWER(COALESCE(transmision, '')) LIKE ? ESCAPE '\\'
+                    OR LOWER(COALESCE(descripcion, '')) LIKE ? ESCAPE '\\'
+                    OR CAST(COALESCE(anio, '') AS TEXT) LIKE ? ESCAPE '\\'
+                )
+            """)
+            parametros.extend([like_q] * 8)
+
+        filtros_in = [
+            ("marca", marcas, "LOWER(TRIM(COALESCE(marca, '')))", False),
+            ("tipo", tipos, "LOWER(TRIM(COALESCE(tipo_vehiculo, '')))", False),
+            ("combustible", combustibles, "LOWER(TRIM(COALESCE(combustible, '')))", False),
+            ("transmision", transmisiones, "LOWER(TRIM(COALESCE(transmision, '')))", False),
+            ("estado", estados, f"LOWER({CATALOG_ESTADO_NORMALIZADO_SQL})", True),
+        ]
+
+        for _, valores, expresion, _ in filtros_in:
+            if not valores:
+                continue
+
+            placeholders = ", ".join("?" for _ in valores)
+            filtros_where.append(f"{expresion} IN ({placeholders})")
+            parametros.extend(valor.lower() for valor in valores)
+
+        filtros_where.append("COALESCE(precio, 0) BETWEEN ? AND ?")
+        parametros.extend([precio_min, precio_max])
+
+        filtros_where.append("COALESCE(anio, 0) BETWEEN ? AND ?")
+        parametros.extend([anio_min, anio_max])
+
+        filtros_where.append("COALESCE(kilometraje, 0) BETWEEN ? AND ?")
+        parametros.extend([kilometraje_min, kilometraje_max])
+
+        where_sql = " AND ".join(f"({condicion})" for condicion in filtros_where)
+
+        cursor.execute(f"""
+            SELECT COUNT(*)
+            FROM vehiculos
+            WHERE {where_sql}
+        """, parametros)
+        total_filtrados = cursor.fetchone()[0]
+
+        total_paginas = max(1, (total_filtrados + per_page - 1) // per_page)
+        pagina_actual = min(max(1, pagina_actual), total_paginas)
+        offset = (pagina_actual - 1) * per_page
+
+        cursor.execute(f"""
+            SELECT *
+            FROM vehiculos
+            WHERE {where_sql}
+            ORDER BY {CATALOG_ORDENES_SQL[ordenar]}
+            LIMIT ? OFFSET ?
+        """, parametros + [per_page, offset])
+        vehiculos = cursor.fetchall()
+
+        marcas_catalogo = obtener_opciones_catalogo(cursor, "marca")
+        tipos_catalogo = obtener_opciones_catalogo(cursor, "tipo_vehiculo")
+        combustibles_catalogo = obtener_opciones_catalogo(cursor, "combustible")
+        transmisiones_catalogo = obtener_opciones_catalogo(cursor, "transmision")
+        estados_catalogo = obtener_opciones_catalogo(cursor, "estado", alias_estado=True)
+
+        total_vehiculos = obtener_total_catalogo(cursor)
+        total_suv = obtener_total_catalogo(cursor, "LOWER(TRIM(COALESCE(tipo_vehiculo, ''))) = ?", ("suv",))
+        total_camionetas = obtener_total_catalogo(
+            cursor,
+            "LOWER(TRIM(COALESCE(tipo_vehiculo, ''))) IN (?, ?)",
+            ("camioneta", "pickup")
+        )
+        total_hibridos = obtener_total_catalogo(
+            cursor,
+            "LOWER(TRIM(COALESCE(combustible, ''))) IN (?, ?)",
+            ("híbrido", "eléctrico")
+        )
+        total_disponibles = obtener_total_catalogo(
+            cursor,
+            f"{CATALOG_ESTADO_NORMALIZADO_SQL} = ?",
+            ("Disponible",)
+        )
+
+        rango_inicio = 0 if total_filtrados == 0 else offset + 1
+        rango_fin = min(offset + per_page, total_filtrados)
+
+        filtros = {
+            "q": q,
+            "marcas": marcas,
+            "tipos": tipos,
+            "combustibles": combustibles,
+            "transmisiones": transmisiones,
+            "estados": estados,
+            "precio_min": precio_min,
+            "precio_max": precio_max,
+            "anio_min": anio_min,
+            "anio_max": anio_max,
+            "kilometraje_min": kilometraje_min,
+            "kilometraje_max": kilometraje_max,
+            "ordenar": ordenar,
+            "per_page": per_page,
+        }
+
+    finally:
+        conexion.close()
 
     return render_template(
         "catalog.html",
         vehiculos=vehiculos,
+        marcas_catalogo=marcas_catalogo,
+        tipos_catalogo=tipos_catalogo,
+        combustibles_catalogo=combustibles_catalogo,
+        transmisiones_catalogo=transmisiones_catalogo,
+        estados_catalogo=estados_catalogo,
+        precio_min_catalogo=precio_min_catalogo,
+        precio_max_catalogo=precio_max_catalogo,
+        anio_min_catalogo=anio_min_catalogo,
+        anio_max_catalogo=anio_max_catalogo,
+        kilometraje_min_catalogo=kilometraje_min_catalogo,
+        kilometraje_max_catalogo=kilometraje_max_catalogo,
+        filtros=filtros,
         total_vehiculos=total_vehiculos,
         total_suv=total_suv,
         total_camionetas=total_camionetas,
         total_hibridos=total_hibridos,
-        total_disponibles=total_disponibles
+        total_disponibles=total_disponibles,
+        total_filtrados=total_filtrados,
+        pagina_actual=pagina_actual,
+        total_paginas=total_paginas,
+        paginas_catalogo=construir_paginas_catalogo(pagina_actual, total_paginas),
+        rango_inicio=rango_inicio,
+        rango_fin=rango_fin,
+        trabajador_panel_url=None
     )
 
 

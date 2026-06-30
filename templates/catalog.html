@@ -18,14 +18,33 @@
 
 <body>
 
+{% set es_admin = session.get("rol", "")|upper == "ADMIN" %}
+{% set es_trabajador = session.get("rol", "")|upper == "TRABAJADOR" %}
+{% set vehiculos_lista = vehiculos|default([]) %}
+{% set filtros_actuales = filtros|default({}) %}
+{% set filtro_q = filtros_actuales.get("q", "") %}
+{% set filtro_marcas = filtros_actuales.get("marcas", []) %}
+{% set filtro_tipos = filtros_actuales.get("tipos", []) %}
+{% set filtro_combustibles = filtros_actuales.get("combustibles", []) %}
+{% set filtro_transmisiones = filtros_actuales.get("transmisiones", []) %}
+{% set filtro_estados = filtros_actuales.get("estados", []) %}
+{% set orden_actual = filtros_actuales.get("ordenar", "recientes") %}
+{% set per_page_actual = filtros_actuales.get("per_page", 8) %}
+{% set pagina_actual = pagina_actual|default(1) %}
+{% set total_paginas = total_paginas|default(1) %}
+{% set total_filtrados = total_filtrados|default(vehiculos_lista|length) %}
+{% set rango_inicio = rango_inicio|default(1 if total_filtrados else 0) %}
+{% set rango_fin = rango_fin|default(vehiculos_lista|length) %}
+
 <header class="navbar">
     <div class="logo">
-        <h2>VINOVA</h2>
+        <a href="{{ url_for('inicio') }}" aria-label="Ir al inicio de VINOVA">
+            <h2>VINOVA</h2>
+        </a>
     </div>
 
     <nav>
         <ul class="nav-links">
-
             <li>
                 <a href="{{ url_for('inicio') }}">Inicio</a>
             </li>
@@ -35,11 +54,27 @@
 
                 <div class="dropdown-menu">
                     <a href="{{ url_for('catalog') }}">Catálogo</a>
+
+                    {% if es_admin %}
+                        <a href="{{ url_for('admin_vehiculos') }}" class="catalog-admin-link">Administrar vehículos</a>
+                    {% endif %}
                 </div>
             </li>
 
-            <li>
-                <a href="{{ url_for('perfil') }}">Mi perfil</a>
+            <li class="dropdown">
+                <a href="#">Mi cuenta</a>
+
+                <div class="dropdown-menu">
+                    <a href="{{ url_for('perfil') }}">Mi perfil</a>
+
+                    {% if es_admin %}
+                        <a href="{{ url_for('admin_vehiculos') }}" class="catalog-admin-link">Panel admin</a>
+                    {% endif %}
+
+                    {% if es_trabajador and trabajador_panel_url|default('') %}
+                        <a href="{{ trabajador_panel_url }}" class="catalog-admin-link">Panel trabajador</a>
+                    {% endif %}
+                </div>
             </li>
 
             <li class="dropdown">
@@ -59,18 +94,13 @@
                     <a href="#">Servicio al cliente</a>
                 </div>
             </li>
-
         </ul>
     </nav>
 
     <div class="navbar-actions">
-
         {% if session.get("usuario_id") %}
-
             <div class="user-session-box">
-
                 <a href="{{ url_for('perfil') }}" class="user-avatar-link" title="Ir a mi perfil">
-
                     {% if session.get("foto_perfil") %}
                         <img
                             src="{{ session.get('foto_perfil') }}"
@@ -92,253 +122,415 @@
                 <a href="{{ url_for('logout') }}" class="logout-icon-btn" title="Cerrar sesión" aria-label="Cerrar sesión">
                     <i data-lucide="log-out"></i>
                 </a>
-
             </div>
-
         {% else %}
-
             <a href="{{ url_for('login') }}" class="login-btn">
                 Iniciar sesión
             </a>
-
         {% endif %}
-
     </div>
 </header>
 
 <main class="catalog-page">
 
     <aside class="catalog-sidebar" aria-label="Filtros del catálogo">
+        <form id="catalogFiltersForm" class="catalog-filter-form" action="{{ url_for('catalog') }}" method="GET">
+            <input type="hidden" name="page" value="{{ pagina_actual }}" id="catalogPageInput">
 
-        <div class="catalog-filters-header">
-            <h2>Filtros</h2>
-            <button type="button" class="clear-filters">Limpiar filtros</button>
-        </div>
-
-        <section class="catalog-filter-section">
-            <button type="button" class="catalog-filter-title">
-                <span>Marca</span>
-                <i data-lucide="chevron-up"></i>
-            </button>
-
-            <label class="catalog-filter-search">
-                <i data-lucide="search"></i>
-                <input type="text" placeholder="Buscar marca...">
-            </label>
-
-            <div class="catalog-checkbox-list">
-                <label class="catalog-checkbox-row">
-                    <span>
-                        <input type="checkbox">
-                        <span class="custom-check"></span>
-                        Toyota
-                    </span>
-                    <strong>24</strong>
-                </label>
-
-                <label class="catalog-checkbox-row">
-                    <span>
-                        <input type="checkbox">
-                        <span class="custom-check"></span>
-                        Hyundai
-                    </span>
-                    <strong>18</strong>
-                </label>
-
-                <label class="catalog-checkbox-row">
-                    <span>
-                        <input type="checkbox">
-                        <span class="custom-check"></span>
-                        Honda
-                    </span>
-                    <strong>15</strong>
-                </label>
-
-                <label class="catalog-checkbox-row">
-                    <span>
-                        <input type="checkbox">
-                        <span class="custom-check"></span>
-                        Kia
-                    </span>
-                    <strong>12</strong>
-                </label>
-
-                <label class="catalog-checkbox-row">
-                    <span>
-                        <input type="checkbox">
-                        <span class="custom-check"></span>
-                        Mazda
-                    </span>
-                    <strong>10</strong>
-                </label>
+            <div class="catalog-filters-header">
+                <h2>Filtros</h2>
+                <button type="button" class="clear-filters">Limpiar filtros</button>
             </div>
 
-            <button type="button" class="catalog-see-more">Ver más</button>
-        </section>
+            <section class="catalog-filter-section">
+                <button type="button" class="catalog-filter-title">
+                    <span>Marca</span>
+                    <i data-lucide="chevron-up"></i>
+                </button>
 
-        <section class="catalog-filter-section">
-            <button type="button" class="catalog-filter-title">
-                <span>Precio (USD)</span>
-                <i data-lucide="chevron-up"></i>
-            </button>
+                <label class="catalog-filter-search">
+                    <i data-lucide="search"></i>
+                    <input type="text" placeholder="Buscar marca..." data-local-filter="brands" autocomplete="off">
+                </label>
 
-            <p class="catalog-range-text">$10,000 – $90,000+</p>
+                <div class="catalog-checkbox-list">
+                    {% if marcas_catalogo|default([]) %}
+                        {% for opcion in marcas_catalogo %}
+                            {% set valor = opcion['valor'] %}
+                            <label class="catalog-checkbox-row {% if valor in filtro_marcas %}is-selected{% endif %}">
+                                <span>
+                                    <input
+                                        type="checkbox"
+                                        name="marca"
+                                        value="{{ valor }}"
+                                        data-auto-submit="true"
+                                        {% if valor in filtro_marcas %}checked{% endif %}>
+                                    <span class="custom-check"></span>
+                                    {{ valor }}
+                                </span>
+                                <strong>{{ opcion['total']|default(0) }}</strong>
+                            </label>
+                        {% endfor %}
+                    {% else %}
+                        <p class="catalog-filter-empty">No hay marcas disponibles.</p>
+                    {% endif %}
+                </div>
+            </section>
 
-            <div class="catalog-range-control" aria-hidden="true">
-                <span class="catalog-range-line"></span>
-                <span class="catalog-range-dot catalog-range-dot-left"></span>
-                <span class="catalog-range-dot catalog-range-dot-center"></span>
-                <span class="catalog-range-dot catalog-range-dot-right"></span>
+            <section class="catalog-filter-section" data-range-group data-range-prefix="$">
+                <button type="button" class="catalog-filter-title">
+                    <span>Precio (USD)</span>
+                    <i data-lucide="chevron-up"></i>
+                </button>
+
+                {% set precio_min_catalogo_val = precio_min_catalogo|default(0) %}
+                {% set precio_max_catalogo_val = precio_max_catalogo|default(100000) %}
+                {% set precio_min_actual = filtros_actuales.get("precio_min", precio_min_catalogo_val) or precio_min_catalogo_val %}
+                {% set precio_max_actual = filtros_actuales.get("precio_max", precio_max_catalogo_val) or precio_max_catalogo_val %}
+
+                <p class="catalog-range-text" data-range-text>
+                    ${{ "{:,.0f}".format(precio_min_actual|float) }} – ${{ "{:,.0f}".format(precio_max_actual|float) }}
+                </p>
+
+                <div class="catalog-number-grid">
+                    <label class="catalog-number-field">
+                        <span>Mínimo</span>
+                        <input
+                            type="number"
+                            name="precio_min"
+                            min="{{ precio_min_catalogo_val|int }}"
+                            max="{{ precio_max_catalogo_val|int }}"
+                            step="100"
+                            value="{{ precio_min_actual|int }}"
+                            data-range-number-min>
+                    </label>
+
+                    <label class="catalog-number-field">
+                        <span>Máximo</span>
+                        <input
+                            type="number"
+                            name="precio_max"
+                            min="{{ precio_min_catalogo_val|int }}"
+                            max="{{ precio_max_catalogo_val|int }}"
+                            step="100"
+                            value="{{ precio_max_actual|int }}"
+                            data-range-number-max>
+                    </label>
+                </div>
+
+                <div class="catalog-range-control">
+                    <div class="catalog-range-track">
+                        <span class="catalog-range-fill"></span>
+                    </div>
+
+                    <input
+                        type="range"
+                        min="{{ precio_min_catalogo_val|int }}"
+                        max="{{ precio_max_catalogo_val|int }}"
+                        step="100"
+                        value="{{ precio_min_actual|int }}"
+                        class="catalog-range-input catalog-range-input-min"
+                        data-range-slider-min
+                        aria-label="Precio mínimo">
+
+                    <input
+                        type="range"
+                        min="{{ precio_min_catalogo_val|int }}"
+                        max="{{ precio_max_catalogo_val|int }}"
+                        step="100"
+                        value="{{ precio_max_actual|int }}"
+                        class="catalog-range-input catalog-range-input-max"
+                        data-range-slider-max
+                        aria-label="Precio máximo">
+                </div>
+            </section>
+
+            <section class="catalog-filter-section" data-range-group data-range-suffix="">
+                <button type="button" class="catalog-filter-title">
+                    <span>Año</span>
+                    <i data-lucide="chevron-up"></i>
+                </button>
+
+                {% set anio_min_catalogo_val = anio_min_catalogo|default(1980) %}
+                {% set anio_max_catalogo_val = anio_max_catalogo|default(2035) %}
+                {% set anio_min_actual = filtros_actuales.get("anio_min", anio_min_catalogo_val) or anio_min_catalogo_val %}
+                {% set anio_max_actual = filtros_actuales.get("anio_max", anio_max_catalogo_val) or anio_max_catalogo_val %}
+
+                <p class="catalog-range-text" data-range-text>
+                    {{ anio_min_actual }} – {{ anio_max_actual }}
+                </p>
+
+                <div class="catalog-number-grid">
+                    <label class="catalog-number-field">
+                        <span>Desde</span>
+                        <input
+                            type="number"
+                            name="anio_min"
+                            min="{{ anio_min_catalogo_val|int }}"
+                            max="{{ anio_max_catalogo_val|int }}"
+                            step="1"
+                            value="{{ anio_min_actual|int }}"
+                            data-range-number-min>
+                    </label>
+
+                    <label class="catalog-number-field">
+                        <span>Hasta</span>
+                        <input
+                            type="number"
+                            name="anio_max"
+                            min="{{ anio_min_catalogo_val|int }}"
+                            max="{{ anio_max_catalogo_val|int }}"
+                            step="1"
+                            value="{{ anio_max_actual|int }}"
+                            data-range-number-max>
+                    </label>
+                </div>
+
+                <div class="catalog-range-control">
+                    <div class="catalog-range-track">
+                        <span class="catalog-range-fill"></span>
+                    </div>
+
+                    <input
+                        type="range"
+                        min="{{ anio_min_catalogo_val|int }}"
+                        max="{{ anio_max_catalogo_val|int }}"
+                        step="1"
+                        value="{{ anio_min_actual|int }}"
+                        class="catalog-range-input catalog-range-input-min"
+                        data-range-slider-min
+                        aria-label="Año mínimo">
+
+                    <input
+                        type="range"
+                        min="{{ anio_min_catalogo_val|int }}"
+                        max="{{ anio_max_catalogo_val|int }}"
+                        step="1"
+                        value="{{ anio_max_actual|int }}"
+                        class="catalog-range-input catalog-range-input-max"
+                        data-range-slider-max
+                        aria-label="Año máximo">
+                </div>
+            </section>
+
+            <section class="catalog-filter-section">
+                <button type="button" class="catalog-filter-title">
+                    <span>Tipo de vehículo</span>
+                    <i data-lucide="chevron-up"></i>
+                </button>
+
+                <div class="catalog-type-grid">
+                    {% if tipos_catalogo|default([]) %}
+                        {% for opcion in tipos_catalogo %}
+                            {% set valor = opcion['valor'] %}
+                            {% set valor_normalizado = valor|lower %}
+                            {% set tono = 'tone-blue' %}
+                            {% if 'sed' in valor_normalizado %}
+                                {% set tono = 'tone-blue-soft' %}
+                            {% elif 'pickup' in valor_normalizado or 'camioneta' in valor_normalizado %}
+                                {% set tono = 'tone-green' %}
+                            {% elif 'deportivo' in valor_normalizado %}
+                                {% set tono = 'tone-yellow' %}
+                            {% endif %}
+
+                            <button type="button" class="catalog-type-card {{ tono }} {% if valor in filtro_tipos %}is-selected{% endif %}">
+                                <input
+                                    type="checkbox"
+                                    name="tipo"
+                                    value="{{ valor }}"
+                                    {% if valor in filtro_tipos %}checked{% endif %}>
+
+                                {% if 'pickup' in valor_normalizado or 'camioneta' in valor_normalizado %}
+                                    <svg class="custom-pickup-icon" viewBox="0 0 64 40" aria-hidden="true">
+                                        <path d="M5 25h5l4-11h24l7 8h8c3 0 6 3 6 6v3H5v-6Z"/>
+                                        <path d="M18 14v11"/>
+                                        <path d="M38 14v11"/>
+                                        <path d="M42 22h-9"/>
+                                        <path d="M15 31a5 5 0 1 0 10 0"/>
+                                        <path d="M43 31a5 5 0 1 0 10 0"/>
+                                    </svg>
+                                {% else %}
+                                    <i data-lucide="{{ 'car-front' if 'suv' in valor_normalizado else 'car' }}"></i>
+                                {% endif %}
+
+                                <span>{{ valor }}</span>
+                                <small>{{ opcion['total']|default(0) }}</small>
+                            </button>
+                        {% endfor %}
+                    {% else %}
+                        <p class="catalog-filter-empty">No hay tipos disponibles.</p>
+                    {% endif %}
+                </div>
+            </section>
+
+            <section class="catalog-filter-section">
+                <button type="button" class="catalog-filter-title">
+                    <span>Combustible</span>
+                    <i data-lucide="chevron-up"></i>
+                </button>
+
+                <div class="catalog-checkbox-list">
+                    {% if combustibles_catalogo|default([]) %}
+                        {% for opcion in combustibles_catalogo %}
+                            {% set valor = opcion['valor'] %}
+                            <label class="catalog-checkbox-row {% if valor in filtro_combustibles %}is-selected{% endif %}">
+                                <span>
+                                    <input
+                                        type="checkbox"
+                                        name="combustible"
+                                        value="{{ valor }}"
+                                        data-auto-submit="true"
+                                        {% if valor in filtro_combustibles %}checked{% endif %}>
+                                    <span class="custom-check"></span>
+                                    {{ valor }}
+                                </span>
+                                <strong>{{ opcion['total']|default(0) }}</strong>
+                            </label>
+                        {% endfor %}
+                    {% else %}
+                        <p class="catalog-filter-empty">No hay combustibles disponibles.</p>
+                    {% endif %}
+                </div>
+            </section>
+
+            <section class="catalog-filter-section">
+                <button type="button" class="catalog-filter-title">
+                    <span>Transmisión</span>
+                    <i data-lucide="chevron-up"></i>
+                </button>
+
+                <div class="catalog-checkbox-list">
+                    {% if transmisiones_catalogo|default([]) %}
+                        {% for opcion in transmisiones_catalogo %}
+                            {% set valor = opcion['valor'] %}
+                            <label class="catalog-checkbox-row {% if valor in filtro_transmisiones %}is-selected{% endif %}">
+                                <span>
+                                    <input
+                                        type="checkbox"
+                                        name="transmision"
+                                        value="{{ valor }}"
+                                        data-auto-submit="true"
+                                        {% if valor in filtro_transmisiones %}checked{% endif %}>
+                                    <span class="custom-check"></span>
+                                    {{ valor }}
+                                </span>
+                                <strong>{{ opcion['total']|default(0) }}</strong>
+                            </label>
+                        {% endfor %}
+                    {% else %}
+                        <p class="catalog-filter-empty">No hay transmisiones disponibles.</p>
+                    {% endif %}
+                </div>
+            </section>
+
+            <section class="catalog-filter-section" data-range-group data-range-suffix=" km">
+                <button type="button" class="catalog-filter-title">
+                    <span>Kilometraje</span>
+                    <i data-lucide="chevron-up"></i>
+                </button>
+
+                {% set km_min_catalogo_val = kilometraje_min_catalogo|default(0) %}
+                {% set km_max_catalogo_val = kilometraje_max_catalogo|default(250000) %}
+                {% set km_min_actual = filtros_actuales.get("kilometraje_min", km_min_catalogo_val) or km_min_catalogo_val %}
+                {% set km_max_actual = filtros_actuales.get("kilometraje_max", km_max_catalogo_val) or km_max_catalogo_val %}
+
+                <p class="catalog-range-text" data-range-text>
+                    {{ "{:,.0f}".format(km_min_actual|float) }} – {{ "{:,.0f}".format(km_max_actual|float) }} km
+                </p>
+
+                <div class="catalog-number-grid">
+                    <label class="catalog-number-field">
+                        <span>Mínimo</span>
+                        <input
+                            type="number"
+                            name="kilometraje_min"
+                            min="{{ km_min_catalogo_val|int }}"
+                            max="{{ km_max_catalogo_val|int }}"
+                            step="1000"
+                            value="{{ km_min_actual|int }}"
+                            data-range-number-min>
+                    </label>
+
+                    <label class="catalog-number-field">
+                        <span>Máximo</span>
+                        <input
+                            type="number"
+                            name="kilometraje_max"
+                            min="{{ km_min_catalogo_val|int }}"
+                            max="{{ km_max_catalogo_val|int }}"
+                            step="1000"
+                            value="{{ km_max_actual|int }}"
+                            data-range-number-max>
+                    </label>
+                </div>
+
+                <div class="catalog-range-control">
+                    <div class="catalog-range-track">
+                        <span class="catalog-range-fill"></span>
+                    </div>
+
+                    <input
+                        type="range"
+                        min="{{ km_min_catalogo_val|int }}"
+                        max="{{ km_max_catalogo_val|int }}"
+                        step="1000"
+                        value="{{ km_min_actual|int }}"
+                        class="catalog-range-input catalog-range-input-min"
+                        data-range-slider-min
+                        aria-label="Kilometraje mínimo">
+
+                    <input
+                        type="range"
+                        min="{{ km_min_catalogo_val|int }}"
+                        max="{{ km_max_catalogo_val|int }}"
+                        step="1000"
+                        value="{{ km_max_actual|int }}"
+                        class="catalog-range-input catalog-range-input-max"
+                        data-range-slider-max
+                        aria-label="Kilometraje máximo">
+                </div>
+            </section>
+
+            <section class="catalog-filter-section">
+                <button type="button" class="catalog-filter-title">
+                    <span>Estado</span>
+                    <i data-lucide="chevron-up"></i>
+                </button>
+
+                <div class="catalog-checkbox-list">
+                    {% if estados_catalogo|default([]) %}
+                        {% for opcion in estados_catalogo %}
+                            {% set valor = opcion['valor'] %}
+                            <label class="catalog-checkbox-row {% if valor in filtro_estados %}is-selected{% endif %}">
+                                <span>
+                                    <input
+                                        type="checkbox"
+                                        name="estado"
+                                        value="{{ valor }}"
+                                        data-auto-submit="true"
+                                        {% if valor in filtro_estados %}checked{% endif %}>
+                                    <span class="custom-check"></span>
+                                    {{ valor }}
+                                </span>
+                                <strong>{{ opcion['total']|default(0) }}</strong>
+                            </label>
+                        {% endfor %}
+                    {% else %}
+                        <p class="catalog-filter-empty">No hay estados disponibles.</p>
+                    {% endif %}
+                </div>
+            </section>
+
+            <div class="catalog-filter-actions">
+                <button type="submit" class="catalog-apply-filters">
+                    <i data-lucide="filter"></i>
+                    Aplicar filtros
+                </button>
             </div>
-        </section>
-
-        <section class="catalog-filter-section">
-            <button type="button" class="catalog-filter-title">
-                <span>Año</span>
-                <i data-lucide="chevron-down"></i>
-            </button>
-
-            <div class="catalog-year-filter">
-                <button type="button">
-                    2015
-                    <i data-lucide="chevron-down"></i>
-                </button>
-
-                <span>–</span>
-
-                <button type="button">
-                    2025
-                    <i data-lucide="chevron-down"></i>
-                </button>
-            </div>
-        </section>
-
-        <section class="catalog-filter-section">
-            <button type="button" class="catalog-filter-title">
-                <span>Tipo de vehículo</span>
-                <i data-lucide="chevron-down"></i>
-            </button>
-
-            <div class="catalog-type-grid">
-                <button type="button" class="catalog-type-card tone-blue active">
-                    <i data-lucide="car-front"></i>
-                    <span>SUV</span>
-                </button>
-
-                <button type="button" class="catalog-type-card tone-blue-soft">
-                    <i data-lucide="car"></i>
-                    <span>Sedán</span>
-                </button>
-
-                <button type="button" class="catalog-type-card tone-green">
-                    <svg class="custom-pickup-icon" viewBox="0 0 64 40" aria-hidden="true">
-                        <path d="M5 25h5l4-11h24l7 8h8c3 0 6 3 6 6v3H5v-6Z"/>
-                        <path d="M18 14v11"/>
-                        <path d="M38 14v11"/>
-                        <path d="M42 22h-9"/>
-                        <path d="M15 31a5 5 0 1 0 10 0"/>
-                        <path d="M43 31a5 5 0 1 0 10 0"/>
-                    </svg>
-                    <span>Pickup</span>
-                </button>
-
-                <button type="button" class="catalog-type-card tone-yellow">
-                    <i data-lucide="car"></i>
-                    <span>Deportivo</span>
-                </button>
-            </div>
-        </section>
-
-        <section class="catalog-filter-section">
-            <button type="button" class="catalog-filter-title">
-                <span>Combustible</span>
-                <i data-lucide="chevron-up"></i>
-            </button>
-
-            <div class="catalog-checkbox-list">
-                <label class="catalog-checkbox-row">
-                    <span>
-                        <input type="checkbox">
-                        <span class="custom-check"></span>
-                        Gasolina
-                    </span>
-                    <strong>58</strong>
-                </label>
-
-                <label class="catalog-checkbox-row">
-                    <span>
-                        <input type="checkbox">
-                        <span class="custom-check"></span>
-                        Híbrido
-                    </span>
-                    <strong>10</strong>
-                </label>
-
-                <label class="catalog-checkbox-row">
-                    <span>
-                        <input type="checkbox">
-                        <span class="custom-check"></span>
-                        Diésel
-                    </span>
-                    <strong>10</strong>
-                </label>
-
-                <label class="catalog-checkbox-row">
-                    <span>
-                        <input type="checkbox">
-                        <span class="custom-check"></span>
-                        Eléctrico
-                    </span>
-                    <strong>6</strong>
-                </label>
-            </div>
-        </section>
-
-        <section class="catalog-filter-section">
-            <button type="button" class="catalog-filter-title">
-                <span>Transmisión</span>
-                <i data-lucide="chevron-up"></i>
-            </button>
-
-            <div class="catalog-checkbox-list">
-                <label class="catalog-checkbox-row">
-                    <span>
-                        <input type="checkbox" checked>
-                        <span class="custom-check"></span>
-                        Automática
-                    </span>
-                    <strong>64</strong>
-                </label>
-
-                <label class="catalog-checkbox-row">
-                    <span>
-                        <input type="checkbox">
-                        <span class="custom-check"></span>
-                        Mecánica
-                    </span>
-                    <strong>12</strong>
-                </label>
-            </div>
-        </section>
-
-        <section class="catalog-filter-section catalog-filter-collapsed">
-            <button type="button" class="catalog-filter-title">
-                <span>Kilometraje</span>
-                <i data-lucide="chevron-down"></i>
-            </button>
-        </section>
-
-        <section class="catalog-filter-section catalog-filter-collapsed">
-            <button type="button" class="catalog-filter-title">
-                <span>Estado</span>
-                <i data-lucide="chevron-down"></i>
-            </button>
-        </section>
-
+        </form>
     </aside>
 
     <section class="catalog-content">
-
         <div class="catalog-breadcrumbs">
             <span>Vehículos</span>
             <i data-lucide="chevron-right"></i>
@@ -348,25 +540,62 @@
         <section class="catalog-header">
             <div class="catalog-heading">
                 <h1>Explora el catálogo de vehículos</h1>
-                <p>Descubre opciones, compara modelos y revisa la información técnica de cada vehículo.</p>
+                <p>Descubre opciones disponibles, compara unidades reales y revisa la información técnica registrada en VINOVA.</p>
 
                 <label class="catalog-main-search">
                     <i data-lucide="search"></i>
-                    <input type="text" placeholder="Buscar por marca, modelo o año...">
+                    <input
+                        type="search"
+                        name="q"
+                        value="{{ filtro_q }}"
+                        form="catalogFiltersForm"
+                        data-auto-submit="true"
+                        placeholder="Buscar por marca, modelo, año o código..."
+                        autocomplete="off">
                 </label>
-            </div>
-            
-            <div class="catalog-stats-grid" aria-label="Resumen del catálogo">
 
+                {% if filtro_q or filtro_marcas or filtro_tipos or filtro_combustibles or filtro_transmisiones or filtro_estados %}
+                    <div class="catalog-active-filters" aria-label="Filtros activos">
+                        {% if filtro_q %}
+                            <span class="catalog-filter-chip">
+                                <i data-lucide="search"></i>
+                                Búsqueda: {{ filtro_q }}
+                            </span>
+                        {% endif %}
+
+                        {% for item in filtro_marcas %}
+                            <span class="catalog-filter-chip"><i data-lucide="badge-check"></i>{{ item }}</span>
+                        {% endfor %}
+
+                        {% for item in filtro_tipos %}
+                            <span class="catalog-filter-chip"><i data-lucide="car-front"></i>{{ item }}</span>
+                        {% endfor %}
+
+                        {% for item in filtro_combustibles %}
+                            <span class="catalog-filter-chip"><i data-lucide="fuel"></i>{{ item }}</span>
+                        {% endfor %}
+
+                        {% for item in filtro_transmisiones %}
+                            <span class="catalog-filter-chip"><i data-lucide="sliders-horizontal"></i>{{ item }}</span>
+                        {% endfor %}
+
+                        {% for item in filtro_estados %}
+                            <span class="catalog-filter-chip"><i data-lucide="circle-check"></i>{{ item }}</span>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="catalog-stats-grid" aria-label="Resumen del catálogo">
                 <button type="button" class="catalog-stat-card tone-blue active">
                     <i data-lucide="car-front"></i>
                     <span>
-                        <strong>{{ total_vehiculos }}</strong>
-                        <small>Total vehículos</small>
+                        <strong>{{ total_vehiculos|default(0) }}</strong>
+                        <small>Total visibles</small>
                     </span>
                 </button>
 
-                <button type="button" class="catalog-stat-card tone-green">
+                <button type="button" class="catalog-stat-card tone-green" data-filter-field="tipo" data-filter-value="Camioneta">
                     <svg class="custom-pickup-icon" viewBox="0 0 64 40" aria-hidden="true">
                         <path d="M5 25h5l4-11h24l7 8h8c3 0 6 3 6 6v3H5v-6Z"/>
                         <path d="M18 14v11"/>
@@ -376,15 +605,15 @@
                         <path d="M43 31a5 5 0 1 0 10 0"/>
                     </svg>
                     <span>
-                        <strong>{{ total_camionetas }}</strong>
+                        <strong>{{ total_camionetas|default(0) }}</strong>
                         <small>Camionetas</small>
                     </span>
                 </button>
 
-                <button type="button" class="catalog-stat-card tone-blue-soft">
+                <button type="button" class="catalog-stat-card tone-blue-soft" data-filter-field="tipo" data-filter-value="SUV">
                     <i data-lucide="car"></i>
                     <span>
-                        <strong>{{ total_suv }}</strong>
+                        <strong>{{ total_suv|default(0) }}</strong>
                         <small>SUV</small>
                     </span>
                 </button>
@@ -392,52 +621,74 @@
                 <button type="button" class="catalog-stat-card tone-green">
                     <i data-lucide="leaf"></i>
                     <span>
-                        <strong>{{ total_hibridos }}</strong>
+                        <strong>{{ total_hibridos|default(0) }}</strong>
                         <small>Híbridos / Eléctricos</small>
                     </span>
                 </button>
 
-                <button type="button" class="catalog-stat-card tone-yellow">
+                <button type="button" class="catalog-stat-card tone-yellow" data-filter-field="estado" data-filter-value="Disponible">
                     <i data-lucide="circle-check"></i>
                     <span>
-                        <strong>{{ total_disponibles }}</strong>
+                        <strong>{{ total_disponibles|default(0) }}</strong>
                         <small>Disponibles</small>
                     </span>
                 </button>
-
             </div>
-            <!--KASDSKSAJDKSADADKAJDKASSJDKASJDKASDJAK-->
         </section>
 
         <div class="catalog-toolbar">
-            <p>Mostrando <strong>1-8</strong> de <strong>128</strong> vehículos</p>
+            <p>
+                Mostrando
+                <strong>{{ rango_inicio }}-{{ rango_fin }}</strong>
+                de
+                <strong>{{ total_filtrados }}</strong>
+                vehículos
+            </p>
 
             <div class="catalog-sort-control">
-                <span>Ordenar por</span>
+                <label class="catalog-sort-inline">
+                    <span>Ordenar por</span>
 
-                <button type="button">
-                    Más recientes
-                    <i data-lucide="chevron-down"></i>
-                </button>
+                    <select
+                        name="ordenar"
+                        form="catalogFiltersForm"
+                        class="catalog-sort-select"
+                        data-auto-submit="true">
+                        <option value="recientes" {% if orden_actual == 'recientes' %}selected{% endif %}>Más recientes</option>
+                        <option value="precio_asc" {% if orden_actual == 'precio_asc' %}selected{% endif %}>Precio menor a mayor</option>
+                        <option value="precio_desc" {% if orden_actual == 'precio_desc' %}selected{% endif %}>Precio mayor a menor</option>
+                        <option value="anio_desc" {% if orden_actual == 'anio_desc' %}selected{% endif %}>Año más reciente</option>
+                        <option value="km_asc" {% if orden_actual == 'km_asc' %}selected{% endif %}>Menor kilometraje</option>
+                        <option value="marca_asc" {% if orden_actual == 'marca_asc' %}selected{% endif %}>Marca A-Z</option>
+                    </select>
+                </label>
             </div>
         </div>
 
         <section class="catalog-vehicle-grid">
+            {% if vehiculos_lista %}
+                {% for vehiculo in vehiculos_lista %}
+                    {% set estado_vehiculo = vehiculo['estado'] or 'Disponible' %}
+                    {% set tipo_vehiculo = vehiculo['tipo_vehiculo'] or 'Vehículo' %}
+                    {% set tipo_normalizado = tipo_vehiculo|lower %}
+                    {% set vehicle_tone = 'vehicle-tone-blue' %}
+                    {% if 'híbrido' in tipo_normalizado or 'hibrido' in tipo_normalizado or 'eléctrico' in tipo_normalizado or 'electrico' in tipo_normalizado %}
+                        {% set vehicle_tone = 'vehicle-tone-green' %}
+                    {% elif 'deportivo' in tipo_normalizado or 'pickup' in tipo_normalizado or 'camioneta' in tipo_normalizado %}
+                        {% set vehicle_tone = 'vehicle-tone-yellow' %}
+                    {% endif %}
 
-            {% if vehiculos %}
-
-                {% for vehiculo in vehiculos %}
-
-                    <article class="catalog-vehicle-card vehicle-tone-blue" tabindex="0">
-
-                        <div class="catalog-vehicle-badge {% if vehiculo['estado'] == 'Disponible' %}badge-green{% else %}badge-blue{% endif %}">
-                            {% if vehiculo['estado'] == 'Disponible' %}
+                    <article class="catalog-vehicle-card {{ vehicle_tone }}" tabindex="0">
+                        <div class="catalog-vehicle-badge {% if estado_vehiculo == 'Disponible' %}badge-green{% elif estado_vehiculo == 'Reservado' %}badge-yellow{% else %}badge-blue{% endif %}">
+                            {% if estado_vehiculo == 'Disponible' %}
                                 <i data-lucide="circle-check"></i>
+                            {% elif estado_vehiculo == 'Reservado' %}
+                                <i data-lucide="clock"></i>
                             {% else %}
                                 <i data-lucide="info"></i>
                             {% endif %}
 
-                            {{ vehiculo['estado'] or 'Disponible' }}
+                            {{ estado_vehiculo }}
                         </div>
 
                         <button type="button" class="favorite-btn" aria-label="Agregar a favoritos">
@@ -448,7 +699,8 @@
                             <img
                                 src="{{ url_for('static', filename=vehiculo['imagen']) }}"
                                 alt="{{ vehiculo['marca'] }} {{ vehiculo['modelo'] }} {{ vehiculo['anio'] }}"
-                                class="catalog-vehicle-img">
+                                class="catalog-vehicle-img"
+                                loading="lazy">
                         {% else %}
                             <div class="catalog-vehicle-img catalog-vehicle-img-placeholder">
                                 <i data-lucide="car-front"></i>
@@ -456,11 +708,10 @@
                         {% endif %}
 
                         <div class="catalog-vehicle-info">
-
                             <div class="catalog-vehicle-main-info">
                                 <div>
                                     <h3>{{ vehiculo['marca'] }} {{ vehiculo['modelo'] }} {{ vehiculo['anio'] }}</h3>
-                                    <p>{{ vehiculo['tipo_vehiculo'] or 'Vehículo' }}</p>
+                                    <p>{{ tipo_vehiculo }}</p>
                                 </div>
 
                                 <strong class="catalog-vehicle-price">
@@ -481,18 +732,17 @@
 
                                 <span>
                                     <i data-lucide="gauge"></i>
-                                    {{ "{:,}".format(vehiculo['kilometraje'] or 0) }} km
+                                    {{ "{:,}".format(vehiculo['kilometraje'] or 0).replace(",", ".") }} km
                                 </span>
                             </div>
 
                             <div class="catalog-vehicle-footer">
-
-                                <span class="available">
+                                <span class="available {% if estado_vehiculo == 'Reservado' %}reserved{% endif %}">
                                     <span class="status-dot"></span>
-                                    {{ vehiculo['estado'] or 'Disponible' }}
+                                    {{ estado_vehiculo }}
                                 </span>
 
-                                <span class="rating">
+                                <span class="rating catalog-vehicle-meta-code">
                                     <i data-lucide="box"></i>
                                     {{ vehiculo['codigo_catalogo'] or 'Sin código' }}
                                 </span>
@@ -501,59 +751,45 @@
                                     href="#"
                                     class="detail-btn catalog-preview-btn"
                                     data-id="{{ vehiculo['id'] }}"
-                                    data-codigo="{{ vehiculo['codigo_catalogo'] }}"
-                                    data-marca="{{ vehiculo['marca'] }}"
-                                    data-modelo="{{ vehiculo['modelo'] }}"
-                                    data-anio="{{ vehiculo['anio'] }}"
-                                    data-tipo="{{ vehiculo['tipo_vehiculo'] }}"
-                                    data-combustible="{{ vehiculo['combustible'] }}"
-                                    data-transmision="{{ vehiculo['transmision'] }}"
-                                    data-kilometraje="{{ vehiculo['kilometraje'] }}"
-                                    data-precio="{{ vehiculo['precio'] }}"
-                                    data-imagen="{{ vehiculo['imagen'] }}"
-                                    data-modelo3d-id="{{ vehiculo['modelo_3d_id'] }}"
-                                    data-modelo3d="{{ vehiculo['modelo_3d'] }}"
-                                    data-descripcion="{{ vehiculo['descripcion'] or '' }}">
+                                    data-codigo="{{ vehiculo['codigo_catalogo']|default('', true)|e }}"
+                                    data-marca="{{ vehiculo['marca']|default('', true)|e }}"
+                                    data-modelo="{{ vehiculo['modelo']|default('', true)|e }}"
+                                    data-anio="{{ vehiculo['anio']|default('', true)|e }}"
+                                    data-estado="{{ estado_vehiculo|e }}"
+                                    data-tipo="{{ tipo_vehiculo|e }}"
+                                    data-combustible="{{ vehiculo['combustible']|default('', true)|e }}"
+                                    data-transmision="{{ vehiculo['transmision']|default('', true)|e }}"
+                                    data-kilometraje="{{ vehiculo['kilometraje']|default(0, true) }}"
+                                    data-precio="{{ vehiculo['precio']|default(0, true) }}"
+                                    data-imagen="{{ vehiculo['imagen']|default('', true)|e }}"
+                                    data-modelo3d-id="{{ vehiculo['modelo_3d_id']|default('', true)|e }}"
+                                    data-modelo3d="{{ vehiculo['modelo_3d']|default('', true)|e }}"
+                                    data-descripcion="{{ vehiculo['descripcion']|default('', true)|e }}">
                                     Ver detalle
                                 </a>
-
                             </div>
-
                         </div>
-
                     </article>
-
                 {% endfor %}
-
             {% else %}
-
                 <div class="catalog-empty-state">
                     <i data-lucide="car-front"></i>
                     <h3>No hay vehículos disponibles</h3>
-                    <p>Cuando el administrador agregue vehículos activos, aparecerán aquí.</p>
+                    <p>No encontramos unidades con los filtros actuales. Limpia filtros o intenta con otra búsqueda.</p>
                 </div>
-
             {% endif %}
-
         </section>
-        
-        
-        <!-- MODAL / VISUALIZACIÓN PREVIA -->
 
         <div class="catalog-modal" id="vehiclePreviewModal" aria-hidden="true">
-
             <div class="catalog-modal-backdrop" data-close-preview></div>
 
             <article class="catalog-modal-card">
-
                 <button type="button" class="catalog-modal-close" data-close-preview aria-label="Cerrar visualización">
                     <i data-lucide="x"></i>
                 </button>
 
                 <div class="catalog-modal-grid">
-
                     <section class="catalog-modal-media">
-
                         <div class="catalog-modal-image-box">
                             <img id="previewImage" src="" alt="Vista previa del vehículo">
                         </div>
@@ -565,11 +801,9 @@
                                 <p id="previewModelText">Modelo 3D pendiente de asignación.</p>
                             </div>
                         </div>
-
                     </section>
 
                     <section class="catalog-modal-info">
-
                         <span class="catalog-modal-eyebrow" id="previewCode">VINOVA</span>
 
                         <h2 id="previewTitle">Vehículo</h2>
@@ -578,10 +812,14 @@
                             Información técnica del vehículo seleccionado.
                         </p>
 
+                        <span class="catalog-modal-state" id="previewState">
+                            <span class="status-dot"></span>
+                            <strong>Disponible</strong>
+                        </span>
+
                         <strong class="catalog-modal-price" id="previewPrice">$0</strong>
 
                         <div class="catalog-modal-spec-grid">
-
                             <div class="catalog-modal-spec">
                                 <i data-lucide="car-front"></i>
                                 <span>Tipo</span>
@@ -605,7 +843,6 @@
                                 <span>Kilometraje</span>
                                 <strong id="previewMileage">0 km</strong>
                             </div>
-
                         </div>
 
                         <div class="catalog-modal-description">
@@ -621,50 +858,82 @@
                                 Visualización previa
                             </button>
 
-                            <a href="{{ url_for('perfil') }}#seccion-agregar-vehiculo" class="catalog-modal-secondary">
+                            <a
+                                href="{{ (url_for('perfil') ~ '#seccion-agregar-vehiculo') if session.get('usuario_id') else url_for('login') }}"
+                                class="catalog-modal-secondary"
+                                id="previewRegisterLink">
                                 <i data-lucide="plus-circle"></i>
-                                Registrar en mi perfil
+                                {% if session.get('usuario_id') %}
+                                    Registrar en mi perfil
+                                {% else %}
+                                    Iniciar sesión para registrar
+                                {% endif %}
                             </a>
+
+                            {% if not session.get('usuario_id') %}
+                                <p class="catalog-modal-login-note">
+                                    Para agregar un vehículo a tu perfil necesitas iniciar sesión y usar el código privado entregado por VINOVA.
+                                </p>
+                            {% endif %}
                         </div>
-
                     </section>
-
                 </div>
-
             </article>
-
         </div>
 
-        <footer class="catalog-footer">
+        {% set paginas_catalogo_final = paginas_catalogo|default([1]) %}
+
+        <footer class="catalog-footer {% if total_paginas <= 1 and total_filtrados == 0 %}catalog-footer-empty{% endif %}">
             <nav class="catalog-pagination" aria-label="Paginación del catálogo">
-                <button type="button" class="pagination-btn">
+                <button
+                    type="button"
+                    class="pagination-btn {% if pagina_actual <= 1 %}is-disabled{% endif %}"
+                    data-catalog-page="{{ pagina_actual - 1 }}"
+                    {% if pagina_actual <= 1 %}disabled{% endif %}
+                    aria-label="Página anterior">
                     <i data-lucide="chevron-left"></i>
                 </button>
 
-                <button type="button" class="pagination-btn active">1</button>
-                <button type="button" class="pagination-btn">2</button>
-                <button type="button" class="pagination-btn">3</button>
-                <button type="button" class="pagination-btn">4</button>
+                {% for item in paginas_catalogo_final %}
+                    {% if item == '...' %}
+                        <span class="pagination-dots">...</span>
+                    {% else %}
+                        <button
+                            type="button"
+                            class="pagination-btn {% if item == pagina_actual %}active{% endif %}"
+                            data-catalog-page="{{ item }}">
+                            {{ item }}
+                        </button>
+                    {% endif %}
+                {% endfor %}
 
-                <span class="pagination-dots">...</span>
-
-                <button type="button" class="pagination-btn">16</button>
-
-                <button type="button" class="pagination-btn">
+                <button
+                    type="button"
+                    class="pagination-btn {% if pagina_actual >= total_paginas %}is-disabled{% endif %}"
+                    data-catalog-page="{{ pagina_actual + 1 }}"
+                    {% if pagina_actual >= total_paginas %}disabled{% endif %}
+                    aria-label="Página siguiente">
                     <i data-lucide="chevron-right"></i>
                 </button>
             </nav>
 
             <div class="catalog-items-per-page">
-                <span>Mostrar</span>
+                <label class="catalog-items-form">
+                    <span>Mostrar</span>
 
-                <button type="button">
-                    8 por página
-                    <i data-lucide="chevron-down"></i>
-                </button>
+                    <select
+                        name="per_page"
+                        form="catalogFiltersForm"
+                        class="catalog-page-size-select"
+                        data-auto-submit="true">
+                        <option value="8" {% if per_page_actual|string == '8' %}selected{% endif %}>8 por página</option>
+                        <option value="12" {% if per_page_actual|string == '12' %}selected{% endif %}>12 por página</option>
+                        <option value="16" {% if per_page_actual|string == '16' %}selected{% endif %}>16 por página</option>
+                        <option value="24" {% if per_page_actual|string == '24' %}selected{% endif %}>24 por página</option>
+                    </select>
+                </label>
             </div>
         </footer>
-
     </section>
 
 </main>
