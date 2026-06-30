@@ -1738,3 +1738,184 @@ a {
         margin-top: 6px;
     }
 }
+/* ============================= */
+/* MANTENIMIENTO / MANUALES */
+/* ============================= */
+
+.admin-inline-form {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.admin-worker-location-form input {
+    width: min(220px, 100%);
+    padding: 9px 10px;
+    border-radius: 10px;
+    border: 1px solid var(--admin-border);
+    background: rgba(255, 255, 255, 0.045);
+    color: var(--admin-text);
+    outline: none;
+}
+
+.admin-worker-location-form input:focus {
+    border-color: rgba(59, 130, 246, 0.65);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+
+.admin-table small {
+    display: block;
+    color: var(--admin-muted);
+    margin-top: 4px;
+    line-height: 1.35;
+}
+
+.admin-table a {
+    color: #93c5fd;
+    text-decoration: none;
+    font-weight: 700;
+}
+
+.admin-table a:hover {
+    text-decoration: underline;
+}
+
+/* ============================= */
+/* BUSCADOR DE CLIENTE/VEHÍCULO PARA MANTENIMIENTO */
+/* ============================= */
+
+.maintenance-client-picker {
+    position: relative;
+}
+
+.maintenance-search-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+}
+
+.maintenance-search-row input[type="search"] {
+    width: 100%;
+    min-height: 44px;
+    padding: 0 14px;
+    color: #ffffff;
+    background: rgba(4, 11, 22, 0.86);
+    border: 1px solid rgba(59, 130, 246, 0.24);
+    border-radius: 12px;
+    outline: none;
+}
+
+.maintenance-search-row input[type="search"]:focus {
+    border-color: rgba(96, 165, 250, 0.78);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.14);
+}
+
+.maintenance-clear-btn {
+    min-height: 44px;
+    padding: 0 14px;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.055);
+    color: #dbe7fb;
+    font-weight: 800;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+}
+
+.maintenance-clear-btn:hover {
+    transform: translateY(-1px);
+    background: rgba(59, 130, 246, 0.12);
+    border-color: rgba(59, 130, 246, 0.4);
+}
+
+.maintenance-selected-card {
+    padding: 12px 14px;
+    border-radius: 14px;
+    border: 1px solid rgba(34, 197, 94, 0.22);
+    background: rgba(34, 197, 94, 0.075);
+    color: #dffbea;
+    display: grid;
+    gap: 4px;
+}
+
+.maintenance-selected-card.is-empty {
+    border-color: rgba(245, 158, 11, 0.18);
+    background: rgba(245, 158, 11, 0.06);
+    color: var(--admin-muted);
+}
+
+.maintenance-selected-card strong {
+    color: #ffffff;
+    font-size: 0.92rem;
+}
+
+.maintenance-selected-card span,
+.maintenance-selected-card small {
+    color: #a6b0c2;
+    line-height: 1.35;
+}
+
+.maintenance-results {
+    max-height: 290px;
+    overflow-y: auto;
+    padding: 8px;
+    border: 1px solid rgba(59, 130, 246, 0.2);
+    border-radius: 16px;
+    background: rgba(3, 8, 18, 0.98);
+    box-shadow: 0 24px 55px rgba(0, 0, 0, 0.36);
+}
+
+.maintenance-result-item {
+    width: 100%;
+    text-align: left;
+    display: grid;
+    gap: 4px;
+    padding: 12px 13px;
+    border: 1px solid transparent;
+    border-radius: 12px;
+    background: transparent;
+    color: #ffffff;
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.maintenance-result-item + .maintenance-result-item {
+    margin-top: 6px;
+}
+
+.maintenance-result-item:hover,
+.maintenance-result-item:focus {
+    transform: translateY(-1px);
+    background: rgba(59, 130, 246, 0.12);
+    border-color: rgba(59, 130, 246, 0.34);
+    outline: none;
+}
+
+.maintenance-result-item strong {
+    font-size: 0.9rem;
+    color: #ffffff;
+}
+
+.maintenance-result-item span,
+.maintenance-result-item small {
+    color: #a6b0c2;
+    line-height: 1.35;
+}
+
+.maintenance-results-message {
+    padding: 12px 13px;
+    color: #dbe7fb;
+    font-size: 0.84rem;
+}
+
+.maintenance-results-message.warning {
+    color: #fde68a;
+}
+
+@media (max-width: 720px) {
+    .maintenance-search-row {
+        grid-template-columns: 1fr;
+    }
+}

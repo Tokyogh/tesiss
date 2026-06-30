@@ -1,9 +1,10 @@
-from flask import Flask, render_template, request, redirect, session, flash, url_for
+from flask import Flask, render_template, request, redirect, session, flash, url_for, jsonify
 import sqlite3
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from functools import wraps
 from datetime import timedelta, datetime
+from calendar import monthrange
 import os
 import re
 import secrets
@@ -235,6 +236,146 @@ def formatear_fecha_visible(valor):
     except ValueError:
         return str(valor)
 
+
+def sumar_meses(fecha_base, meses):
+    """
+    Suma meses a una fecha manteniendo el día cuando sea posible.
+    Si el mes destino tiene menos días, usa el último día válido.
+    """
+
+    if not fecha_base:
+        return None
+
+    try:
+        fecha = datetime.strptime(str(fecha_base)[:10], "%Y-%m-%d").date()
+    except ValueError:
+        return None
+
+    total_meses = (fecha.year * 12 + fecha.month - 1) + int(meses or 0)
+    nuevo_anio = total_meses // 12
+    nuevo_mes = total_meses % 12 + 1
+    nuevo_dia = min(fecha.day, monthrange(nuevo_anio, nuevo_mes)[1])
+
+    return datetime(nuevo_anio, nuevo_mes, nuevo_dia).strftime("%Y-%m-%d")
+
+
+def normalizar_tipo_servicio(tipo_servicio):
+    texto = str(tipo_servicio or "").strip().lower()
+    texto = texto.replace("á", "a").replace("é", "e").replace("í", "i")
+    texto = texto.replace("ó", "o").replace("ú", "u").replace("ñ", "n")
+    texto = re.sub(r"\s+", " ", texto)
+    return texto
+
+
+def reglas_mantenimiento(tipo_servicio):
+    """
+    Devuelve el intervalo sugerido según el tipo de servicio.
+    La clave es flexible para aceptar textos escritos por el trabajador.
+    """
+
+    tipo = normalizar_tipo_servicio(tipo_servicio)
+
+    if "aceite" in tipo:
+        return 5000, 6
+
+    if "revision general" in tipo or "general" in tipo:
+        return 10000, 12
+
+    if "freno" in tipo:
+        return 15000, 12
+
+    if "llanta" in tipo or "neumatic" in tipo:
+        return 10000, 12
+
+    if "bateria" in tipo:
+        return 20000, 18
+
+    return 10000, 12
+
+
+def calcular_proximo_mantenimiento(tipo_servicio, kilometraje_actual, fecha_servicio):
+    intervalo_km, intervalo_meses = reglas_mantenimiento(tipo_servicio)
+
+    proximo_kilometraje = None
+
+    if kilometraje_actual is not None:
+        proximo_kilometraje = kilometraje_actual + intervalo_km
+
+    proxima_fecha = sumar_meses(fecha_servicio, intervalo_meses)
+
+    return {
+        "intervalo_km": intervalo_km,
+        "intervalo_meses": intervalo_meses,
+        "proximo_kilometraje": proximo_kilometraje,
+        "proxima_fecha": proxima_fecha
+    }
+
+
+def estado_programacion_mantenimiento(proxima_fecha, proximo_kilometraje, kilometraje_referencia=None):
+    """Calcula el estado visible para el próximo servicio."""
+
+    hoy = datetime.now().date()
+    limite_proximo = hoy + timedelta(days=30)
+    estado = "programado"
+    estado_texto = "Programado"
+    detalle = []
+
+    if proxima_fecha:
+        fecha_visible = formatear_fecha_visible(proxima_fecha)
+        detalle.append(f"Fecha sugerida: {fecha_visible}")
+
+        try:
+            fecha_objetivo = datetime.strptime(str(proxima_fecha)[:10], "%Y-%m-%d").date()
+
+            if fecha_objetivo <= hoy:
+                estado = "vencido"
+                estado_texto = "Vencido"
+            elif fecha_objetivo <= limite_proximo and estado != "vencido":
+                estado = "proximo"
+                estado_texto = "Próximo"
+        except ValueError:
+            pass
+
+    if proximo_kilometraje is not None:
+        detalle.append(f"Kilometraje sugerido: {proximo_kilometraje:,} km".replace(",", "."))
+
+        if kilometraje_referencia is not None:
+            km_restante = proximo_kilometraje - kilometraje_referencia
+
+            if km_restante <= 0:
+                estado = "vencido"
+                estado_texto = "Vencido"
+            elif km_restante <= 1000 and estado != "vencido":
+                estado = "proximo"
+                estado_texto = "Próximo"
+
+            detalle.append(f"Referencia actual: {kilometraje_referencia:,} km".replace(",", "."))
+
+    return estado, estado_texto, " • ".join(detalle)
+
+
+def obtener_establecimiento_usuario(cursor, usuario_id):
+    if not usuario_id:
+        return ""
+
+    try:
+        cursor.execute("""
+            SELECT COALESCE(establecimiento, '') AS establecimiento
+            FROM usuarios
+            WHERE id = ?
+        """, (
+            usuario_id,
+        ))
+
+        fila = cursor.fetchone()
+
+        if fila:
+            return str(fila["establecimiento"] or "").strip()
+    except Exception:
+        return ""
+
+    return ""
+
 def obtener_nombre_imagen_vehiculo(ruta_imagen):
     """
     Normaliza la imagen del vehículo para profile.html.
@@ -357,7 +498,8 @@ def asegurar_migraciones_admin():
         columnas_usuarios = {
             "activo": "INTEGER DEFAULT 1",
             "creado_en": "TEXT",
-            "actualizado_en": "TEXT"
+            "actualizado_en": "TEXT",
+            "establecimiento": "TEXT"
         }
 
         for columna, definicion in columnas_usuarios.items():
@@ -399,18 +541,92 @@ def asegurar_migraciones_admin():
             usuario_id INTEGER NOT NULL,
             vehiculo_id INTEGER NOT NULL,
             usuario_vehiculo_id INTEGER,
+            registrado_por INTEGER,
             tipo_servicio TEXT NOT NULL,
+            descripcion TEXT,
+            kilometraje_actual INTEGER,
             fecha_servicio TEXT NOT NULL,
-            kilometraje INTEGER,
+            intervalo_km INTEGER,
+            intervalo_meses INTEGER,
+            proximo_kilometraje INTEGER,
+            proxima_fecha TEXT,
+            observaciones TEXT,
+            establecimiento TEXT,
+            estado TEXT DEFAULT 'Realizado',
             costo REAL DEFAULT 0,
             taller TEXT,
-            descripcion TEXT,
+            kilometraje INTEGER,
             proximo_servicio_fecha TEXT,
             proximo_servicio_km INTEGER,
             creado_en TEXT,
-            actualizado_en TEXT
+            actualizado_en TEXT,
+            anulado INTEGER DEFAULT 0,
+            anulado_por INTEGER,
+            anulado_en TEXT,
+            motivo_anulacion TEXT
         )
     """)
+
+    if tabla_existe(cursor, "mantenimientos"):
+        columnas_mantenimientos = {
+            "registrado_por": "INTEGER",
+            "kilometraje_actual": "INTEGER",
+            "intervalo_km": "INTEGER",
+            "intervalo_meses": "INTEGER",
+            "proximo_kilometraje": "INTEGER",
+            "proxima_fecha": "TEXT",
+            "observaciones": "TEXT",
+            "establecimiento": "TEXT",
+            "estado": "TEXT DEFAULT 'Realizado'",
+            "anulado": "INTEGER DEFAULT 0",
+            "anulado_por": "INTEGER",
+            "anulado_en": "TEXT",
+            "motivo_anulacion": "TEXT"
+        }
+
+        for columna, definicion in columnas_mantenimientos.items():
+            agregar_columna_si_falta(cursor, "mantenimientos", columna, definicion)
+
+        cursor.execute("""
+            UPDATE mantenimientos
+            SET
+                kilometraje_actual = COALESCE(kilometraje_actual, kilometraje),
+                proximo_kilometraje = COALESCE(proximo_kilometraje, proximo_servicio_km),
+                proxima_fecha = COALESCE(proxima_fecha, proximo_servicio_fecha),
+                establecimiento = COALESCE(establecimiento, taller),
+                observaciones = COALESCE(observaciones, descripcion),
+                estado = COALESCE(NULLIF(TRIM(estado), ''), 'Realizado'),
+                anulado = COALESCE(anulado, 0)
+        """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS manuales_vehiculo (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            vehiculo_id INTEGER NOT NULL,
+            titulo TEXT NOT NULL,
+            tipo_documento TEXT,
+            archivo TEXT,
+            enlace TEXT,
+            descripcion TEXT,
+            subido_por INTEGER,
+            creado_en TEXT,
+            activo INTEGER DEFAULT 1
+        )
+    """)
+
+    if tabla_existe(cursor, "manuales_vehiculo"):
+        columnas_manuales = {
+            "tipo_documento": "TEXT",
+            "archivo": "TEXT",
+            "enlace": "TEXT",
+            "descripcion": "TEXT",
+            "subido_por": "INTEGER",
+            "creado_en": "TEXT",
+            "activo": "INTEGER DEFAULT 1"
+        }
+
+        for columna, definicion in columnas_manuales.items():
+            agregar_columna_si_falta(cursor, "manuales_vehiculo", columna, definicion)
 
     ejecutar_sql_seguro(
         cursor,
@@ -428,6 +644,24 @@ def asegurar_migraciones_admin():
         ON mantenimientos(vehiculo_id)
         """,
         "índice de mantenimientos por vehículo"
+    )
+
+    ejecutar_sql_seguro(
+        cursor,
+        """
+        CREATE INDEX IF NOT EXISTS idx_mantenimientos_anulado
+        ON mantenimientos(anulado)
+        """,
+        "índice de mantenimientos anulados"
+    )
+
+    ejecutar_sql_seguro(
+        cursor,
+        """
+        CREATE INDEX IF NOT EXISTS idx_manuales_vehiculo
+        ON manuales_vehiculo(vehiculo_id, activo)
+        """,
+        "índice de manuales por vehículo"
     )
 
     conexion.commit()
@@ -870,6 +1104,60 @@ def trabajador_panel():
     """)
     ventas_canje = cursor.fetchall()
 
+    # La selección de cliente/vehículo para mantenimiento ahora se hace por búsqueda AJAX.
+    # No cargamos todos los registros aquí para evitar listas enormes cuando haya miles de clientes.
+    vehiculos_clientes = []
+
+    cursor.execute("""
+        SELECT
+            mantenimientos.*,
+            COALESCE(mantenimientos.kilometraje_actual, mantenimientos.kilometraje) AS km_servicio,
+            COALESCE(mantenimientos.proximo_kilometraje, mantenimientos.proximo_servicio_km) AS km_proximo,
+            COALESCE(mantenimientos.proxima_fecha, mantenimientos.proximo_servicio_fecha) AS fecha_proxima,
+            usuarios.nombre AS usuario_nombre,
+            usuarios.correo AS usuario_correo,
+            vehiculos.codigo_catalogo,
+            vehiculos.marca,
+            vehiculos.modelo,
+            vehiculos.anio,
+            registrador.nombre AS registrado_por_nombre,
+            registrador.rol AS registrado_por_rol,
+            registrador.establecimiento AS registrado_por_establecimiento
+        FROM mantenimientos
+        INNER JOIN usuarios
+            ON usuarios.id = mantenimientos.usuario_id
+        INNER JOIN vehiculos
+            ON vehiculos.id = mantenimientos.vehiculo_id
+        LEFT JOIN usuarios AS registrador
+            ON registrador.id = mantenimientos.registrado_por
+        WHERE COALESCE(mantenimientos.anulado, 0) = 0
+        ORDER BY DATE(mantenimientos.fecha_servicio) DESC, mantenimientos.id DESC
+        LIMIT 80
+    """)
+    mantenimientos = []
+
+    for fila in cursor.fetchall():
+        mantenimiento = dict(fila)
+        mantenimiento["fecha_visible"] = formatear_fecha_visible(mantenimiento.get("fecha_servicio"))
+        mantenimiento["proxima_fecha"] = mantenimiento.get("fecha_proxima")
+        mantenimiento["proxima_fecha_visible"] = formatear_fecha_visible(mantenimiento.get("fecha_proxima"))
+        mantenimiento["kilometraje_actual"] = normalizar_kilometraje(mantenimiento.get("km_servicio"))
+        mantenimiento["proximo_kilometraje"] = normalizar_kilometraje(mantenimiento.get("km_proximo"))
+        mantenimiento["establecimiento"] = mantenimiento.get("establecimiento") or mantenimiento.get("taller") or mantenimiento.get("registrado_por_establecimiento") or "VINOVA"
+        mantenimientos.append(mantenimiento)
+
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM mantenimientos
+        WHERE COALESCE(anulado, 0) = 0
+    """)
+    total_mantenimientos = cursor.fetchone()[0]
+
+    trabajador_establecimiento = obtener_establecimiento_usuario(
+        cursor,
+        session.get("usuario_id")
+    )
+
     cursor.execute("""
         SELECT COUNT(*)
         FROM vehiculos
@@ -920,6 +1208,10 @@ def trabajador_panel():
         vehiculos_reservados=vehiculos_reservados,
         codigos_disponibles=codigos_disponibles,
         total_canjes=total_canjes,
+        vehiculos_clientes=vehiculos_clientes,
+        mantenimientos=mantenimientos,
+        total_mantenimientos=total_mantenimientos,
+        trabajador_establecimiento=trabajador_establecimiento,
         trabajador_generar_codigo_url="/trabajador/vehiculos/__ID__/codigo/generar",
         trabajador_archivar_vehiculo_url="/trabajador/vehiculos/__ID__/archivar",
         trabajador_reactivar_codigo_url="/trabajador/codigos/__ID__/reactivar"
@@ -1337,16 +1629,28 @@ def perfil():
     cursor.execute("""
         SELECT
             mantenimientos.*,
+            COALESCE(mantenimientos.kilometraje_actual, mantenimientos.kilometraje) AS km_servicio,
+            COALESCE(mantenimientos.proximo_kilometraje, mantenimientos.proximo_servicio_km) AS km_proximo,
+            COALESCE(mantenimientos.proxima_fecha, mantenimientos.proximo_servicio_fecha) AS fecha_proxima,
+            COALESCE(NULLIF(TRIM(mantenimientos.establecimiento), ''), mantenimientos.taller) AS sede_servicio,
+            COALESCE(NULLIF(TRIM(mantenimientos.observaciones), ''), mantenimientos.descripcion) AS detalle_servicio,
             vehiculos.codigo_catalogo,
             vehiculos.marca,
             vehiculos.modelo,
             vehiculos.anio,
             vehiculos.tipo_vehiculo,
-            vehiculos.transmision
+            vehiculos.transmision,
+            registrador.nombre AS registrado_por_nombre,
+            registrador.correo AS registrado_por_correo,
+            registrador.rol AS registrado_por_rol,
+            registrador.establecimiento AS registrado_por_establecimiento
         FROM mantenimientos
         INNER JOIN vehiculos
             ON vehiculos.id = mantenimientos.vehiculo_id
+        LEFT JOIN usuarios AS registrador
+            ON registrador.id = mantenimientos.registrado_por
         WHERE mantenimientos.usuario_id = ?
+          AND COALESCE(mantenimientos.anulado, 0) = 0
         ORDER BY DATE(mantenimientos.fecha_servicio) DESC, mantenimientos.id DESC
     """, (
         session["usuario_id"],
@@ -1359,21 +1663,26 @@ def perfil():
         mantenimiento["fecha_visible"] = formatear_fecha_visible(
             mantenimiento.get("fecha_servicio")
         )
-        mantenimiento["proximo_servicio_fecha_visible"] = formatear_fecha_visible(
-            mantenimiento.get("proximo_servicio_fecha")
+        mantenimiento["proxima_fecha"] = mantenimiento.get("fecha_proxima")
+        mantenimiento["proxima_fecha_visible"] = formatear_fecha_visible(
+            mantenimiento.get("fecha_proxima")
         )
-        mantenimiento["kilometraje"] = normalizar_kilometraje(
-            mantenimiento.get("kilometraje")
+        mantenimiento["proximo_kilometraje"] = normalizar_kilometraje(
+            mantenimiento.get("km_proximo")
         )
-        mantenimiento["proximo_servicio_km"] = normalizar_kilometraje(
-            mantenimiento.get("proximo_servicio_km")
+        mantenimiento["kilometraje_actual"] = normalizar_kilometraje(
+            mantenimiento.get("km_servicio")
         )
+        mantenimiento["kilometraje"] = mantenimiento["kilometraje_actual"]
+        mantenimiento["proximo_servicio_fecha"] = mantenimiento.get("fecha_proxima")
+        mantenimiento["proximo_servicio_fecha_visible"] = mantenimiento["proxima_fecha_visible"]
+        mantenimiento["proximo_servicio_km"] = mantenimiento["proximo_kilometraje"]
         mantenimiento["costo"] = normalizar_precio(
             mantenimiento.get("costo")
         ) or 0
+        mantenimiento["establecimiento"] = mantenimiento.get("sede_servicio") or ""
+        mantenimiento["observaciones"] = mantenimiento.get("detalle_servicio") or ""
         historial_mantenimientos.append(mantenimiento)
-
-    conexion.close()
 
     vehiculos_por_id = {vehiculo["id"]: vehiculo for vehiculo in mis_vehiculos}
 
@@ -1383,7 +1692,7 @@ def perfil():
         if not vehiculo:
             continue
 
-        km_mantenimiento = mantenimiento.get("kilometraje")
+        km_mantenimiento = mantenimiento.get("kilometraje_actual")
 
         if km_mantenimiento is not None:
             km_actual = vehiculo.get("kilometraje_actual")
@@ -1391,68 +1700,64 @@ def perfil():
             if km_actual is None or km_mantenimiento > km_actual:
                 vehiculo["kilometraje_actual"] = km_mantenimiento
 
-    hoy = datetime.now().date()
-    limite_proximo = hoy + timedelta(days=30)
     servicios_proximos = []
 
     for mantenimiento in historial_mantenimientos:
-        proximo_fecha = mantenimiento.get("proximo_servicio_fecha")
-        proximo_km = mantenimiento.get("proximo_servicio_km")
+        proxima_fecha = mantenimiento.get("proxima_fecha")
+        proximo_kilometraje = mantenimiento.get("proximo_kilometraje")
 
-        if not proximo_fecha and proximo_km is None:
+        if not proxima_fecha and proximo_kilometraje is None:
             continue
 
         vehiculo = vehiculos_por_id.get(mantenimiento["vehiculo_id"], {})
         km_actual = vehiculo.get("kilometraje_actual")
-        estado = "programado"
-        estado_texto = "Programado"
-        detalle = []
-
-        if proximo_fecha:
-            detalle.append(f"Fecha sugerida: {mantenimiento['proximo_servicio_fecha_visible']}")
-
-            try:
-                fecha_objetivo = datetime.strptime(proximo_fecha, "%Y-%m-%d").date()
-
-                if fecha_objetivo <= hoy:
-                    estado = "vencido"
-                    estado_texto = "Vencido"
-                elif fecha_objetivo <= limite_proximo and estado != "vencido":
-                    estado = "proximo"
-                    estado_texto = "Próximo"
-
-            except ValueError:
-                pass
-
-        if proximo_km is not None:
-            detalle.append(f"Kilometraje sugerido: {proximo_km:,} km".replace(",", "."))
-
-            if km_actual is not None:
-                km_restante = proximo_km - km_actual
-
-                if km_restante <= 0:
-                    estado = "vencido"
-                    estado_texto = "Vencido"
-                elif km_restante <= 1000 and estado != "vencido":
-                    estado = "proximo"
-                    estado_texto = "Próximo"
-
-                detalle.append(f"Referencia actual: {km_actual:,} km".replace(",", "."))
+        estado, estado_texto, detalle = estado_programacion_mantenimiento(
+            proxima_fecha,
+            proximo_kilometraje,
+            km_actual
+        )
 
         servicio = dict(mantenimiento)
         servicio["estado"] = estado
         servicio["estado_texto"] = estado_texto
-        servicio["detalle_programacion"] = " • ".join(detalle)
+        servicio["detalle_programacion"] = detalle
         servicios_proximos.append(servicio)
 
     prioridad_estado = {"vencido": 0, "proximo": 1, "programado": 2}
     servicios_proximos.sort(
         key=lambda servicio: (
             prioridad_estado.get(servicio.get("estado"), 9),
-            servicio.get("proximo_servicio_fecha") or "9999-12-31",
-            servicio.get("proximo_servicio_km") or 999999999
+            servicio.get("proxima_fecha") or "9999-12-31",
+            servicio.get("proximo_kilometraje") or 999999999
         )
     )
+
+    manuales_usuario = []
+    ids_vehiculos = [vehiculo["id"] for vehiculo in mis_vehiculos]
+
+    if ids_vehiculos:
+        placeholders = ",".join("?" for _ in ids_vehiculos)
+        cursor.execute(f"""
+            SELECT
+                manuales_vehiculo.*,
+                vehiculos.codigo_catalogo,
+                vehiculos.marca,
+                vehiculos.modelo,
+                vehiculos.anio
+            FROM manuales_vehiculo
+            INNER JOIN vehiculos
+                ON vehiculos.id = manuales_vehiculo.vehiculo_id
+            WHERE manuales_vehiculo.vehiculo_id IN ({placeholders})
+              AND COALESCE(manuales_vehiculo.activo, 1) = 1
+            ORDER BY vehiculos.marca, vehiculos.modelo, manuales_vehiculo.id DESC
+        """, ids_vehiculos)
+
+        for fila in cursor.fetchall():
+            manual = dict(fila)
+            manual["creado_visible"] = formatear_fecha_visible(manual.get("creado_en"))
+            manuales_usuario.append(manual)
+
+    conexion.close()
 
     ultimo_mantenimiento = historial_mantenimientos[0] if historial_mantenimientos else None
     proximo_mantenimiento = servicios_proximos[0] if servicios_proximos else None
@@ -1468,41 +1773,182 @@ def perfil():
         servicios_proximos=servicios_proximos,
         ultimo_mantenimiento=ultimo_mantenimiento,
         proximo_mantenimiento=proximo_mantenimiento,
-        total_alertas_mantenimiento=total_alertas
+        total_alertas_mantenimiento=total_alertas,
+        manuales_usuario=manuales_usuario
     )
 
 
 @app.route("/perfil/mantenimiento/registrar", methods=["POST"])
 @login_required
 def registrar_mantenimiento():
+    flash("Los mantenimientos de VINOVA son registrados por un trabajador autorizado.", "warning")
+    return redirect("/perfil#seccion-historial")
+
+
+@app.route("/perfil/mantenimiento/<int:mantenimiento_id>/eliminar", methods=["POST"])
+@login_required
+def eliminar_mantenimiento(mantenimiento_id):
+    flash("El historial de mantenimiento solo puede ser anulado por personal de VINOVA.", "warning")
+    return redirect("/perfil#seccion-historial")
+
+
+
+# ================= MANTENIMIENTO EMPRESARIAL =================
+
+@app.route("/mantenimientos/buscar-vehiculos")
+@login_required
+@personal_required
+def buscar_vehiculos_mantenimiento():
+
+    asegurar_migraciones_admin()
+
+    consulta = request.args.get("q", "").strip()
+    limite = request.args.get("limit", 20, type=int) or 20
+    limite = max(1, min(limite, 30))
+
+    if len(consulta) < 2 and not consulta.isdigit():
+        return jsonify({
+            "resultados": [],
+            "mensaje": "Escribe al menos 2 caracteres o un ID para buscar por correo, cliente, código o vehículo."
+        })
+
+    like = f"%{consulta}%"
+    consulta_numerica = consulta if consulta.isdigit() else None
+    consulta_id = int(consulta_numerica) if consulta_numerica else -1
+
+    filtros = [
+        "LOWER(usuarios.correo) LIKE LOWER(?)",
+        "LOWER(usuarios.nombre) LIKE LOWER(?)",
+        "LOWER(vehiculos.codigo_catalogo) LIKE LOWER(?)",
+        "LOWER(vehiculos.marca) LIKE LOWER(?)",
+        "LOWER(vehiculos.modelo) LIKE LOWER(?)",
+        "CAST(vehiculos.anio AS TEXT) LIKE ?",
+        "LOWER(COALESCE(codigos_vehiculo.codigo, '')) LIKE LOWER(?)"
+    ]
+    parametros = [like, like, like, like, like, like, like]
+
+    if consulta_numerica:
+        filtros.extend([
+            "usuarios_vehiculos.id = ?",
+            "usuarios.id = ?",
+            "vehiculos.id = ?"
+        ])
+        parametros.extend([int(consulta_numerica), int(consulta_numerica), int(consulta_numerica)])
+
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    cursor.execute(f"""
+        SELECT
+            usuarios_vehiculos.id AS usuario_vehiculo_id,
+            usuarios_vehiculos.usuario_id,
+            usuarios_vehiculos.vehiculo_id,
+            usuarios_vehiculos.kilometraje_inicial,
+            usuarios_vehiculos.fecha_registro,
+            usuarios.nombre AS usuario_nombre,
+            usuarios.correo AS usuario_correo,
+            vehiculos.codigo_catalogo,
+            vehiculos.marca,
+            vehiculos.modelo,
+            vehiculos.anio,
+            vehiculos.kilometraje AS vehiculo_kilometraje,
+            codigos_vehiculo.codigo AS codigo_canje,
+            COALESCE(
+                MAX(mantenimientos.kilometraje_actual),
+                usuarios_vehiculos.kilometraje_inicial,
+                vehiculos.kilometraje,
+                0
+            ) AS kilometraje_referencia
+        FROM usuarios_vehiculos
+        INNER JOIN usuarios
+            ON usuarios.id = usuarios_vehiculos.usuario_id
+        INNER JOIN vehiculos
+            ON vehiculos.id = usuarios_vehiculos.vehiculo_id
+        LEFT JOIN codigos_vehiculo
+            ON codigos_vehiculo.id = usuarios_vehiculos.codigo_vehiculo_id
+        LEFT JOIN mantenimientos
+            ON mantenimientos.usuario_vehiculo_id = usuarios_vehiculos.id
+           AND COALESCE(mantenimientos.anulado, 0) = 0
+        WHERE ({" OR ".join(filtros)})
+        GROUP BY usuarios_vehiculos.id
+        ORDER BY
+            CASE
+                WHEN usuarios_vehiculos.id = ? THEN 0
+                WHEN vehiculos.id = ? THEN 1
+                WHEN LOWER(usuarios.correo) = LOWER(?) THEN 2
+                ELSE 3
+            END,
+            usuarios.nombre ASC,
+            usuarios_vehiculos.id DESC
+        LIMIT ?
+    """, (*parametros, consulta_id, consulta_id, consulta, limite))
+
+    resultados = []
+
+    for fila in cursor.fetchall():
+        kilometraje = normalizar_kilometraje(fila["kilometraje_referencia"])
+        vehiculo_texto = f"{fila['marca']} {fila['modelo']} {fila['anio']}".strip()
+        codigo_catalogo = fila["codigo_catalogo"] or "Sin código público"
+        codigo_canje = fila["codigo_canje"] or "Sin código de canje"
+
+        resultados.append({
+            "usuario_vehiculo_id": fila["usuario_vehiculo_id"],
+            "usuario_id": fila["usuario_id"],
+            "vehiculo_id": fila["vehiculo_id"],
+            "usuario_nombre": fila["usuario_nombre"] or "Cliente sin nombre",
+            "usuario_correo": fila["usuario_correo"] or "Sin correo",
+            "vehiculo": vehiculo_texto,
+            "codigo_catalogo": codigo_catalogo,
+            "codigo_canje": codigo_canje,
+            "kilometraje_referencia": kilometraje or 0,
+            "kilometraje_referencia_visible": f"{kilometraje or 0:,}".replace(",", "."),
+            "fecha_registro": formatear_fecha_visible(fila["fecha_registro"]),
+            "label": f"{fila['usuario_nombre'] or 'Cliente'} — {vehiculo_texto}",
+            "detalle": f"Correo: {fila['usuario_correo'] or 'N/D'} · ID vehículo: {fila['vehiculo_id']} · Registro: {fila['usuario_vehiculo_id']} · {codigo_catalogo} · {kilometraje or 0:,} km".replace(",", ".")
+        })
+
+    conexion.close()
+
+    return jsonify({
+        "resultados": resultados,
+        "total": len(resultados)
+    })
+
+
+@app.route("/mantenimientos/registrar", methods=["POST"])
+@login_required
+@personal_required
+def registrar_mantenimiento_empresarial():
 
     asegurar_migraciones_admin()
 
     usuario_vehiculo_id = request.form.get("usuario_vehiculo_id", type=int)
     tipo_servicio = request.form.get("tipo_servicio", "").strip()
     fecha_servicio = normalizar_fecha(request.form.get("fecha_servicio"))
-    kilometraje = normalizar_kilometraje(request.form.get("kilometraje"))
+    kilometraje_actual = normalizar_kilometraje(request.form.get("kilometraje_actual"))
     costo = normalizar_precio(request.form.get("costo", "0"))
-    taller = request.form.get("taller", "").strip()
     descripcion = request.form.get("descripcion", "").strip()
-    proximo_servicio_fecha = normalizar_fecha(request.form.get("proximo_servicio_fecha"))
-    proximo_servicio_km = normalizar_kilometraje(request.form.get("proximo_servicio_km"))
+    observaciones = request.form.get("observaciones", "").strip()
+    establecimiento_form = request.form.get("establecimiento", "").strip()
+    origen = request.form.get("origen", "trabajador").strip().lower()
+
+    destino = "/admin/vehiculos#admin-mantenimientos" if origen == "admin" else "/trabajador#trabajador-mantenimientos"
 
     if not usuario_vehiculo_id:
-        flash("Selecciona el vehículo al que pertenece el mantenimiento.", "warning")
-        return redirect("/perfil#seccion-historial")
+        flash("Selecciona el vehículo del usuario.", "warning")
+        return redirect(destino)
 
     if not tipo_servicio:
         flash("Indica el tipo de servicio realizado.", "warning")
-        return redirect("/perfil#seccion-historial")
+        return redirect(destino)
 
     if not fecha_servicio:
         flash("Ingresa una fecha válida para el mantenimiento.", "warning")
-        return redirect("/perfil#seccion-historial")
+        return redirect(destino)
 
-    if kilometraje is None:
-        flash("Ingresa un kilometraje válido para el mantenimiento.", "warning")
-        return redirect("/perfil#seccion-historial")
+    if kilometraje_actual is None:
+        flash("Ingresa un kilometraje actual válido.", "warning")
+        return redirect(destino)
 
     if costo is None:
         costo = 0
@@ -1514,21 +1960,40 @@ def registrar_mantenimiento():
         cursor.execute("""
             SELECT
                 usuarios_vehiculos.id AS usuario_vehiculo_id,
-                usuarios_vehiculos.vehiculo_id
+                usuarios_vehiculos.usuario_id,
+                usuarios_vehiculos.vehiculo_id,
+                usuarios.nombre AS usuario_nombre,
+                vehiculos.marca,
+                vehiculos.modelo,
+                vehiculos.anio
             FROM usuarios_vehiculos
+            INNER JOIN usuarios
+                ON usuarios.id = usuarios_vehiculos.usuario_id
+            INNER JOIN vehiculos
+                ON vehiculos.id = usuarios_vehiculos.vehiculo_id
             WHERE usuarios_vehiculos.id = ?
-              AND usuarios_vehiculos.usuario_id = ?
             LIMIT 1
         """, (
             usuario_vehiculo_id,
-            session["usuario_id"]
         ))
 
-        registro_vehiculo = cursor.fetchone()
+        registro = cursor.fetchone()
 
-        if not registro_vehiculo:
-            flash("No puedes registrar mantenimiento para un vehículo que no pertenece a tu perfil.", "warning")
-            return redirect("/perfil#seccion-historial")
+        if not registro:
+            flash("El vehículo registrado del usuario no existe.", "warning")
+            return redirect(destino)
+
+        establecimiento_trabajador = obtener_establecimiento_usuario(
+            cursor,
+            session.get("usuario_id")
+        )
+        establecimiento = establecimiento_trabajador or establecimiento_form or "VINOVA"
+
+        calculo = calcular_proximo_mantenimiento(
+            tipo_servicio,
+            kilometraje_actual,
+            fecha_servicio
+        )
 
         ahora = fecha_actual()
 
@@ -1537,96 +2002,135 @@ def registrar_mantenimiento():
                 usuario_id,
                 vehiculo_id,
                 usuario_vehiculo_id,
+                registrado_por,
                 tipo_servicio,
+                descripcion,
+                kilometraje_actual,
                 fecha_servicio,
-                kilometraje,
+                intervalo_km,
+                intervalo_meses,
+                proximo_kilometraje,
+                proxima_fecha,
+                observaciones,
+                establecimiento,
+                estado,
                 costo,
                 taller,
-                descripcion,
+                kilometraje,
                 proximo_servicio_fecha,
                 proximo_servicio_km,
                 creado_en,
-                actualizado_en
+                actualizado_en,
+                anulado
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
         """, (
-            session["usuario_id"],
-            registro_vehiculo["vehiculo_id"],
-            registro_vehiculo["usuario_vehiculo_id"],
+            registro["usuario_id"],
+            registro["vehiculo_id"],
+            registro["usuario_vehiculo_id"],
+            session.get("usuario_id"),
             tipo_servicio,
-            fecha_servicio,
-            kilometraje,
-            costo,
-            taller,
             descripcion,
-            proximo_servicio_fecha,
-            proximo_servicio_km,
+            kilometraje_actual,
+            fecha_servicio,
+            calculo["intervalo_km"],
+            calculo["intervalo_meses"],
+            calculo["proximo_kilometraje"],
+            calculo["proxima_fecha"],
+            observaciones,
+            establecimiento,
+            "Realizado",
+            costo,
+            establecimiento,
+            kilometraje_actual,
+            calculo["proxima_fecha"],
+            calculo["proximo_kilometraje"],
             ahora,
             ahora
         ))
 
         conexion.commit()
-        flash("Mantenimiento registrado correctamente.", "success")
+        flash("Mantenimiento registrado correctamente con próxima revisión calculada.", "success")
 
     except Exception as error:
         conexion.rollback()
-        print("Error al registrar mantenimiento:", error)
-        flash("No se pudo registrar el mantenimiento. Intenta nuevamente.", "error")
+        print("Error al registrar mantenimiento empresarial:", error)
+        flash("No se pudo registrar el mantenimiento.", "error")
 
     finally:
         conexion.close()
 
-    return redirect("/perfil#seccion-historial")
+    return redirect(destino)
 
 
-@app.route("/perfil/mantenimiento/<int:mantenimiento_id>/eliminar", methods=["POST"])
+@app.route("/mantenimientos/<int:mantenimiento_id>/anular", methods=["POST"])
 @login_required
-def eliminar_mantenimiento(mantenimiento_id):
+@personal_required
+def anular_mantenimiento_empresarial(mantenimiento_id):
 
     asegurar_migraciones_admin()
+
+    motivo = request.form.get("motivo_anulacion", "").strip()
+    origen = request.form.get("origen", "trabajador").strip().lower()
+    destino = "/admin/vehiculos#admin-mantenimientos" if origen == "admin" else "/trabajador#trabajador-mantenimientos"
+    rol = str(session.get("rol", "")).upper()
 
     conexion = conectar_db()
     cursor = conexion.cursor()
 
     try:
         cursor.execute("""
-            SELECT id
+            SELECT id, registrado_por, COALESCE(anulado, 0) AS anulado
             FROM mantenimientos
             WHERE id = ?
-              AND usuario_id = ?
-            LIMIT 1
         """, (
             mantenimiento_id,
-            session["usuario_id"]
         ))
 
         mantenimiento = cursor.fetchone()
 
         if not mantenimiento:
             flash("Mantenimiento no encontrado.", "warning")
-            return redirect("/perfil#seccion-historial")
+            return redirect(destino)
+
+        if mantenimiento["anulado"] == 1:
+            flash("Este mantenimiento ya está anulado.", "warning")
+            return redirect(destino)
+
+        if rol != "ADMIN" and mantenimiento["registrado_por"] != session.get("usuario_id"):
+            flash("Solo puedes anular mantenimientos registrados por tu propia cuenta.", "warning")
+            return redirect(destino)
 
         cursor.execute("""
-            DELETE FROM mantenimientos
+            UPDATE mantenimientos
+            SET
+                anulado = 1,
+                anulado_por = ?,
+                anulado_en = ?,
+                motivo_anulacion = ?,
+                estado = 'Anulado',
+                actualizado_en = ?
             WHERE id = ?
-              AND usuario_id = ?
         """, (
-            mantenimiento_id,
-            session["usuario_id"]
+            session.get("usuario_id"),
+            fecha_actual(),
+            motivo or "Anulado desde panel VINOVA",
+            fecha_actual(),
+            mantenimiento_id
         ))
 
         conexion.commit()
-        flash("Mantenimiento eliminado del historial.", "success")
+        flash("Mantenimiento anulado correctamente.", "success")
 
     except Exception as error:
         conexion.rollback()
-        print("Error al eliminar mantenimiento:", error)
-        flash("No se pudo eliminar el mantenimiento.", "error")
+        print("Error al anular mantenimiento:", error)
+        flash("No se pudo anular el mantenimiento.", "error")
 
     finally:
         conexion.close()
 
-    return redirect("/perfil#seccion-historial")
+    return redirect(destino)
 
 
 # ================= CANJEAR CÓDIGO DE VEHÍCULO =================
@@ -2410,6 +2914,73 @@ def admin_vehiculos():
     """)
     ventas_canje = cursor.fetchall()
 
+    # La selección de cliente/vehículo para mantenimiento ahora se hace por búsqueda AJAX.
+    # No cargamos todos los registros aquí para evitar listas enormes cuando haya miles de clientes.
+    vehiculos_clientes = []
+
+    cursor.execute("""
+        SELECT
+            mantenimientos.*,
+            COALESCE(mantenimientos.kilometraje_actual, mantenimientos.kilometraje) AS km_servicio,
+            COALESCE(mantenimientos.proximo_kilometraje, mantenimientos.proximo_servicio_km) AS km_proximo,
+            COALESCE(mantenimientos.proxima_fecha, mantenimientos.proximo_servicio_fecha) AS fecha_proxima,
+            usuarios.nombre AS usuario_nombre,
+            usuarios.correo AS usuario_correo,
+            vehiculos.codigo_catalogo,
+            vehiculos.marca,
+            vehiculos.modelo,
+            vehiculos.anio,
+            registrador.nombre AS registrado_por_nombre,
+            registrador.correo AS registrado_por_correo,
+            registrador.rol AS registrado_por_rol,
+            registrador.establecimiento AS registrado_por_establecimiento
+        FROM mantenimientos
+        INNER JOIN usuarios
+            ON usuarios.id = mantenimientos.usuario_id
+        INNER JOIN vehiculos
+            ON vehiculos.id = mantenimientos.vehiculo_id
+        LEFT JOIN usuarios AS registrador
+            ON registrador.id = mantenimientos.registrado_por
+        WHERE COALESCE(mantenimientos.anulado, 0) = 0
+        ORDER BY DATE(mantenimientos.fecha_servicio) DESC, mantenimientos.id DESC
+        LIMIT 120
+    """)
+    mantenimientos = []
+
+    for fila in cursor.fetchall():
+        mantenimiento = dict(fila)
+        mantenimiento["fecha_visible"] = formatear_fecha_visible(mantenimiento.get("fecha_servicio"))
+        mantenimiento["proxima_fecha"] = mantenimiento.get("fecha_proxima")
+        mantenimiento["proxima_fecha_visible"] = formatear_fecha_visible(mantenimiento.get("fecha_proxima"))
+        mantenimiento["kilometraje_actual"] = normalizar_kilometraje(mantenimiento.get("km_servicio"))
+        mantenimiento["proximo_kilometraje"] = normalizar_kilometraje(mantenimiento.get("km_proximo"))
+        mantenimiento["establecimiento"] = mantenimiento.get("establecimiento") or mantenimiento.get("taller") or mantenimiento.get("registrado_por_establecimiento") or "VINOVA"
+        mantenimientos.append(mantenimiento)
+
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM mantenimientos
+        WHERE COALESCE(anulado, 0) = 0
+    """)
+    total_mantenimientos = cursor.fetchone()[0]
+
+    cursor.execute("""
+        SELECT
+            manuales_vehiculo.*,
+            vehiculos.codigo_catalogo,
+            vehiculos.marca,
+            vehiculos.modelo,
+            vehiculos.anio,
+            usuarios.nombre AS subido_por_nombre
+        FROM manuales_vehiculo
+        INNER JOIN vehiculos
+            ON vehiculos.id = manuales_vehiculo.vehiculo_id
+        LEFT JOIN usuarios
+            ON usuarios.id = manuales_vehiculo.subido_por
+        ORDER BY manuales_vehiculo.id DESC
+    """)
+    manuales_admin = cursor.fetchall()
+
     cursor.execute("""
         SELECT
             usuarios.id,
@@ -2417,6 +2988,7 @@ def admin_vehiculos():
             usuarios.correo,
             usuarios.rol,
             usuarios.foto_perfil,
+            usuarios.establecimiento,
             COALESCE(usuarios.activo, 1) AS activo,
             usuarios.creado_en,
             usuarios.actualizado_en,
@@ -2436,11 +3008,12 @@ def admin_vehiculos():
             usuarios.correo,
             usuarios.rol AS cargo,
             usuarios.foto_perfil,
+            usuarios.establecimiento,
             COALESCE(usuarios.activo, 1) AS activo,
             usuarios.creado_en,
             usuarios.actualizado_en
         FROM usuarios
-        WHERE usuarios.rol != 'USUARIO'
+        WHERE usuarios.rol = 'TRABAJADOR'
         ORDER BY usuarios.id DESC
     """)
     trabajadores_admin = cursor.fetchall()
@@ -2476,7 +3049,11 @@ def admin_vehiculos():
         canjes_reversados=canjes_reversados,
         total_usuarios=total_usuarios,
         total_trabajadores=total_trabajadores,
-        codigos_por_vehiculo=codigos_por_vehiculo
+        codigos_por_vehiculo=codigos_por_vehiculo,
+        vehiculos_clientes=vehiculos_clientes,
+        mantenimientos=mantenimientos,
+        total_mantenimientos=total_mantenimientos,
+        manuales_admin=manuales_admin
     )
 
 
@@ -3270,6 +3847,7 @@ def admin_crear_usuario():
     correo = request.form.get("correo", "").strip().lower()
     password = request.form.get("password", "").strip()
     rol = request.form.get("rol", "USUARIO").strip().upper()
+    establecimiento = request.form.get("establecimiento", "").strip()
 
     if rol == "ADMIN":
         flash("Los administradores solo pueden crearse desde consola raíz del proyecto.", "warning")
@@ -3301,16 +3879,18 @@ def admin_crear_usuario():
                 password,
                 rol,
                 activo,
-                creado_en
+                creado_en,
+                establecimiento
             )
-            VALUES (?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         """, (
             nombre,
             correo,
             password_hash,
             rol,
             1,
-            ahora
+            ahora,
+            establecimiento if rol == "TRABAJADOR" else ""
         ))
 
         conexion.commit()
@@ -3454,6 +4034,190 @@ def admin_cambiar_estado_usuario(usuario_id):
         conexion.close()
 
     return redirigir_admin("usuarios")
+
+
+
+@app.route("/admin/trabajadores/<int:trabajador_id>/establecimiento", methods=["POST"])
+@login_required
+@admin_required
+def admin_actualizar_establecimiento_trabajador(trabajador_id):
+
+    asegurar_migraciones_admin()
+
+    establecimiento = request.form.get("establecimiento", "").strip()
+
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT id, rol
+            FROM usuarios
+            WHERE id = ?
+        """, (
+            trabajador_id,
+        ))
+
+        trabajador = cursor.fetchone()
+
+        if not trabajador:
+            flash("Trabajador no encontrado.", "warning")
+            return redirigir_admin("trabajadores")
+
+        if trabajador["rol"] != "TRABAJADOR":
+            flash("El establecimiento solo se asigna a cuentas de trabajador.", "warning")
+            return redirigir_admin("trabajadores")
+
+        cursor.execute("""
+            UPDATE usuarios
+            SET establecimiento = ?, actualizado_en = ?
+            WHERE id = ?
+        """, (
+            establecimiento,
+            fecha_actual(),
+            trabajador_id
+        ))
+
+        conexion.commit()
+        flash("Establecimiento del trabajador actualizado correctamente.", "success")
+
+    except Exception as error:
+        conexion.rollback()
+        print("Error al actualizar establecimiento:", error)
+        flash("No se pudo actualizar el establecimiento.", "error")
+
+    finally:
+        conexion.close()
+
+    return redirigir_admin("trabajadores")
+
+
+@app.route("/admin/manuales/guardar", methods=["POST"])
+@login_required
+@admin_required
+def admin_guardar_manual_vehiculo():
+
+    asegurar_migraciones_admin()
+
+    vehiculo_id = request.form.get("vehiculo_id", type=int)
+    titulo = request.form.get("titulo", "").strip()
+    tipo_documento = request.form.get("tipo_documento", "Manual").strip()
+    enlace = request.form.get("enlace", "").strip()
+    archivo = request.form.get("archivo", "").strip()
+    descripcion = request.form.get("descripcion", "").strip()
+
+    if not vehiculo_id:
+        flash("Selecciona el vehículo al que pertenece el manual.", "warning")
+        return redirigir_admin("manuales")
+
+    if not titulo:
+        flash("El título del manual es obligatorio.", "warning")
+        return redirigir_admin("manuales")
+
+    if not enlace and not archivo:
+        flash("Agrega un enlace externo o una ruta de archivo local para el manual.", "warning")
+        return redirigir_admin("manuales")
+
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    try:
+        cursor.execute("SELECT id FROM vehiculos WHERE id = ?", (vehiculo_id,))
+
+        if not cursor.fetchone():
+            flash("Vehículo no encontrado.", "warning")
+            return redirigir_admin("manuales")
+
+        cursor.execute("""
+            INSERT INTO manuales_vehiculo (
+                vehiculo_id,
+                titulo,
+                tipo_documento,
+                archivo,
+                enlace,
+                descripcion,
+                subido_por,
+                creado_en,
+                activo
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+        """, (
+            vehiculo_id,
+            titulo,
+            tipo_documento,
+            archivo,
+            enlace,
+            descripcion,
+            session.get("usuario_id"),
+            fecha_actual()
+        ))
+
+        conexion.commit()
+        flash("Manual asignado al vehículo correctamente.", "success")
+
+    except Exception as error:
+        conexion.rollback()
+        print("Error al guardar manual:", error)
+        flash("No se pudo guardar el manual.", "error")
+
+    finally:
+        conexion.close()
+
+    return redirigir_admin("manuales")
+
+
+@app.route("/admin/manuales/<int:manual_id>/estado", methods=["POST"])
+@login_required
+@admin_required
+def admin_cambiar_estado_manual(manual_id):
+
+    asegurar_migraciones_admin()
+
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT id, COALESCE(activo, 1) AS activo
+            FROM manuales_vehiculo
+            WHERE id = ?
+        """, (
+            manual_id,
+        ))
+
+        manual = cursor.fetchone()
+
+        if not manual:
+            flash("Manual no encontrado.", "warning")
+            return redirigir_admin("manuales")
+
+        nuevo_estado = 0 if manual["activo"] == 1 else 1
+
+        cursor.execute("""
+            UPDATE manuales_vehiculo
+            SET activo = ?
+            WHERE id = ?
+        """, (
+            nuevo_estado,
+            manual_id
+        ))
+
+        conexion.commit()
+
+        if nuevo_estado == 1:
+            flash("Manual activado correctamente.", "success")
+        else:
+            flash("Manual ocultado correctamente.", "success")
+
+    except Exception as error:
+        conexion.rollback()
+        print("Error al cambiar estado del manual:", error)
+        flash("No se pudo actualizar el manual.", "error")
+
+    finally:
+        conexion.close()
+
+    return redirigir_admin("manuales")
 
 
 # ================= ERROR PESO =================

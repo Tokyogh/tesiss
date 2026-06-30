@@ -160,6 +160,143 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // =============================
+    // BUSCADOR AJAX DE CLIENTE/VEHÍCULO PARA MANTENIMIENTO
+    // =============================
+
+    function debounceMaintenance(callback, delay = 350) {
+        let timeout;
+
+        return (...args) => {
+            window.clearTimeout(timeout);
+            timeout = window.setTimeout(() => callback(...args), delay);
+        };
+    }
+
+    function setMaintenanceMessage(resultsBox, message, type = "info") {
+        resultsBox.hidden = false;
+        resultsBox.innerHTML = `<div class="maintenance-results-message ${type}">${message}</div>`;
+    }
+
+    function initMaintenanceVehicleSearch() {
+        const pickers = document.querySelectorAll("[data-maintenance-client-search]");
+
+        pickers.forEach((picker) => {
+            const searchUrl = picker.dataset.searchUrl;
+            const input = picker.querySelector("[data-maintenance-search-input]");
+            const hiddenInput = picker.querySelector("[data-maintenance-selected-id]");
+            const resultsBox = picker.querySelector("[data-maintenance-results]");
+            const selectedBox = picker.querySelector("[data-maintenance-selected]");
+            const clearButton = picker.querySelector("[data-maintenance-clear]");
+            const form = picker.closest("form");
+
+            if (!searchUrl || !input || !hiddenInput || !resultsBox || !selectedBox || !form) return;
+
+            let controller = null;
+
+            function clearSelection() {
+                hiddenInput.value = "";
+                input.value = "";
+                selectedBox.classList.add("is-empty");
+                selectedBox.innerHTML = "Ningún cliente/vehículo seleccionado.";
+                resultsBox.hidden = true;
+                resultsBox.innerHTML = "";
+                input.focus();
+            }
+
+            function selectResult(result) {
+                hiddenInput.value = result.usuario_vehiculo_id || "";
+                input.value = result.label || "";
+                selectedBox.classList.remove("is-empty");
+                selectedBox.innerHTML = `
+                    <strong>${result.usuario_nombre || "Cliente"}</strong>
+                    <span>${result.usuario_correo || "Sin correo"}</span>
+                    <small>${result.vehiculo || "Vehículo"} · ID vehículo: ${result.vehiculo_id || "N/D"} · Registro: ${result.usuario_vehiculo_id || "N/D"}</small>
+                    <small>${result.codigo_catalogo || "Sin código"} · ${result.kilometraje_referencia_visible || "0"} km de referencia</small>
+                `;
+                resultsBox.hidden = true;
+                resultsBox.innerHTML = "";
+
+                const kmInput = form.querySelector('input[name="kilometraje_actual"]');
+                if (kmInput && result.kilometraje_referencia !== undefined && (!kmInput.value || Number(kmInput.value) === 0)) {
+                    kmInput.value = result.kilometraje_referencia;
+                }
+            }
+
+            async function searchVehicles() {
+                const query = input.value.trim();
+                hiddenInput.value = "";
+                selectedBox.classList.add("is-empty");
+                selectedBox.innerHTML = "Ningún cliente/vehículo seleccionado.";
+
+                if (query.length < 2) {
+                    resultsBox.hidden = true;
+                    resultsBox.innerHTML = "";
+                    return;
+                }
+
+                if (controller) controller.abort();
+                controller = new AbortController();
+
+                setMaintenanceMessage(resultsBox, "Buscando coincidencias...");
+
+                try {
+                    const response = await fetch(`${searchUrl}?q=${encodeURIComponent(query)}`, {
+                        headers: { "Accept": "application/json" },
+                        signal: controller.signal
+                    });
+
+                    if (!response.ok) {
+                        throw new Error("Respuesta no válida del servidor");
+                    }
+
+                    const data = await response.json();
+                    const results = Array.isArray(data.resultados) ? data.resultados : [];
+
+                    if (!results.length) {
+                        setMaintenanceMessage(resultsBox, "No encontré vehículos registrados con esa búsqueda.", "warning");
+                        return;
+                    }
+
+                    resultsBox.hidden = false;
+                    resultsBox.innerHTML = results.map((result) => `
+                        <button type="button" class="maintenance-result-item" data-maintenance-result-id="${result.usuario_vehiculo_id}">
+                            <strong>${result.usuario_nombre || "Cliente"}</strong>
+                            <span>${result.usuario_correo || "Sin correo"}</span>
+                            <small>${result.vehiculo || "Vehículo"} · ID vehículo: ${result.vehiculo_id || "N/D"} · Registro: ${result.usuario_vehiculo_id || "N/D"}</small>
+                            <small>${result.codigo_catalogo || "Sin código"} · ${result.kilometraje_referencia_visible || "0"} km</small>
+                        </button>
+                    `).join("");
+
+                    resultsBox.querySelectorAll("[data-maintenance-result-id]").forEach((button) => {
+                        button.addEventListener("click", () => {
+                            const selected = results.find((result) => String(result.usuario_vehiculo_id) === String(button.dataset.maintenanceResultId));
+                            if (selected) selectResult(selected);
+                        });
+                    });
+                } catch (error) {
+                    if (error.name === "AbortError") return;
+                    setMaintenanceMessage(resultsBox, "No se pudo realizar la búsqueda. Intenta nuevamente.", "warning");
+                }
+            }
+
+            input.addEventListener("input", debounceMaintenance(searchVehicles));
+            clearButton?.addEventListener("click", clearSelection);
+
+            form.addEventListener("submit", (event) => {
+                if (!form.contains(picker)) return;
+
+                if (!hiddenInput.value) {
+                    event.preventDefault();
+                    setMaintenanceMessage(resultsBox, "Selecciona un resultado de la búsqueda antes de registrar el mantenimiento.", "warning");
+                    input.focus();
+                }
+            });
+        });
+    }
+
+    initMaintenanceVehicleSearch();
+
+    // =============================
     // ACCIONES DESHABILITADAS
     // =============================
 
@@ -189,13 +326,31 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // =============================
+    // CONFIRMACIONES GENÉRICAS
+    // =============================
+
+    const confirmForms = document.querySelectorAll("[data-admin-confirm]");
+
+    confirmForms.forEach((form) => {
+        form.addEventListener("submit", (event) => {
+            const message = form.dataset.adminConfirm || "¿Confirmar esta acción?";
+
+            if (!confirm(message)) {
+                event.preventDefault();
+            }
+        });
+    });
+
+    // =============================
     // PREVENIR DOBLE ENVÍO EN FORMULARIOS
     // =============================
 
     const adminForms = document.querySelectorAll("form");
 
     adminForms.forEach((form) => {
-        form.addEventListener("submit", () => {
+        form.addEventListener("submit", (event) => {
+            if (event.defaultPrevented) return;
+
             const submitButton = form.querySelector('button[type="submit"]');
 
             if (!submitButton) return;

@@ -1520,3 +1520,34 @@ body {
         white-space: normal;
     }
 }
+
+/* ================= MANTENIMIENTO SOLO LECTURA / MANUALES ================= */
+
+.maintenance-layout-readonly {
+    grid-template-columns: 1fr;
+}
+
+.maintenance-history-full {
+    width: 100%;
+}
+
+.maintenance-observation {
+    border-left: 3px solid #3b82f6;
+    padding-left: 12px;
+}
+
+.document-card small {
+    display: block;
+    color: #94a3b8;
+    margin: 8px 0 12px;
+    line-height: 1.45;
+}
+
+.document-card span {
+    color: #94a3b8;
+    font-size: 14px;
+}
+
+.document-empty-state {
+    grid-column: 1 / -1;
+}

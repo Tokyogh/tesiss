@@ -358,7 +358,7 @@
 
                                         <div class="vehicle-actions-row">
                                             <a href="#seccion-historial" class="mini-action-btn sidebar-link" data-section="historial">
-                                                Registrar servicio
+                                                Historial VINOVA
                                             </a>
 
                                             <a href="#seccion-historial" class="mini-action-btn sidebar-link" data-section="historial">
@@ -464,124 +464,18 @@
                 <div class="section-title">
                     <span>MANTENIMIENTO</span>
                     <h2>Historial de servicios</h2>
-                    <p>Registra y consulta los mantenimientos realizados a tus vehículos.</p>
+                    <p>Consulta los servicios registrados por VINOVA para tus vehículos.</p>
                 </div>
 
-                <section class="maintenance-layout">
+                <section class="maintenance-layout maintenance-layout-readonly">
 
-                    <article class="form-panel maintenance-form-panel">
-                        <div class="maintenance-panel-title">
-                            <div class="maintenance-title-icon">
-                                <i class="fa-solid fa-screwdriver-wrench"></i>
-                            </div>
-                            <div>
-                                <h3>Registrar mantenimiento</h3>
-                                <p>Guarda servicios realizados y programa el próximo mantenimiento.</p>
-                            </div>
-                        </div>
-
-                        {% if mis_vehiculos %}
-                            <form class="vehicle-form maintenance-form" action="{{ url_for('registrar_mantenimiento') }}" method="POST">
-
-                                <div class="form-grid">
-                                    <div class="form-group">
-                                        <label for="usuario_vehiculo_id">Vehículo</label>
-                                        <select id="usuario_vehiculo_id" name="usuario_vehiculo_id" required>
-                                            <option value="">Seleccionar vehículo</option>
-                                            {% for vehiculo in mis_vehiculos %}
-                                                <option
-                                                    value="{{ vehiculo.usuario_vehiculo_id }}"
-                                                    data-current-km="{{ vehiculo.kilometraje_actual if vehiculo.kilometraje_actual is not none else vehiculo.kilometraje if vehiculo.kilometraje is not none else '' }}">
-                                                    {{ vehiculo.marca }} {{ vehiculo.modelo }} {{ vehiculo.anio }}
-                                                    {% if vehiculo.codigo_catalogo %} • {{ vehiculo.codigo_catalogo }}{% endif %}
-                                                </option>
-                                            {% endfor %}
-                                        </select>
-                                    </div>
-
-                                    <div class="form-group">
-                                        <label for="tipo_servicio">Tipo de servicio</label>
-                                        <input
-                                            type="text"
-                                            id="tipo_servicio"
-                                            name="tipo_servicio"
-                                            placeholder="Cambio de aceite, revisión general..."
-                                            required>
-                                    </div>
-
-                                    <div class="form-group">
-                                        <label for="fecha_servicio">Fecha del servicio</label>
-                                        <input type="date" id="fecha_servicio" name="fecha_servicio" required>
-                                    </div>
-
-                                    <div class="form-group">
-                                        <label for="kilometraje">Kilometraje actual</label>
-                                        <input
-                                            type="number"
-                                            id="kilometraje"
-                                            name="kilometraje"
-                                            min="0"
-                                            placeholder="Ej. 55430"
-                                            required>
-                                    </div>
-
-                                    <div class="form-group">
-                                        <label for="costo">Costo USD</label>
-                                        <input type="number" id="costo" name="costo" min="0" step="0.01" placeholder="0.00">
-                                    </div>
-
-                                    <div class="form-group">
-                                        <label for="taller">Taller / concesionaria</label>
-                                        <input type="text" id="taller" name="taller" placeholder="Nombre del taller">
-                                    </div>
-
-                                    <div class="form-group">
-                                        <label for="proximo_servicio_fecha">Próxima fecha sugerida</label>
-                                        <input type="date" id="proximo_servicio_fecha" name="proximo_servicio_fecha">
-                                    </div>
-
-                                    <div class="form-group">
-                                        <label for="proximo_servicio_km">Próximo kilometraje sugerido</label>
-                                        <input type="number" id="proximo_servicio_km" name="proximo_servicio_km" min="0" placeholder="Ej. 60430">
-                                    </div>
-
-                                    <div class="form-group form-group-wide">
-                                        <label for="descripcion">Detalle del servicio</label>
-                                        <textarea
-                                            id="descripcion"
-                                            name="descripcion"
-                                            rows="4"
-                                            placeholder="Notas, repuestos usados, observaciones del taller..."></textarea>
-                                    </div>
-                                </div>
-
-                                <div class="form-actions">
-                                    <button type="submit" class="profile-save-btn">
-                                        <i class="fa-solid fa-floppy-disk"></i>
-                                        Guardar mantenimiento
-                                    </button>
-                                </div>
-
-                            </form>
-                        {% else %}
-                            <div class="empty-vehicles-state compact-state">
-                                <i class="fa-solid fa-car-side"></i>
-                                <h3>Primero registra un vehículo</h3>
-                                <p>Necesitas tener un vehículo en tu perfil para guardar mantenimientos.</p>
-                                <a href="#seccion-agregar-vehiculo" class="profile-save-btn sidebar-link sidebar-link-like" data-section="agregar-vehiculo">
-                                    Agregar vehículo
-                                </a>
-                            </div>
-                        {% endif %}
-                    </article>
-
-                    <article class="info-panel maintenance-history-panel">
+                    <article class="info-panel maintenance-history-panel maintenance-history-full">
                         <div class="maintenance-panel-title">
                             <div class="maintenance-title-icon">
                                 <i class="fa-solid fa-clock-rotate-left"></i>
                             </div>
                             <div>
-                                <h3>Servicios registrados</h3>
+                                <h3>Servicios registrados por VINOVA</h3>
                                 <p>{{ historial_mantenimientos|default([])|length }} registro(s) guardado(s).</p>
                             </div>
                         </div>
@@ -605,24 +499,30 @@
                                                     </p>
                                                 </div>
 
-                                                <strong>${{ "{:,.2f}".format(mantenimiento.costo|float) }}</strong>
+                                                {% if mantenimiento.estado %}
+                                                    <strong>{{ mantenimiento.estado }}</strong>
+                                                {% endif %}
                                             </div>
 
                                             <div class="maintenance-history-meta">
-                                                {% if mantenimiento.kilometraje is not none %}
-                                                    <span><i class="fa-solid fa-gauge-high"></i> {{ "{:,}".format(mantenimiento.kilometraje).replace(",", ".") }} km</span>
+                                                {% if mantenimiento.kilometraje_actual is not none %}
+                                                    <span><i class="fa-solid fa-gauge-high"></i> {{ "{:,}".format(mantenimiento.kilometraje_actual).replace(",", ".") }} km</span>
                                                 {% endif %}
 
-                                                {% if mantenimiento.taller %}
-                                                    <span><i class="fa-solid fa-warehouse"></i> {{ mantenimiento.taller }}</span>
+                                                {% if mantenimiento.establecimiento %}
+                                                    <span><i class="fa-solid fa-warehouse"></i> {{ mantenimiento.establecimiento }}</span>
                                                 {% endif %}
 
-                                                {% if mantenimiento.proximo_servicio_fecha %}
-                                                    <span><i class="fa-solid fa-calendar-days"></i> Próxima fecha: {{ mantenimiento.proximo_servicio_fecha_visible }}</span>
+                                                {% if mantenimiento.registrado_por_nombre %}
+                                                    <span><i class="fa-solid fa-user-gear"></i> Registrado por {{ mantenimiento.registrado_por_nombre }}</span>
                                                 {% endif %}
 
-                                                {% if mantenimiento.proximo_servicio_km is not none %}
-                                                    <span><i class="fa-solid fa-road"></i> Próximo: {{ "{:,}".format(mantenimiento.proximo_servicio_km).replace(",", ".") }} km</span>
+                                                {% if mantenimiento.proxima_fecha %}
+                                                    <span><i class="fa-solid fa-calendar-days"></i> Próxima fecha: {{ mantenimiento.proxima_fecha_visible }}</span>
+                                                {% endif %}
+
+                                                {% if mantenimiento.proximo_kilometraje is not none %}
+                                                    <span><i class="fa-solid fa-road"></i> Próximo: {{ "{:,}".format(mantenimiento.proximo_kilometraje).replace(",", ".") }} km</span>
                                                 {% endif %}
                                             </div>
 
@@ -630,16 +530,9 @@
                                                 <p class="maintenance-description">{{ mantenimiento.descripcion }}</p>
                                             {% endif %}
 
-                                            <form
-                                                action="{{ url_for('eliminar_mantenimiento', mantenimiento_id=mantenimiento.id) }}"
-                                                method="POST"
-                                                class="maintenance-delete-form"
-                                                data-confirm-delete="¿Eliminar este mantenimiento del historial?">
-                                                <button type="submit">
-                                                    <i class="fa-solid fa-trash-can"></i>
-                                                    Eliminar
-                                                </button>
-                                            </form>
+                                            {% if mantenimiento.observaciones %}
+                                                <p class="maintenance-description maintenance-observation"><strong>Observaciones:</strong> {{ mantenimiento.observaciones }}</p>
+                                            {% endif %}
                                         </div>
                                     </article>
                                 {% endfor %}
@@ -647,7 +540,7 @@
                                 <div class="empty-vehicles-state compact-state">
                                     <i class="fa-solid fa-clock-rotate-left"></i>
                                     <h3>Sin historial todavía</h3>
-                                    <p>Cuando registres un mantenimiento, aparecerá en esta lista.</p>
+                                    <p>Cuando VINOVA registre un mantenimiento para tus vehículos, aparecerá en esta lista.</p>
                                 </div>
                             {% endif %}
 
@@ -700,10 +593,7 @@
                         <div class="empty-vehicles-state compact-state">
                             <i class="fa-solid fa-calendar-check"></i>
                             <h3>No hay próximos servicios programados</h3>
-                            <p>Registra un mantenimiento e indica una próxima fecha o kilometraje sugerido.</p>
-                            <a href="#seccion-historial" class="profile-save-btn sidebar-link sidebar-link-like" data-section="historial">
-                                Registrar mantenimiento
-                            </a>
+                            <p>Cuando VINOVA registre un mantenimiento, el sistema calculará aquí la próxima fecha y kilometraje recomendado.</p>
                         </div>
                     </section>
                 {% endif %}
@@ -722,19 +612,36 @@
 
                 <section class="document-grid">
 
-                    <article class="document-card">
-                        <i class="fa-solid fa-book-open"></i>
-                        <h3>Manual Toyota Corolla</h3>
-                        <p>Manual de usuario y mantenimiento.</p>
-                        <a href="#">Ver manual</a>
-                    </article>
+                    {% if manuales_usuario|default([]) %}
+                        {% for manual in manuales_usuario %}
+                            <article class="document-card">
+                                <i class="fa-solid fa-book-open"></i>
+                                <h3>{{ manual.titulo }}</h3>
+                                <p>
+                                    {{ manual.marca }} {{ manual.modelo }} {{ manual.anio }}
+                                    {% if manual.tipo_documento %} • {{ manual.tipo_documento }}{% endif %}
+                                </p>
 
-                    <article class="document-card">
-                        <i class="fa-solid fa-book-open"></i>
-                        <h3>Manual Toyota C-HR 2021</h3>
-                        <p>Guía técnica del vehículo.</p>
-                        <a href="#">Ver manual</a>
-                    </article>
+                                {% if manual.descripcion %}
+                                    <small>{{ manual.descripcion }}</small>
+                                {% endif %}
+
+                                {% if manual.enlace %}
+                                    <a href="{{ manual.enlace }}" target="_blank" rel="noopener">Ver manual</a>
+                                {% elif manual.archivo %}
+                                    <a href="{{ url_for('static', filename=manual.archivo) }}" target="_blank" rel="noopener">Ver manual</a>
+                                {% else %}
+                                    <span>No disponible</span>
+                                {% endif %}
+                            </article>
+                        {% endfor %}
+                    {% else %}
+                        <div class="empty-vehicles-state compact-state document-empty-state">
+                            <i class="fa-solid fa-book-open"></i>
+                            <h3>Sin manuales asignados</h3>
+                            <p>Cuando VINOVA asigne manuales a tus vehículos registrados, aparecerán aquí.</p>
+                        </div>
+                    {% endif %}
 
                 </section>
 

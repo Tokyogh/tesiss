@@ -1037,3 +1037,246 @@ a {
     transform: none;
     box-shadow: none;
 }
+
+/* ============================= */
+/* MANTENIMIENTO EMPRESARIAL */
+/* ============================= */
+
+.worker-layout {
+    display: grid;
+    grid-template-columns: minmax(320px, 0.85fr) minmax(0, 1.35fr);
+    gap: 22px;
+    align-items: start;
+}
+
+.worker-form {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.worker-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.worker-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.worker-field-wide {
+    grid-column: 1 / -1;
+}
+
+.worker-field span {
+    color: var(--worker-muted);
+    font-size: 0.82rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.worker-field input,
+.worker-field select,
+.worker-field textarea {
+    width: 100%;
+    padding: 12px 13px;
+    border-radius: 12px;
+    border: 1px solid var(--worker-border);
+    background: rgba(255, 255, 255, 0.045);
+    color: var(--worker-text);
+    outline: none;
+    resize: vertical;
+}
+
+.worker-field input:focus,
+.worker-field select:focus,
+.worker-field textarea:focus {
+    border-color: rgba(59, 130, 246, 0.68);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+
+.worker-field input:disabled {
+    opacity: 0.78;
+    cursor: not-allowed;
+}
+
+.worker-field small {
+    color: var(--worker-muted-2);
+    line-height: 1.35;
+}
+
+.worker-actions-bar {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.worker-list-panel {
+    min-width: 0;
+}
+
+.worker-table small {
+    display: block;
+    color: var(--worker-muted);
+    margin-top: 4px;
+    line-height: 1.35;
+}
+
+@media (max-width: 1180px) {
+    .worker-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 720px) {
+    .worker-form-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ============================= */
+/* BUSCADOR DE CLIENTE/VEHÍCULO PARA MANTENIMIENTO */
+/* ============================= */
+
+.worker-field select option {
+    color: #e5efff;
+    background-color: #07101f;
+}
+
+.maintenance-client-picker {
+    position: relative;
+}
+
+.maintenance-search-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+}
+
+.maintenance-search-row input[type="search"] {
+    width: 100%;
+    min-height: 44px;
+    padding: 0 14px;
+    color: #ffffff;
+    background: rgba(4, 11, 22, 0.86);
+    border: 1px solid rgba(59, 130, 246, 0.24);
+    border-radius: 12px;
+    outline: none;
+}
+
+.maintenance-search-row input[type="search"]:focus {
+    border-color: rgba(96, 165, 250, 0.78);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.14);
+}
+
+.maintenance-clear-btn {
+    min-height: 44px;
+    padding: 0 14px;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.055);
+    color: #dbe7fb;
+    font-weight: 800;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+}
+
+.maintenance-clear-btn:hover {
+    transform: translateY(-1px);
+    background: rgba(59, 130, 246, 0.12);
+    border-color: rgba(59, 130, 246, 0.4);
+}
+
+.maintenance-selected-card {
+    padding: 12px 14px;
+    border-radius: 14px;
+    border: 1px solid rgba(34, 197, 94, 0.22);
+    background: rgba(34, 197, 94, 0.075);
+    color: #dffbea;
+    display: grid;
+    gap: 4px;
+}
+
+.maintenance-selected-card.is-empty {
+    border-color: rgba(245, 158, 11, 0.18);
+    background: rgba(245, 158, 11, 0.06);
+    color: var(--worker-muted);
+}
+
+.maintenance-selected-card strong {
+    color: #ffffff;
+    font-size: 0.92rem;
+}
+
+.maintenance-selected-card span,
+.maintenance-selected-card small {
+    color: #a6b0c2;
+    line-height: 1.35;
+}
+
+.maintenance-results {
+    max-height: 290px;
+    overflow-y: auto;
+    padding: 8px;
+    border: 1px solid rgba(59, 130, 246, 0.2);
+    border-radius: 16px;
+    background: rgba(3, 8, 18, 0.98);
+    box-shadow: 0 24px 55px rgba(0, 0, 0, 0.36);
+}
+
+.maintenance-result-item {
+    width: 100%;
+    text-align: left;
+    display: grid;
+    gap: 4px;
+    padding: 12px 13px;
+    border: 1px solid transparent;
+    border-radius: 12px;
+    background: transparent;
+    color: #ffffff;
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.maintenance-result-item + .maintenance-result-item {
+    margin-top: 6px;
+}
+
+.maintenance-result-item:hover,
+.maintenance-result-item:focus {
+    transform: translateY(-1px);
+    background: rgba(59, 130, 246, 0.12);
+    border-color: rgba(59, 130, 246, 0.34);
+    outline: none;
+}
+
+.maintenance-result-item strong {
+    font-size: 0.9rem;
+    color: #ffffff;
+}
+
+.maintenance-result-item span,
+.maintenance-result-item small {
+    color: #a6b0c2;
+    line-height: 1.35;
+}
+
+.maintenance-results-message {
+    padding: 12px 13px;
+    color: #dbe7fb;
+    font-size: 0.84rem;
+}
+
+.maintenance-results-message.warning {
+    color: #fde68a;
+}
+
+@media (max-width: 720px) {
+    .maintenance-search-row {
+        grid-template-columns: 1fr;
+    }
+}

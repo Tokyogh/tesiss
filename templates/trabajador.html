@@ -20,6 +20,8 @@
 {% set vehiculos_lista = vehiculos|default([]) %}
 {% set codigos_lista = codigos|default([]) %}
 {% set ventas_lista = ventas_canje|default(canjes|default([])) %}
+{% set clientes_vehiculos_lista = vehiculos_clientes|default([]) %}
+{% set mantenimientos_lista = mantenimientos|default([]) %}
 {% set generar_codigo_base_url = trabajador_generar_codigo_url|default('') %}
 {% set archivar_base_url = trabajador_archivar_vehiculo_url|default('') %}
 {% set reactivar_codigo_base_url = trabajador_reactivar_codigo_url|default('') %}
@@ -59,6 +61,11 @@
             <a href="#trabajador-canjes" class="worker-nav-link" data-worker-section="canjes">
                 <i data-lucide="receipt-text"></i>
                 <span>Ventas y canjes</span>
+            </a>
+
+            <a href="#trabajador-mantenimientos" class="worker-nav-link" data-worker-section="mantenimientos">
+                <i data-lucide="wrench"></i>
+                <span>Mantenimientos</span>
             </a>
 
             <span class="worker-nav-label">SOPORTE</span>
@@ -112,7 +119,7 @@
 
                 <div>
                     <strong>{{ session.get("usuario", trabajador_nombre|default("Trabajador")) }}</strong>
-                    <small>{{ session.get("rol", "TRABAJADOR") }}</small>
+                    <small>{{ session.get("rol", "TRABAJADOR") }}{% if trabajador_establecimiento|default('') %} • {{ trabajador_establecimiento }}{% endif %}</small>
                 </div>
             </div>
         </header>
@@ -185,6 +192,14 @@
                     <div>
                         <strong>{{ total_canjes|default(ventas_lista|length) }}</strong>
                         <span>Canjes registrados</span>
+                    </div>
+                </article>
+
+                <article class="worker-summary-card">
+                    <i data-lucide="wrench"></i>
+                    <div>
+                        <strong>{{ total_mantenimientos|default(mantenimientos_lista|length) }}</strong>
+                        <span>Mantenimientos</span>
                     </div>
                 </article>
             </section>
@@ -542,6 +557,183 @@
             </section>
         </section>
 
+
+        <section class="worker-section" id="trabajador-mantenimientos" data-worker-content="mantenimientos">
+            <div class="worker-section-header">
+                <div>
+                    <span>SERVICIO TÉCNICO</span>
+                    <h2>Mantenimientos</h2>
+                    <p>Registra los servicios realizados a vehículos de clientes. El próximo kilometraje y la próxima fecha se calculan automáticamente.</p>
+                </div>
+            </div>
+
+            <section class="worker-layout">
+                <section class="worker-panel worker-form-panel">
+                    <div class="worker-panel-title">
+                        <div>
+                            <span>NUEVO SERVICIO</span>
+                            <h2>Registrar mantenimiento</h2>
+                        </div>
+                    </div>
+
+                    <form action="{{ url_for('registrar_mantenimiento_empresarial') }}" method="POST" class="worker-form">
+                        <input type="hidden" name="origen" value="trabajador">
+                        <input type="hidden" name="establecimiento" value="{{ trabajador_establecimiento|default('VINOVA') }}">
+
+                        <div class="worker-form-grid">
+                            <div class="worker-field worker-field-wide maintenance-client-picker" data-maintenance-client-search data-search-url="{{ url_for('buscar_vehiculos_mantenimiento') }}">
+                                <span>Cliente y vehículo</span>
+                                <input type="hidden" name="usuario_vehiculo_id" data-maintenance-selected-id>
+
+                                <div class="maintenance-search-row">
+                                    <input type="search" data-maintenance-search-input placeholder="Buscar por correo, cliente, ID de vehículo, código o modelo..." autocomplete="off">
+                                    <button type="button" class="maintenance-clear-btn" data-maintenance-clear>Limpiar</button>
+                                </div>
+
+                                <small>Escribe al menos 2 caracteres. Puedes buscar por correo del usuario, nombre, ID del vehículo, ID del registro, código de catálogo, código de canje, marca o modelo.</small>
+
+                                <div class="maintenance-selected-card is-empty" data-maintenance-selected>
+                                    Ningún cliente/vehículo seleccionado.
+                                </div>
+
+                                <div class="maintenance-results" data-maintenance-results hidden></div>
+                            </div>
+
+                            <label class="worker-field">
+                                <span>Tipo de servicio</span>
+                                <select name="tipo_servicio" required>
+                                    <option value="Cambio de aceite">Cambio de aceite</option>
+                                    <option value="Revisión general">Revisión general</option>
+                                    <option value="Frenos">Frenos</option>
+                                    <option value="Llantas">Llantas</option>
+                                    <option value="Batería">Batería</option>
+                                    <option value="Otro">Otro</option>
+                                </select>
+                            </label>
+
+                            <label class="worker-field">
+                                <span>Fecha del servicio</span>
+                                <input type="date" name="fecha_servicio" required>
+                            </label>
+
+                            <label class="worker-field">
+                                <span>Kilometraje actual</span>
+                                <input type="number" name="kilometraje_actual" min="0" placeholder="Ej. 55000" required>
+                            </label>
+
+                            <label class="worker-field">
+                                <span>Costo USD</span>
+                                <input type="number" name="costo" min="0" step="0.01" placeholder="0.00">
+                            </label>
+
+                            <label class="worker-field worker-field-wide">
+                                <span>Establecimiento</span>
+                                <input type="text" value="{{ trabajador_establecimiento|default('VINOVA') }}" disabled>
+                                <small>Este dato lo asigna el administrador a tu cuenta.</small>
+                            </label>
+
+                            <label class="worker-field worker-field-wide">
+                                <span>Descripción del servicio</span>
+                                <textarea name="descripcion" rows="3" placeholder="Trabajo realizado, repuestos usados o diagnóstico principal..."></textarea>
+                            </label>
+
+                            <label class="worker-field worker-field-wide">
+                                <span>Observaciones</span>
+                                <textarea name="observaciones" rows="3" placeholder="Recomendaciones para el próximo servicio..."></textarea>
+                            </label>
+                        </div>
+
+                        <div class="worker-actions-bar">
+                            <button type="submit" class="worker-primary-btn">
+                                <i data-lucide="save"></i>
+                                Registrar mantenimiento
+                            </button>
+                        </div>
+                    </form>
+                </section>
+
+                <section class="worker-panel worker-list-panel">
+                    <div class="worker-panel-title">
+                        <div>
+                            <span>HISTORIAL</span>
+                            <h2>Mantenimientos recientes</h2>
+                        </div>
+                        <input type="text" class="worker-search-input" data-worker-search="maintenance" placeholder="Buscar cliente, vehículo, servicio o sede...">
+                    </div>
+
+                    <div class="worker-table-wrap">
+                        <table class="worker-table" data-worker-list="maintenance">
+                            <thead>
+                                <tr>
+                                    <th>Cliente</th>
+                                    <th>Vehículo</th>
+                                    <th>Servicio</th>
+                                    <th>Próxima revisión</th>
+                                    <th>Registrado por</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if mantenimientos_lista %}
+                                    {% for mantenimiento in mantenimientos_lista %}
+                                        <tr data-worker-item>
+                                            <td>
+                                                <strong>{{ mantenimiento.usuario_nombre }}</strong>
+                                                <small>{{ mantenimiento.usuario_correo }}</small>
+                                            </td>
+                                            <td>
+                                                <span>{{ mantenimiento.codigo_catalogo|default('Sin referencia') }}</span>
+                                                <small>{{ mantenimiento.marca }} {{ mantenimiento.modelo }} {{ mantenimiento.anio }}</small>
+                                            </td>
+                                            <td>
+                                                <strong>{{ mantenimiento.tipo_servicio }}</strong>
+                                                <small>{{ mantenimiento.fecha_visible }} • {{ "{:,.0f}".format(mantenimiento.kilometraje_actual|default(0)|float).replace(",", ".") }} km</small>
+                                                {% if mantenimiento.establecimiento %}<small>{{ mantenimiento.establecimiento }}</small>{% endif %}
+                                            </td>
+                                            <td>
+                                                <span>{{ mantenimiento.proxima_fecha_visible|default('N/D') }}</span>
+                                                {% if mantenimiento.proximo_kilometraje is not none %}
+                                                    <small>{{ "{:,.0f}".format(mantenimiento.proximo_kilometraje|float).replace(",", ".") }} km</small>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <span>{{ mantenimiento.registrado_por_nombre|default('VINOVA') }}</span>
+                                                <small>{{ mantenimiento.registrado_por_rol|default('Personal') }}</small>
+                                            </td>
+                                            <td>
+                                                {% if mantenimiento.registrado_por == session.get('usuario_id') or session.get('rol') == 'ADMIN' %}
+                                                    <form action="{{ url_for('anular_mantenimiento_empresarial', mantenimiento_id=mantenimiento.id) }}" method="POST" class="worker-inline-form" data-worker-confirm="¿Anular este mantenimiento? El usuario dejará de verlo como activo.">
+                                                        <input type="hidden" name="origen" value="trabajador">
+                                                        <input type="hidden" name="motivo_anulacion" value="Anulado desde panel trabajador">
+                                                        <button type="submit" class="worker-danger-btn">
+                                                            <i data-lucide="ban"></i>
+                                                            Anular
+                                                        </button>
+                                                    </form>
+                                                {% else %}
+                                                    <span class="worker-status inactive">Solo lectura</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="6">
+                                            <div class="worker-empty compact">
+                                                <i data-lucide="wrench"></i>
+                                                <h3>Sin mantenimientos</h3>
+                                                <p>Cuando se registre un servicio, aparecerá aquí.</p>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </section>
+        </section>
+
         <section class="worker-section" id="trabajador-ayuda" data-worker-content="ayuda">
             <div class="worker-section-header">
                 <div>
@@ -560,6 +752,8 @@
                         <li>Consultar códigos de canje.</li>
                         <li>Generar códigos para vehículos disponibles sin código previo.</li>
                         <li>Consultar historial básico de canjes.</li>
+                        <li>Registrar mantenimientos realizados por VINOVA.</li>
+                        <li>Ver próximos kilometrajes y fechas calculadas automáticamente.</li>
                         <li>Ayudar al cliente a registrar su vehículo.</li>
                     </ul>
                 </article>

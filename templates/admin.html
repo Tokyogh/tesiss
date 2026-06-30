@@ -60,6 +60,11 @@
                 <span>Ventas y canjes</span>
             </a>
 
+            <a href="#admin-mantenimientos" class="admin-nav-link" data-admin-section="mantenimientos">
+                <i data-lucide="wrench"></i>
+                <span>Mantenimientos</span>
+            </a>
+
             <a href="#admin-archivados" class="admin-nav-link" data-admin-section="archivados">
                 <i data-lucide="archive"></i>
                 <span>Archivados</span>
@@ -75,6 +80,13 @@
             <a href="#admin-trabajadores" class="admin-nav-link" data-admin-section="trabajadores">
                 <i data-lucide="briefcase-business"></i>
                 <span>Trabajadores</span>
+            </a>
+
+            <span class="admin-nav-label">DOCUMENTACIÓN</span>
+
+            <a href="#admin-manuales" class="admin-nav-link" data-admin-section="manuales">
+                <i data-lucide="book-open"></i>
+                <span>Manuales</span>
             </a>
 
             <span class="admin-nav-label">SISTEMA</span>
@@ -1102,6 +1114,182 @@
 
         </section>
 
+
+        <!-- SECCIÓN MANTENIMIENTOS -->
+
+        <section class="admin-section" id="admin-mantenimientos" data-admin-content="mantenimientos">
+
+            <div class="admin-section-header">
+                <div>
+                    <span>SERVICIO TÉCNICO</span>
+                    <h2>Mantenimientos</h2>
+                    <p>Registra servicios realizados por VINOVA y consulta el historial de todos los clientes.</p>
+                </div>
+            </div>
+
+            <section class="admin-layout">
+
+                <section class="admin-panel admin-form-panel">
+                    <div class="admin-panel-title">
+                        <div>
+                            <span>NUEVO SERVICIO</span>
+                            <h2>Registrar mantenimiento</h2>
+                        </div>
+                    </div>
+
+                    <form action="{{ url_for('registrar_mantenimiento_empresarial') }}" method="POST" class="admin-form">
+                        <input type="hidden" name="origen" value="admin">
+
+                        <div class="admin-form-grid">
+                            <div class="admin-field admin-field-wide maintenance-client-picker" data-maintenance-client-search data-search-url="{{ url_for('buscar_vehiculos_mantenimiento') }}">
+                                <span>Cliente y vehículo</span>
+                                <input type="hidden" name="usuario_vehiculo_id" data-maintenance-selected-id>
+
+                                <div class="maintenance-search-row">
+                                    <input type="search" data-maintenance-search-input placeholder="Buscar por correo, cliente, ID de vehículo, código o modelo..." autocomplete="off">
+                                    <button type="button" class="maintenance-clear-btn" data-maintenance-clear>Limpiar</button>
+                                </div>
+
+                                <small>Escribe al menos 2 caracteres. Puedes buscar por correo del usuario, nombre, ID del vehículo, ID del registro, código de catálogo, código de canje, marca o modelo.</small>
+
+                                <div class="maintenance-selected-card is-empty" data-maintenance-selected>
+                                    Ningún cliente/vehículo seleccionado.
+                                </div>
+
+                                <div class="maintenance-results" data-maintenance-results hidden></div>
+                            </div>
+
+                            <label class="admin-field">
+                                <span>Tipo de servicio</span>
+                                <select name="tipo_servicio" required>
+                                    <option value="Cambio de aceite">Cambio de aceite</option>
+                                    <option value="Revisión general">Revisión general</option>
+                                    <option value="Frenos">Frenos</option>
+                                    <option value="Llantas">Llantas</option>
+                                    <option value="Batería">Batería</option>
+                                    <option value="Otro">Otro</option>
+                                </select>
+                            </label>
+
+                            <label class="admin-field">
+                                <span>Fecha del servicio</span>
+                                <input type="date" name="fecha_servicio" required>
+                            </label>
+
+                            <label class="admin-field">
+                                <span>Kilometraje actual</span>
+                                <input type="number" name="kilometraje_actual" min="0" placeholder="Ej. 55000" required>
+                            </label>
+
+                            <label class="admin-field">
+                                <span>Costo USD</span>
+                                <input type="number" name="costo" min="0" step="0.01" placeholder="0.00">
+                            </label>
+
+                            <label class="admin-field admin-field-wide">
+                                <span>Establecimiento</span>
+                                <input type="text" name="establecimiento" placeholder="Ej. VINOVA Sur">
+                                <small>Si lo registra un trabajador con establecimiento asignado, se usará automáticamente su sede.</small>
+                            </label>
+
+                            <label class="admin-field admin-field-wide">
+                                <span>Descripción del servicio</span>
+                                <textarea name="descripcion" rows="3" placeholder="Trabajo realizado, repuestos usados o diagnóstico principal..."></textarea>
+                            </label>
+
+                            <label class="admin-field admin-field-wide">
+                                <span>Observaciones internas</span>
+                                <textarea name="observaciones" rows="3" placeholder="Notas del técnico, recomendaciones o detalles adicionales..."></textarea>
+                            </label>
+                        </div>
+
+                        <div class="admin-actions">
+                            <button type="submit" class="admin-primary-btn">
+                                <i data-lucide="save"></i>
+                                Registrar mantenimiento
+                            </button>
+                        </div>
+                    </form>
+                </section>
+
+                <section class="admin-panel admin-list-panel">
+                    <div class="admin-panel-title">
+                        <div>
+                            <span>HISTORIAL</span>
+                            <h2>Mantenimientos registrados</h2>
+                            <p>{{ total_mantenimientos|default(0) }} servicio(s) activo(s).</p>
+                        </div>
+                        <div class="admin-list-tools">
+                            <input type="text" class="admin-search-input" data-admin-search="maintenance" placeholder="Buscar cliente, vehículo, trabajador o sede...">
+                        </div>
+                    </div>
+
+                    <div class="admin-table-wrap" data-admin-list="maintenance">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>Cliente</th>
+                                    <th>Vehículo</th>
+                                    <th>Servicio</th>
+                                    <th>Próxima revisión</th>
+                                    <th>Registrado por</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if mantenimientos|default([]) %}
+                                    {% for mantenimiento in mantenimientos %}
+                                        <tr data-admin-item>
+                                            <td>
+                                                <strong>{{ mantenimiento.usuario_nombre }}</strong>
+                                                <small>{{ mantenimiento.usuario_correo }}</small>
+                                            </td>
+                                            <td>
+                                                <strong>{{ mantenimiento.marca }} {{ mantenimiento.modelo }} {{ mantenimiento.anio }}</strong>
+                                                <small>{{ mantenimiento.codigo_catalogo|default('Sin código') }}</small>
+                                            </td>
+                                            <td>
+                                                <strong>{{ mantenimiento.tipo_servicio }}</strong>
+                                                <small>{{ mantenimiento.fecha_visible }} • {{ "{:,.0f}".format(mantenimiento.kilometraje_actual|default(0)|float).replace(",", ".") }} km</small>
+                                                {% if mantenimiento.establecimiento %}<small>{{ mantenimiento.establecimiento }}</small>{% endif %}
+                                            </td>
+                                            <td>
+                                                <strong>{{ mantenimiento.proxima_fecha_visible|default('N/D') }}</strong>
+                                                {% if mantenimiento.proximo_kilometraje is not none %}
+                                                    <small>{{ "{:,.0f}".format(mantenimiento.proximo_kilometraje|float).replace(",", ".") }} km</small>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <strong>{{ mantenimiento.registrado_por_nombre|default('VINOVA') }}</strong>
+                                                <small>{{ mantenimiento.registrado_por_rol|default('Personal') }}</small>
+                                            </td>
+                                            <td>
+                                                <form action="{{ url_for('anular_mantenimiento_empresarial', mantenimiento_id=mantenimiento.id) }}" method="POST" class="admin-inline-form" data-admin-confirm="¿Anular este mantenimiento? El usuario dejará de verlo como activo.">
+                                                    <input type="hidden" name="origen" value="admin">
+                                                    <input type="hidden" name="motivo_anulacion" value="Anulado desde panel admin">
+                                                    <button type="submit" class="admin-mini-btn admin-mini-btn-danger">Anular</button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="6">
+                                            <div class="admin-empty">
+                                                <i data-lucide="wrench"></i>
+                                                <h3>Sin mantenimientos</h3>
+                                                <p>Cuando VINOVA registre servicios, aparecerán aquí.</p>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </section>
+        </section>
+
         <!-- SECCIÓN ARCHIVADOS -->
 
         <section class="admin-section" id="admin-archivados" data-admin-content="archivados">
@@ -1361,7 +1549,7 @@
                 <div>
                     <span>EQUIPO INTERNO</span>
                     <h2>Trabajadores</h2>
-                    <p>Crea y administra asesores, técnicos, vendedores y administradores de VINOVA.</p>
+                    <p>Crea y administra trabajadores de VINOVA. Los administradores solo se crean desde la raíz del proyecto.</p>
                 </div>
             </div>
 
@@ -1400,6 +1588,12 @@
                                 <select name="rol" required>
                                     <option value="TRABAJADOR" selected>Trabajador</option>
                                 </select>
+                                <small>Los administradores solo se crean desde la raíz del proyecto.</small>
+                            </label>
+
+                            <label class="admin-field admin-field-wide">
+                                <span>Establecimiento asignado</span>
+                                <input type="text" name="establecimiento" placeholder="Ej. VINOVA Sur" required>
                             </label>
 
                         </div>
@@ -1442,6 +1636,7 @@
                                         <th>Nombre</th>
                                         <th>Cargo</th>
                                         <th>Correo</th>
+                                        <th>Establecimiento</th>
                                         <th>Estado</th>
                                         <th>Acciones</th>
                                     </tr>
@@ -1456,6 +1651,12 @@
                                             <td>{{ trabajador['cargo'] }}</td>
                                             <td>{{ trabajador['correo'] }}</td>
                                             <td>
+                                                <form action="{{ url_for('admin_actualizar_establecimiento_trabajador', trabajador_id=trabajador['id']) }}" method="POST" class="admin-inline-form admin-worker-location-form">
+                                                    <input type="text" name="establecimiento" value="{{ trabajador['establecimiento']|default('') }}" placeholder="VINOVA Sur" required>
+                                                    <button type="submit" class="admin-mini-btn admin-mini-btn-muted">Guardar</button>
+                                                </form>
+                                            </td>
+                                            <td>
                                                 {% if trabajador_activo == 1 %}
                                                     <span class="admin-status active">Activo</span>
                                                 {% else %}
@@ -1464,17 +1665,6 @@
                                             </td>
                                             <td>
                                                 <div class="admin-row-actions">
-                                                    <form action="/admin/usuarios/{{ trabajador['id'] }}/rol" method="POST">
-                                                        <select name="rol" class="admin-inline-select">
-                                                            <option value="TRABAJADOR" {% if trabajador['cargo'] == 'TRABAJADOR' %}selected{% endif %}>Trabajador</option>
-                                                            <option value="ADMIN" {% if trabajador['cargo'] == 'ADMIN' %}selected{% endif %}>Admin</option>
-                                                        </select>
-
-                                                        <button type="submit" class="admin-mini-btn admin-mini-btn-muted">
-                                                            Guardar rol
-                                                        </button>
-                                                    </form>
-
                                                     {% if trabajador['id'] == session.get('usuario_id') %}
                                                         <button type="button" class="admin-mini-btn admin-mini-btn-disabled" disabled>
                                                             Sesión actual
@@ -1513,6 +1703,157 @@
 
             </section>
 
+        </section>
+
+
+        <!-- SECCIÓN MANUALES -->
+
+        <section class="admin-section" id="admin-manuales" data-admin-content="manuales">
+
+            <div class="admin-section-header">
+                <div>
+                    <span>DOCUMENTACIÓN</span>
+                    <h2>Manuales de vehículos</h2>
+                    <p>Asigna manuales a unidades del inventario. Los usuarios que tengan ese vehículo los verán en su perfil.</p>
+                </div>
+            </div>
+
+            <section class="admin-layout">
+                <section class="admin-panel admin-form-panel">
+                    <div class="admin-panel-title">
+                        <div>
+                            <span>NUEVO MANUAL</span>
+                            <h2>Asignar manual</h2>
+                        </div>
+                    </div>
+
+                    <form action="{{ url_for('admin_guardar_manual_vehiculo') }}" method="POST" class="admin-form">
+                        <div class="admin-form-grid">
+                            <label class="admin-field admin-field-wide">
+                                <span>Vehículo</span>
+                                <select name="vehiculo_id" required>
+                                    <option value="">Seleccionar vehículo</option>
+                                    {% for vehiculo in vehiculos|default([]) %}
+                                        <option value="{{ vehiculo.id }}">
+                                            {{ vehiculo.marca }} {{ vehiculo.modelo }} {{ vehiculo.anio }}
+                                            {% if vehiculo.codigo_catalogo %} • {{ vehiculo.codigo_catalogo }}{% endif %}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </label>
+
+                            <label class="admin-field">
+                                <span>Título</span>
+                                <input type="text" name="titulo" placeholder="Manual del propietario" required>
+                            </label>
+
+                            <label class="admin-field">
+                                <span>Tipo de documento</span>
+                                <input type="text" name="tipo_documento" placeholder="Manual, garantía, guía técnica..." value="Manual">
+                            </label>
+
+                            <label class="admin-field admin-field-wide">
+                                <span>Enlace externo</span>
+                                <input type="url" name="enlace" placeholder="https://...">
+                            </label>
+
+                            <label class="admin-field admin-field-wide">
+                                <span>Archivo local</span>
+                                <input type="text" name="archivo" placeholder="docs/manuales/manual-rav4.pdf">
+                                <small>Úsalo si guardas el PDF dentro de static. Si agregas enlace externo, este campo puede quedar vacío.</small>
+                            </label>
+
+                            <label class="admin-field admin-field-wide">
+                                <span>Descripción</span>
+                                <textarea name="descripcion" rows="3" placeholder="Manual de propietario, guía de mantenimiento, garantía..."></textarea>
+                            </label>
+                        </div>
+
+                        <div class="admin-actions">
+                            <button type="submit" class="admin-primary-btn">
+                                <i data-lucide="book-plus"></i>
+                                Asignar manual
+                            </button>
+                        </div>
+                    </form>
+                </section>
+
+                <section class="admin-panel admin-list-panel">
+                    <div class="admin-panel-title">
+                        <div>
+                            <span>ARCHIVOS</span>
+                            <h2>Manuales asignados</h2>
+                        </div>
+                        <div class="admin-list-tools">
+                            <input type="text" class="admin-search-input" data-admin-search="manuals" placeholder="Buscar manual o vehículo...">
+                        </div>
+                    </div>
+
+                    <div class="admin-table-wrap" data-admin-list="manuals">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>Manual</th>
+                                    <th>Vehículo</th>
+                                    <th>Origen</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if manuales_admin|default([]) %}
+                                    {% for manual in manuales_admin %}
+                                        {% set manual_activo = manual.activo|default(1)|int %}
+                                        <tr data-admin-item>
+                                            <td>
+                                                <strong>{{ manual.titulo }}</strong>
+                                                <small>{{ manual.tipo_documento|default('Manual') }}</small>
+                                            </td>
+                                            <td>
+                                                <strong>{{ manual.marca }} {{ manual.modelo }} {{ manual.anio }}</strong>
+                                                <small>{{ manual.codigo_catalogo|default('Sin código') }}</small>
+                                            </td>
+                                            <td>
+                                                {% if manual.enlace %}
+                                                    <a href="{{ manual.enlace }}" target="_blank" rel="noopener">Enlace externo</a>
+                                                {% elif manual.archivo %}
+                                                    <span>{{ manual.archivo }}</span>
+                                                {% else %}
+                                                    <span>N/D</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if manual_activo == 1 %}
+                                                    <span class="admin-status active">Activo</span>
+                                                {% else %}
+                                                    <span class="admin-status inactive">Oculto</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <form action="{{ url_for('admin_cambiar_estado_manual', manual_id=manual.id) }}" method="POST">
+                                                    <button type="submit" class="admin-mini-btn {% if manual_activo == 1 %}admin-mini-btn-danger{% else %}admin-mini-btn-code{% endif %}">
+                                                        {% if manual_activo == 1 %}Ocultar{% else %}Activar{% endif %}
+                                                    </button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="5">
+                                            <div class="admin-empty">
+                                                <i data-lucide="book-open"></i>
+                                                <h3>Sin manuales asignados</h3>
+                                                <p>Asigna manuales a los vehículos del inventario.</p>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </section>
         </section>
 
         <!-- SECCIÓN CONFIGURACIÓN -->
