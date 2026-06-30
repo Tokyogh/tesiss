@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, session, flash, url_for, jsonify
+from flask import Flask, render_template, request, redirect, session, flash, url_for, jsonify, send_from_directory, abort
 import sqlite3
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
@@ -45,10 +45,27 @@ app.config["VEHICLE_3D_FOLDER"] = os.path.join(
     "vehicles"
 )
 
+app.config["MANUALS_FOLDER"] = os.path.join(
+    app.root_path,
+    "static",
+    "docs",
+    "manuales"
+)
+
+app.config["INVOICE_FOLDER"] = os.path.join(
+    app.root_path,
+    "static",
+    "docs",
+    "facturas"
+)
+
 os.makedirs(app.config["VEHICLE_IMAGE_FOLDER"], exist_ok=True)
 os.makedirs(app.config["VEHICLE_3D_FOLDER"], exist_ok=True)
+os.makedirs(app.config["MANUALS_FOLDER"], exist_ok=True)
+os.makedirs(app.config["INVOICE_FOLDER"], exist_ok=True)
 
 EXTENSIONES_IMAGEN_VEHICULO = {"jpg", "jpeg", "png", "webp"}
+EXTENSIONES_DOCUMENTO = {"pdf", "jpg", "jpeg", "png", "webp"}
 
 
 # ================= SEGURIDAD BÁSICA =================
@@ -88,6 +105,61 @@ def conectar_db():
 
 def extension_permitida(nombre_archivo, extensiones):
     return "." in nombre_archivo and nombre_archivo.rsplit(".", 1)[1].lower() in extensiones
+
+
+def normalizar_ruta_static_documento(ruta):
+    """Normaliza rutas locales guardadas dentro de static para manuales/facturas."""
+
+    texto = str(ruta or "").strip().replace("\\", "/")
+
+    if not texto:
+        return ""
+
+    texto_lower = texto.lower()
+
+    if texto_lower.startswith("http://") or texto_lower.startswith("https://"):
+        return ""
+
+    if texto.startswith("/static/"):
+        texto = texto[len("/static/"):]
+    elif texto.startswith("static/"):
+        texto = texto[len("static/"):]
+
+    texto = texto.lstrip("/")
+
+    if ".." in texto.split("/"):
+        return ""
+
+    return texto
+
+
+def guardar_documento_local(archivo, carpeta_config, prefijo):
+    """Guarda un PDF/imagen en static/docs y devuelve la ruta relativa a static."""
+
+    if not archivo or not getattr(archivo, "filename", ""):
+        return ""
+
+    nombre_original = secure_filename(archivo.filename)
+
+    if not nombre_original or not extension_permitida(nombre_original, EXTENSIONES_DOCUMENTO):
+        raise ValueError("Formato de documento no permitido. Usa PDF, JPG, PNG o WEBP.")
+
+    extension = nombre_original.rsplit(".", 1)[1].lower()
+    prefijo_seguro = crear_slug(prefijo or "documento")
+    nombre_final = f"{prefijo_seguro}-{int(time.time())}-{secrets.token_hex(4)}.{extension}"
+
+    carpeta_destino = app.config[carpeta_config]
+    os.makedirs(carpeta_destino, exist_ok=True)
+
+    ruta_destino = os.path.join(carpeta_destino, nombre_final)
+    archivo.save(ruta_destino)
+
+    return os.path.relpath(ruta_destino, app.static_folder).replace("\\", "/")
+
+
+def generar_numero_factura(usuario_vehiculo_id):
+    fecha_compacta = datetime.now().strftime("%Y%m%d")
+    return f"VNV-FAC-{fecha_compacta}-{int(usuario_vehiculo_id or 0):05d}-{secrets.token_hex(2).upper()}"
 
 
 def crear_slug(texto):
@@ -628,6 +700,58 @@ def asegurar_migraciones_admin():
         for columna, definicion in columnas_manuales.items():
             agregar_columna_si_falta(cursor, "manuales_vehiculo", columna, definicion)
 
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS facturas_vehiculo (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            usuario_id INTEGER NOT NULL,
+            vehiculo_id INTEGER NOT NULL,
+            usuario_vehiculo_id INTEGER,
+            numero_factura TEXT,
+            descripcion TEXT,
+            archivo TEXT,
+            enlace TEXT,
+            fecha_factura TEXT,
+            monto REAL DEFAULT 0,
+            establecimiento TEXT,
+            subido_por INTEGER,
+            creado_en TEXT,
+            actualizado_en TEXT,
+            activo INTEGER DEFAULT 1,
+            anulado_por INTEGER,
+            anulado_en TEXT,
+            motivo_anulacion TEXT
+        )
+    """)
+
+    if tabla_existe(cursor, "facturas_vehiculo"):
+        columnas_facturas = {
+            "usuario_vehiculo_id": "INTEGER",
+            "numero_factura": "TEXT",
+            "descripcion": "TEXT",
+            "archivo": "TEXT",
+            "enlace": "TEXT",
+            "fecha_factura": "TEXT",
+            "monto": "REAL DEFAULT 0",
+            "establecimiento": "TEXT",
+            "subido_por": "INTEGER",
+            "creado_en": "TEXT",
+            "actualizado_en": "TEXT",
+            "activo": "INTEGER DEFAULT 1",
+            "anulado_por": "INTEGER",
+            "anulado_en": "TEXT",
+            "motivo_anulacion": "TEXT"
+        }
+
+        for columna, definicion in columnas_facturas.items():
+            agregar_columna_si_falta(cursor, "facturas_vehiculo", columna, definicion)
+
+        cursor.execute("""
+            UPDATE facturas_vehiculo
+            SET activo = COALESCE(activo, 1),
+                monto = COALESCE(monto, 0),
+                creado_en = COALESCE(creado_en, CURRENT_TIMESTAMP)
+        """)
+
     ejecutar_sql_seguro(
         cursor,
         """
@@ -662,6 +786,24 @@ def asegurar_migraciones_admin():
         ON manuales_vehiculo(vehiculo_id, activo)
         """,
         "índice de manuales por vehículo"
+    )
+
+    ejecutar_sql_seguro(
+        cursor,
+        """
+        CREATE INDEX IF NOT EXISTS idx_facturas_usuario
+        ON facturas_vehiculo(usuario_id, activo)
+        """,
+        "índice de facturas por usuario"
+    )
+
+    ejecutar_sql_seguro(
+        cursor,
+        """
+        CREATE INDEX IF NOT EXISTS idx_facturas_vehiculo
+        ON facturas_vehiculo(vehiculo_id, activo)
+        """,
+        "índice de facturas por vehículo"
     )
 
     conexion.commit()
@@ -1196,6 +1338,45 @@ def trabajador_panel():
     """)
     total_canjes = cursor.fetchone()[0]
 
+    cursor.execute("""
+        SELECT
+            facturas_vehiculo.*,
+            usuarios.nombre AS usuario_nombre,
+            usuarios.correo AS usuario_correo,
+            vehiculos.codigo_catalogo,
+            vehiculos.marca,
+            vehiculos.modelo,
+            vehiculos.anio,
+            subidor.nombre AS subido_por_nombre,
+            subidor.rol AS subido_por_rol,
+            subidor.establecimiento AS subido_por_establecimiento
+        FROM facturas_vehiculo
+        INNER JOIN usuarios
+            ON usuarios.id = facturas_vehiculo.usuario_id
+        INNER JOIN vehiculos
+            ON vehiculos.id = facturas_vehiculo.vehiculo_id
+        LEFT JOIN usuarios AS subidor
+            ON subidor.id = facturas_vehiculo.subido_por
+        WHERE COALESCE(facturas_vehiculo.activo, 1) = 1
+        ORDER BY DATE(facturas_vehiculo.fecha_factura) DESC, facturas_vehiculo.id DESC
+        LIMIT 120
+    """)
+
+    facturas = []
+    for fila in cursor.fetchall():
+        factura = dict(fila)
+        factura["fecha_visible"] = formatear_fecha_visible(factura.get("fecha_factura"))
+        factura["monto"] = normalizar_precio(factura.get("monto")) or 0
+        factura["establecimiento"] = factura.get("establecimiento") or factura.get("subido_por_establecimiento") or "VINOVA"
+        facturas.append(factura)
+
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM facturas_vehiculo
+        WHERE COALESCE(activo, 1) = 1
+    """)
+    total_facturas = cursor.fetchone()[0]
+
     conexion.close()
 
     return render_template(
@@ -1211,6 +1392,8 @@ def trabajador_panel():
         vehiculos_clientes=vehiculos_clientes,
         mantenimientos=mantenimientos,
         total_mantenimientos=total_mantenimientos,
+        facturas=facturas,
+        total_facturas=total_facturas,
         trabajador_establecimiento=trabajador_establecimiento,
         trabajador_generar_codigo_url="/trabajador/vehiculos/__ID__/codigo/generar",
         trabajador_archivar_vehiculo_url="/trabajador/vehiculos/__ID__/archivar",
@@ -1757,6 +1940,38 @@ def perfil():
             manual["creado_visible"] = formatear_fecha_visible(manual.get("creado_en"))
             manuales_usuario.append(manual)
 
+
+    facturas_usuario = []
+
+    cursor.execute("""
+        SELECT
+            facturas_vehiculo.*,
+            vehiculos.codigo_catalogo,
+            vehiculos.marca,
+            vehiculos.modelo,
+            vehiculos.anio,
+            subidor.nombre AS subido_por_nombre,
+            subidor.rol AS subido_por_rol,
+            subidor.establecimiento AS subido_por_establecimiento
+        FROM facturas_vehiculo
+        INNER JOIN vehiculos
+            ON vehiculos.id = facturas_vehiculo.vehiculo_id
+        LEFT JOIN usuarios AS subidor
+            ON subidor.id = facturas_vehiculo.subido_por
+        WHERE facturas_vehiculo.usuario_id = ?
+          AND COALESCE(facturas_vehiculo.activo, 1) = 1
+        ORDER BY DATE(facturas_vehiculo.fecha_factura) DESC, facturas_vehiculo.id DESC
+    """, (
+        session["usuario_id"],
+    ))
+
+    for fila in cursor.fetchall():
+        factura = dict(fila)
+        factura["fecha_visible"] = formatear_fecha_visible(factura.get("fecha_factura"))
+        factura["monto"] = normalizar_precio(factura.get("monto")) or 0
+        factura["establecimiento"] = factura.get("establecimiento") or factura.get("subido_por_establecimiento") or "VINOVA"
+        facturas_usuario.append(factura)
+
     conexion.close()
 
     ultimo_mantenimiento = historial_mantenimientos[0] if historial_mantenimientos else None
@@ -1774,7 +1989,8 @@ def perfil():
         ultimo_mantenimiento=ultimo_mantenimiento,
         proximo_mantenimiento=proximo_mantenimiento,
         total_alertas_mantenimiento=total_alertas,
-        manuales_usuario=manuales_usuario
+        manuales_usuario=manuales_usuario,
+        facturas_usuario=facturas_usuario
     )
 
 
@@ -2983,6 +3199,43 @@ def admin_vehiculos():
 
     cursor.execute("""
         SELECT
+            facturas_vehiculo.*,
+            usuarios.nombre AS usuario_nombre,
+            usuarios.correo AS usuario_correo,
+            vehiculos.codigo_catalogo,
+            vehiculos.marca,
+            vehiculos.modelo,
+            vehiculos.anio,
+            subidor.nombre AS subido_por_nombre,
+            subidor.rol AS subido_por_rol,
+            subidor.establecimiento AS subido_por_establecimiento
+        FROM facturas_vehiculo
+        INNER JOIN usuarios
+            ON usuarios.id = facturas_vehiculo.usuario_id
+        INNER JOIN vehiculos
+            ON vehiculos.id = facturas_vehiculo.vehiculo_id
+        LEFT JOIN usuarios AS subidor
+            ON subidor.id = facturas_vehiculo.subido_por
+        ORDER BY facturas_vehiculo.id DESC
+    """)
+
+    facturas_admin = []
+    for fila in cursor.fetchall():
+        factura = dict(fila)
+        factura["fecha_visible"] = formatear_fecha_visible(factura.get("fecha_factura"))
+        factura["monto"] = normalizar_precio(factura.get("monto")) or 0
+        factura["establecimiento"] = factura.get("establecimiento") or factura.get("subido_por_establecimiento") or "VINOVA"
+        facturas_admin.append(factura)
+
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM facturas_vehiculo
+        WHERE COALESCE(activo, 1) = 1
+    """)
+    total_facturas = cursor.fetchone()[0]
+
+    cursor.execute("""
+        SELECT
             usuarios.id,
             usuarios.nombre,
             usuarios.correo,
@@ -3053,7 +3306,9 @@ def admin_vehiculos():
         vehiculos_clientes=vehiculos_clientes,
         mantenimientos=mantenimientos,
         total_mantenimientos=total_mantenimientos,
-        manuales_admin=manuales_admin
+        manuales_admin=manuales_admin,
+        facturas_admin=facturas_admin,
+        total_facturas=total_facturas
     )
 
 
@@ -4103,8 +4358,16 @@ def admin_guardar_manual_vehiculo():
     titulo = request.form.get("titulo", "").strip()
     tipo_documento = request.form.get("tipo_documento", "Manual").strip()
     enlace = request.form.get("enlace", "").strip()
-    archivo = request.form.get("archivo", "").strip()
+    archivo = normalizar_ruta_static_documento(request.form.get("archivo", ""))
+    archivo_subido = request.files.get("archivo_pdf")
     descripcion = request.form.get("descripcion", "").strip()
+
+    if archivo_subido and archivo_subido.filename:
+        try:
+            archivo = guardar_documento_local(archivo_subido, "MANUALS_FOLDER", f"manual-{vehiculo_id}-{titulo}")
+        except ValueError as error:
+            flash(str(error), "warning")
+            return redirigir_admin("manuales")
 
     if not vehiculo_id:
         flash("Selecciona el vehículo al que pertenece el manual.", "warning")
@@ -4220,11 +4483,248 @@ def admin_cambiar_estado_manual(manual_id):
     return redirigir_admin("manuales")
 
 
+# ================= FACTURAS DE VEHÍCULOS =================
+
+@app.route("/facturas/guardar", methods=["POST"])
+@login_required
+@personal_required
+def guardar_factura_vehiculo():
+
+    asegurar_migraciones_admin()
+
+    origen = request.form.get("origen", "trabajador").strip().lower()
+    destino = "/admin/vehiculos#admin-facturas" if origen == "admin" else "/trabajador#trabajador-facturas"
+
+    usuario_vehiculo_id = request.form.get("usuario_vehiculo_id", type=int)
+    numero_factura = request.form.get("numero_factura", "").strip().upper()
+    descripcion = request.form.get("descripcion", "").strip()
+    fecha_factura = normalizar_fecha(request.form.get("fecha_factura")) or datetime.now().strftime("%Y-%m-%d")
+    monto = normalizar_precio(request.form.get("monto")) or 0
+    enlace = request.form.get("enlace", "").strip()
+    archivo = normalizar_ruta_static_documento(request.form.get("archivo", ""))
+    archivo_subido = request.files.get("archivo_factura")
+
+    if not usuario_vehiculo_id:
+        flash("Selecciona el cliente y vehículo al que pertenece la factura.", "warning")
+        return redirect(destino)
+
+    if archivo_subido and archivo_subido.filename:
+        try:
+            archivo = guardar_documento_local(archivo_subido, "INVOICE_FOLDER", f"factura-{usuario_vehiculo_id}-{numero_factura or 'vinova'}")
+        except ValueError as error:
+            flash(str(error), "warning")
+            return redirect(destino)
+
+    if not enlace and not archivo:
+        flash("Sube un archivo de factura o agrega un enlace externo.", "warning")
+        return redirect(destino)
+
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT
+                usuarios_vehiculos.id AS usuario_vehiculo_id,
+                usuarios_vehiculos.usuario_id,
+                usuarios_vehiculos.vehiculo_id,
+                usuarios.nombre AS usuario_nombre,
+                vehiculos.marca,
+                vehiculos.modelo,
+                vehiculos.anio
+            FROM usuarios_vehiculos
+            INNER JOIN usuarios
+                ON usuarios.id = usuarios_vehiculos.usuario_id
+            INNER JOIN vehiculos
+                ON vehiculos.id = usuarios_vehiculos.vehiculo_id
+            WHERE usuarios_vehiculos.id = ?
+        """, (
+            usuario_vehiculo_id,
+        ))
+
+        registro = cursor.fetchone()
+
+        if not registro:
+            flash("No encontré ese vehículo registrado en un perfil de cliente.", "warning")
+            return redirect(destino)
+
+        if not numero_factura:
+            numero_factura = generar_numero_factura(usuario_vehiculo_id)
+
+        establecimiento = obtener_establecimiento_usuario(cursor, session.get("usuario_id")) or "VINOVA"
+        ahora = fecha_actual()
+
+        cursor.execute("""
+            INSERT INTO facturas_vehiculo (
+                usuario_id,
+                vehiculo_id,
+                usuario_vehiculo_id,
+                numero_factura,
+                descripcion,
+                archivo,
+                enlace,
+                fecha_factura,
+                monto,
+                establecimiento,
+                subido_por,
+                creado_en,
+                actualizado_en,
+                activo
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+        """, (
+            registro["usuario_id"],
+            registro["vehiculo_id"],
+            usuario_vehiculo_id,
+            numero_factura,
+            descripcion,
+            archivo,
+            enlace,
+            fecha_factura,
+            monto,
+            establecimiento,
+            session.get("usuario_id"),
+            ahora,
+            ahora
+        ))
+
+        conexion.commit()
+        flash("Factura registrada correctamente y visible en el perfil del cliente.", "success")
+
+    except Exception as error:
+        conexion.rollback()
+        print("Error al guardar factura:", error)
+        flash("No se pudo registrar la factura.", "error")
+
+    finally:
+        conexion.close()
+
+    return redirect(destino)
+
+
+@app.route("/admin/facturas/<int:factura_id>/estado", methods=["POST"])
+@login_required
+@admin_required
+def admin_cambiar_estado_factura(factura_id):
+
+    asegurar_migraciones_admin()
+
+    motivo = request.form.get("motivo_anulacion", "").strip()
+
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT id, COALESCE(activo, 1) AS activo
+            FROM facturas_vehiculo
+            WHERE id = ?
+        """, (
+            factura_id,
+        ))
+
+        factura = cursor.fetchone()
+
+        if not factura:
+            flash("Factura no encontrada.", "warning")
+            return redirigir_admin("facturas")
+
+        nuevo_estado = 0 if factura["activo"] == 1 else 1
+        ahora = fecha_actual()
+
+        if nuevo_estado == 0:
+            cursor.execute("""
+                UPDATE facturas_vehiculo
+                SET activo = 0,
+                    anulado_por = ?,
+                    anulado_en = ?,
+                    motivo_anulacion = ?,
+                    actualizado_en = ?
+                WHERE id = ?
+            """, (
+                session.get("usuario_id"),
+                ahora,
+                motivo or "Ocultada desde administración",
+                ahora,
+                factura_id
+            ))
+        else:
+            cursor.execute("""
+                UPDATE facturas_vehiculo
+                SET activo = 1,
+                    anulado_por = NULL,
+                    anulado_en = NULL,
+                    motivo_anulacion = NULL,
+                    actualizado_en = ?
+                WHERE id = ?
+            """, (
+                ahora,
+                factura_id
+            ))
+
+        conexion.commit()
+        flash("Factura activada correctamente." if nuevo_estado == 1 else "Factura ocultada correctamente.", "success")
+
+    except Exception as error:
+        conexion.rollback()
+        print("Error al cambiar estado de factura:", error)
+        flash("No se pudo actualizar la factura.", "error")
+
+    finally:
+        conexion.close()
+
+    return redirigir_admin("facturas")
+
+
+@app.route("/facturas/<int:factura_id>/ver")
+@login_required
+def ver_factura_vehiculo(factura_id):
+
+    asegurar_migraciones_admin()
+
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    cursor.execute("""
+        SELECT *
+        FROM facturas_vehiculo
+        WHERE id = ?
+    """, (
+        factura_id,
+    ))
+
+    factura = cursor.fetchone()
+    conexion.close()
+
+    if not factura:
+        abort(404)
+
+    rol = str(session.get("rol", "")).upper()
+    es_personal = rol in {"ADMIN", "TRABAJADOR"}
+
+    if not es_personal and factura["usuario_id"] != session.get("usuario_id"):
+        abort(403)
+
+    if not es_personal and factura["activo"] != 1:
+        abort(404)
+
+    if factura["enlace"]:
+        return redirect(factura["enlace"])
+
+    archivo = normalizar_ruta_static_documento(factura["archivo"])
+
+    if not archivo:
+        flash("La factura no tiene archivo disponible.", "warning")
+        return redirect(url_for("perfil") + "#seccion-facturas")
+
+    return send_from_directory(app.static_folder, archivo, as_attachment=False)
+
+
 # ================= ERROR PESO =================
 
 @app.errorhandler(413)
 def archivo_demasiado_grande(error):
-    flash("La imagen es demasiado pesada. Intenta con una imagen más pequeña.", "warning")
+    flash("El archivo es demasiado pesado. Intenta con un archivo más pequeño.", "warning")
     return redirect(request.referrer or "/perfil")
 
 

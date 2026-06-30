@@ -188,6 +188,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const selectedBox = picker.querySelector("[data-maintenance-selected]");
             const clearButton = picker.querySelector("[data-maintenance-clear]");
             const form = picker.closest("form");
+            const requiredMessage = picker.dataset.requiredMessage || "Selecciona un resultado de la búsqueda antes de continuar.";
 
             if (!searchUrl || !input || !hiddenInput || !resultsBox || !selectedBox || !form) return;
 
@@ -287,7 +288,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 if (!hiddenInput.value) {
                     event.preventDefault();
-                    setMaintenanceMessage(resultsBox, "Selecciona un resultado de la búsqueda antes de registrar el mantenimiento.", "warning");
+                    setMaintenanceMessage(resultsBox, requiredMessage, "warning");
                     input.focus();
                 }
             });

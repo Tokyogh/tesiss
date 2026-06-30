@@ -22,6 +22,7 @@
 {% set ventas_lista = ventas_canje|default(canjes|default([])) %}
 {% set clientes_vehiculos_lista = vehiculos_clientes|default([]) %}
 {% set mantenimientos_lista = mantenimientos|default([]) %}
+{% set facturas_lista = facturas|default([]) %}
 {% set generar_codigo_base_url = trabajador_generar_codigo_url|default('') %}
 {% set archivar_base_url = trabajador_archivar_vehiculo_url|default('') %}
 {% set reactivar_codigo_base_url = trabajador_reactivar_codigo_url|default('') %}
@@ -66,6 +67,11 @@
             <a href="#trabajador-mantenimientos" class="worker-nav-link" data-worker-section="mantenimientos">
                 <i data-lucide="wrench"></i>
                 <span>Mantenimientos</span>
+            </a>
+
+            <a href="#trabajador-facturas" class="worker-nav-link" data-worker-section="facturas">
+                <i data-lucide="file-text"></i>
+                <span>Facturas</span>
             </a>
 
             <span class="worker-nav-label">SOPORTE</span>
@@ -734,6 +740,154 @@
             </section>
         </section>
 
+
+        <section class="worker-section" id="trabajador-facturas" data-worker-content="facturas">
+            <div class="worker-section-header">
+                <div>
+                    <span>DOCUMENTACIÓN</span>
+                    <h2>Facturas</h2>
+                    <p>Sube facturas para vehículos registrados en perfiles de clientes. El cliente solo verá sus propias facturas.</p>
+                </div>
+            </div>
+
+            <section class="worker-layout">
+                <section class="worker-panel worker-form-panel">
+                    <div class="worker-panel-title">
+                        <div>
+                            <span>NUEVA FACTURA</span>
+                            <h2>Registrar factura</h2>
+                        </div>
+                    </div>
+
+                    <form action="{{ url_for('guardar_factura_vehiculo') }}" method="POST" enctype="multipart/form-data" class="worker-form">
+                        <input type="hidden" name="origen" value="trabajador">
+
+                        <div class="worker-form-grid">
+                            <div class="worker-field worker-field-wide maintenance-client-picker" data-maintenance-client-search data-search-url="{{ url_for('buscar_vehiculos_mantenimiento') }}" data-required-message="Selecciona un cliente y vehículo antes de registrar la factura.">
+                                <span>Cliente y vehículo</span>
+                                <input type="hidden" name="usuario_vehiculo_id" data-maintenance-selected-id>
+
+                                <div class="maintenance-search-row">
+                                    <input type="search" data-maintenance-search-input placeholder="Buscar por correo, cliente, ID de vehículo, código o modelo..." autocomplete="off">
+                                    <button type="button" class="maintenance-clear-btn" data-maintenance-clear>Limpiar</button>
+                                </div>
+
+                                <small>Busca el vehículo registrado en el perfil del cliente. La factura se asociará a ese usuario y vehículo.</small>
+
+                                <div class="maintenance-selected-card is-empty" data-maintenance-selected>
+                                    Ningún cliente/vehículo seleccionado.
+                                </div>
+
+                                <div class="maintenance-results" data-maintenance-results hidden></div>
+                            </div>
+
+                            <label class="worker-field">
+                                <span>Número de factura</span>
+                                <input type="text" name="numero_factura" placeholder="Ej. FAC-001">
+                                <small>Opcional. Si lo dejas vacío, VINOVA genera uno.</small>
+                            </label>
+
+                            <label class="worker-field">
+                                <span>Fecha de factura</span>
+                                <input type="date" name="fecha_factura" required>
+                            </label>
+
+                            <label class="worker-field">
+                                <span>Monto USD</span>
+                                <input type="number" name="monto" min="0" step="0.01" placeholder="0.00">
+                            </label>
+
+                            <label class="worker-field worker-field-wide">
+                                <span>Subir factura</span>
+                                <input type="file" name="archivo_factura" accept=".pdf,image/jpeg,image/png,image/webp">
+                                <small>Formatos permitidos: PDF, JPG, PNG o WEBP.</small>
+                            </label>
+
+                            <label class="worker-field worker-field-wide">
+                                <span>Enlace externo</span>
+                                <input type="url" name="enlace" placeholder="https://...">
+                            </label>
+
+                            <label class="worker-field worker-field-wide">
+                                <span>Descripción</span>
+                                <textarea name="descripcion" rows="3" placeholder="Factura de compra, canje, mantenimiento o servicio realizado..."></textarea>
+                            </label>
+                        </div>
+
+                        <div class="worker-actions-bar">
+                            <button type="submit" class="worker-primary-btn">
+                                <i data-lucide="file-plus-2"></i>
+                                Registrar factura
+                            </button>
+                        </div>
+                    </form>
+                </section>
+
+                <section class="worker-panel worker-list-panel">
+                    <div class="worker-panel-title">
+                        <div>
+                            <span>HISTORIAL</span>
+                            <h2>Facturas recientes</h2>
+                            <p>{{ total_facturas|default(facturas_lista|length) }} factura(s) activa(s).</p>
+                        </div>
+                        <input type="text" class="worker-search-input" data-worker-search="invoices" placeholder="Buscar cliente, correo, vehículo o factura...">
+                    </div>
+
+                    <div class="worker-table-wrap">
+                        <table class="worker-table" data-worker-list="invoices">
+                            <thead>
+                                <tr>
+                                    <th>Factura</th>
+                                    <th>Cliente</th>
+                                    <th>Vehículo</th>
+                                    <th>Archivo</th>
+                                    <th>Subida por</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if facturas_lista %}
+                                    {% for factura in facturas_lista %}
+                                        <tr data-worker-item>
+                                            <td>
+                                                <strong>{{ factura.numero_factura|default('Sin número') }}</strong>
+                                                <small>{{ factura.fecha_visible|default(factura.fecha_factura|default('N/D')) }} • ${{ "{:,.2f}".format(factura.monto|default(0)|float) }}</small>
+                                            </td>
+                                            <td>
+                                                <strong>{{ factura.usuario_nombre }}</strong>
+                                                <small>{{ factura.usuario_correo }}</small>
+                                            </td>
+                                            <td>
+                                                <span>{{ factura.codigo_catalogo|default('Sin referencia') }}</span>
+                                                <small>{{ factura.marca }} {{ factura.modelo }} {{ factura.anio }}</small>
+                                            </td>
+                                            <td>
+                                                <a href="{{ url_for('ver_factura_vehiculo', factura_id=factura.id) }}" target="_blank" rel="noopener">Ver factura</a>
+                                                <small>{{ factura.establecimiento|default('VINOVA') }}</small>
+                                            </td>
+                                            <td>
+                                                <span>{{ factura.subido_por_nombre|default('VINOVA') }}</span>
+                                                <small>{{ factura.subido_por_rol|default('Personal') }}</small>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="5">
+                                            <div class="worker-empty compact">
+                                                <i data-lucide="file-text"></i>
+                                                <h3>Sin facturas</h3>
+                                                <p>Cuando se registre una factura, aparecerá aquí.</p>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </section>
+        </section>
+
         <section class="worker-section" id="trabajador-ayuda" data-worker-content="ayuda">
             <div class="worker-section-header">
                 <div>
@@ -753,6 +907,7 @@
                         <li>Generar códigos para vehículos disponibles sin código previo.</li>
                         <li>Consultar historial básico de canjes.</li>
                         <li>Registrar mantenimientos realizados por VINOVA.</li>
+                        <li>Subir y consultar facturas asociadas a usuarios y vehículos.</li>
                         <li>Ver próximos kilometrajes y fechas calculadas automáticamente.</li>
                         <li>Ayudar al cliente a registrar su vehículo.</li>
                     </ul>

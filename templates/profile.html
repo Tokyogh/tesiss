@@ -659,31 +659,35 @@
 
                 <section class="info-panel">
 
-                    <div class="invoice-list">
+                    {% if facturas_usuario|default([]) %}
+                        <div class="invoice-list">
+                            {% for factura in facturas_usuario %}
+                                <article class="invoice-item">
+                                    <div>
+                                        <h3>Factura {{ factura.numero_factura|default('VINOVA') }}</h3>
+                                        <p>
+                                            {{ factura.marca }} {{ factura.modelo }} {{ factura.anio }}
+                                            {% if factura.fecha_visible %} • {{ factura.fecha_visible }}{% endif %}
+                                        </p>
+                                        {% if factura.descripcion %}
+                                            <small>{{ factura.descripcion }}</small>
+                                        {% endif %}
+                                        <small>Subida por {{ factura.subido_por_nombre|default('VINOVA') }} • {{ factura.establecimiento|default('VINOVA') }}</small>
+                                    </div>
 
-                        <article class="invoice-item">
-                            <div>
-                                <h3>Factura #VN-001</h3>
-                                <p>Cambio de aceite • 15 Junio 2026</p>
-                            </div>
+                                    <strong>${{ "{:,.2f}".format(factura.monto|default(0)|float) }}</strong>
 
-                            <strong>$45.00</strong>
-
-                            <a href="#">Ver</a>
-                        </article>
-
-                        <article class="invoice-item">
-                            <div>
-                                <h3>Factura #VN-002</h3>
-                                <p>Revisión de batería • 02 Mayo 2026</p>
-                            </div>
-
-                            <strong>$20.00</strong>
-
-                            <a href="#">Ver</a>
-                        </article>
-
-                    </div>
+                                    <a href="{{ url_for('ver_factura_vehiculo', factura_id=factura.id) }}" target="_blank" rel="noopener">Ver</a>
+                                </article>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="empty-vehicles-state compact-state document-empty-state">
+                            <i class="fa-solid fa-file-invoice"></i>
+                            <h3>Sin facturas registradas</h3>
+                            <p>Cuando VINOVA suba una factura asociada a tus vehículos, aparecerá aquí.</p>
+                        </div>
+                    {% endif %}
 
                 </section>
 

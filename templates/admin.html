@@ -89,6 +89,11 @@
                 <span>Manuales</span>
             </a>
 
+            <a href="#admin-facturas" class="admin-nav-link" data-admin-section="facturas">
+                <i data-lucide="file-text"></i>
+                <span>Facturas</span>
+            </a>
+
             <span class="admin-nav-label">SISTEMA</span>
 
             <a href="#admin-configuracion" class="admin-nav-link" data-admin-section="configuracion">
@@ -1727,7 +1732,7 @@
                         </div>
                     </div>
 
-                    <form action="{{ url_for('admin_guardar_manual_vehiculo') }}" method="POST" class="admin-form">
+                    <form action="{{ url_for('admin_guardar_manual_vehiculo') }}" method="POST" enctype="multipart/form-data" class="admin-form">
                         <div class="admin-form-grid">
                             <label class="admin-field admin-field-wide">
                                 <span>Vehículo</span>
@@ -1758,9 +1763,15 @@
                             </label>
 
                             <label class="admin-field admin-field-wide">
-                                <span>Archivo local</span>
+                                <span>Subir PDF o imagen</span>
+                                <input type="file" name="archivo_pdf" accept=".pdf,image/jpeg,image/png,image/webp">
+                                <small>Formatos permitidos: PDF, JPG, PNG o WEBP. Se guardará en static/docs/manuales.</small>
+                            </label>
+
+                            <label class="admin-field admin-field-wide">
+                                <span>Archivo local ya existente</span>
                                 <input type="text" name="archivo" placeholder="docs/manuales/manual-rav4.pdf">
-                                <small>Úsalo si guardas el PDF dentro de static. Si agregas enlace externo, este campo puede quedar vacío.</small>
+                                <small>Úsalo solo si ya tienes el archivo dentro de static. Si subes un archivo o agregas enlace externo, puede quedar vacío.</small>
                             </label>
 
                             <label class="admin-field admin-field-wide">
@@ -1854,6 +1865,179 @@
                     </div>
                 </section>
             </section>
+        </section>
+
+        <!-- SECCIÓN FACTURAS -->
+
+        <section class="admin-section" id="admin-facturas" data-admin-content="facturas">
+
+            <div class="admin-section-header">
+                <div>
+                    <span>DOCUMENTACIÓN</span>
+                    <h2>Facturas</h2>
+                    <p>Sube facturas para vehículos ya registrados por clientes. El usuario solo verá sus propias facturas.</p>
+                </div>
+            </div>
+
+            <section class="admin-layout">
+                <section class="admin-panel admin-form-panel">
+                    <div class="admin-panel-title">
+                        <div>
+                            <span>NUEVA FACTURA</span>
+                            <h2>Registrar factura</h2>
+                        </div>
+                    </div>
+
+                    <form action="{{ url_for('guardar_factura_vehiculo') }}" method="POST" enctype="multipart/form-data" class="admin-form">
+                        <input type="hidden" name="origen" value="admin">
+
+                        <div class="admin-form-grid">
+                            <div class="admin-field admin-field-wide maintenance-client-picker" data-maintenance-client-search data-search-url="{{ url_for('buscar_vehiculos_mantenimiento') }}" data-required-message="Selecciona un cliente y vehículo antes de registrar la factura.">
+                                <span>Cliente y vehículo</span>
+                                <input type="hidden" name="usuario_vehiculo_id" data-maintenance-selected-id>
+
+                                <div class="maintenance-search-row">
+                                    <input type="search" data-maintenance-search-input placeholder="Buscar por correo, cliente, ID de vehículo, código o modelo..." autocomplete="off">
+                                    <button type="button" class="maintenance-clear-btn" data-maintenance-clear>Limpiar</button>
+                                </div>
+
+                                <small>Busca el vehículo registrado en el perfil del cliente. La factura quedará asociada a ese usuario y vehículo.</small>
+
+                                <div class="maintenance-selected-card is-empty" data-maintenance-selected>
+                                    Ningún cliente/vehículo seleccionado.
+                                </div>
+
+                                <div class="maintenance-results" data-maintenance-results hidden></div>
+                            </div>
+
+                            <label class="admin-field">
+                                <span>Número de factura</span>
+                                <input type="text" name="numero_factura" placeholder="Ej. FAC-001">
+                                <small>Opcional. Si lo dejas vacío, VINOVA genera uno.</small>
+                            </label>
+
+                            <label class="admin-field">
+                                <span>Fecha de factura</span>
+                                <input type="date" name="fecha_factura" required>
+                            </label>
+
+                            <label class="admin-field">
+                                <span>Monto USD</span>
+                                <input type="number" name="monto" min="0" step="0.01" placeholder="0.00">
+                            </label>
+
+                            <label class="admin-field admin-field-wide">
+                                <span>Subir factura</span>
+                                <input type="file" name="archivo_factura" accept=".pdf,image/jpeg,image/png,image/webp">
+                                <small>Formatos permitidos: PDF, JPG, PNG o WEBP. Se guardará en static/docs/facturas.</small>
+                            </label>
+
+                            <label class="admin-field admin-field-wide">
+                                <span>Enlace externo</span>
+                                <input type="url" name="enlace" placeholder="https://...">
+                                <small>Úsalo si la factura ya está alojada fuera del sistema.</small>
+                            </label>
+
+                            <label class="admin-field admin-field-wide">
+                                <span>Archivo local ya existente</span>
+                                <input type="text" name="archivo" placeholder="docs/facturas/factura-rav4.pdf">
+                            </label>
+
+                            <label class="admin-field admin-field-wide">
+                                <span>Descripción</span>
+                                <textarea name="descripcion" rows="3" placeholder="Factura de compra, canje, mantenimiento o servicio realizado..."></textarea>
+                            </label>
+                        </div>
+
+                        <div class="admin-actions">
+                            <button type="submit" class="admin-primary-btn">
+                                <i data-lucide="file-plus-2"></i>
+                                Registrar factura
+                            </button>
+                        </div>
+                    </form>
+                </section>
+
+                <section class="admin-panel admin-list-panel">
+                    <div class="admin-panel-title">
+                        <div>
+                            <span>HISTORIAL</span>
+                            <h2>Facturas registradas</h2>
+                            <p>{{ total_facturas|default(0) }} factura(s) activa(s).</p>
+                        </div>
+                        <div class="admin-list-tools">
+                            <input type="text" class="admin-search-input" data-admin-search="invoices" placeholder="Buscar cliente, correo, vehículo, factura o sede...">
+                        </div>
+                    </div>
+
+                    <div class="admin-table-wrap" data-admin-list="invoices">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>Factura</th>
+                                    <th>Cliente</th>
+                                    <th>Vehículo</th>
+                                    <th>Archivo</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if facturas_admin|default([]) %}
+                                    {% for factura in facturas_admin %}
+                                        {% set factura_activa = factura.activo|default(1)|int %}
+                                        <tr data-admin-item>
+                                            <td>
+                                                <strong>{{ factura.numero_factura|default('Sin número') }}</strong>
+                                                <small>{{ factura.fecha_visible|default(factura.fecha_factura|default('N/D')) }} • ${{ "{:,.2f}".format(factura.monto|default(0)|float) }}</small>
+                                                {% if factura.descripcion %}<small>{{ factura.descripcion }}</small>{% endif %}
+                                            </td>
+                                            <td>
+                                                <strong>{{ factura.usuario_nombre }}</strong>
+                                                <small>{{ factura.usuario_correo }}</small>
+                                            </td>
+                                            <td>
+                                                <strong>{{ factura.marca }} {{ factura.modelo }} {{ factura.anio }}</strong>
+                                                <small>{{ factura.codigo_catalogo|default('Sin código') }}</small>
+                                            </td>
+                                            <td>
+                                                <a href="{{ url_for('ver_factura_vehiculo', factura_id=factura.id) }}" target="_blank" rel="noopener">Ver factura</a>
+                                                <small>{{ factura.establecimiento|default('VINOVA') }}</small>
+                                            </td>
+                                            <td>
+                                                {% if factura_activa == 1 %}
+                                                    <span class="admin-status active">Activa</span>
+                                                {% else %}
+                                                    <span class="admin-status inactive">Oculta</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <form action="{{ url_for('admin_cambiar_estado_factura', factura_id=factura.id) }}" method="POST" data-admin-confirm="¿Actualizar el estado de esta factura?">
+                                                    <input type="hidden" name="motivo_anulacion" value="Ocultada desde administración">
+                                                    <button type="submit" class="admin-mini-btn {% if factura_activa == 1 %}admin-mini-btn-danger{% else %}admin-mini-btn-code{% endif %}">
+                                                        {% if factura_activa == 1 %}Ocultar{% else %}Activar{% endif %}
+                                                    </button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="6">
+                                            <div class="admin-empty">
+                                                <i data-lucide="file-text"></i>
+                                                <h3>Sin facturas registradas</h3>
+                                                <p>Cuando VINOVA suba facturas de clientes, aparecerán aquí.</p>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </section>
+
         </section>
 
         <!-- SECCIÓN CONFIGURACIÓN -->
