@@ -203,6 +203,38 @@ def normalizar_precio(valor):
     return precio if precio >= 0 else None
 
 
+
+def normalizar_fecha(valor):
+    """
+    Valida fechas HTML tipo YYYY-MM-DD.
+    Devuelve la fecha normalizada o None si está vacía/no válida.
+    """
+
+    texto = str(valor or "").strip()
+
+    if not texto:
+        return None
+
+    try:
+        return datetime.strptime(texto, "%Y-%m-%d").strftime("%Y-%m-%d")
+    except ValueError:
+        return None
+
+
+def formatear_fecha_visible(valor):
+    """
+    Convierte YYYY-MM-DD a DD/MM/YYYY para mostrarlo en templates.
+    Si no puede convertirlo, devuelve el valor original.
+    """
+
+    if not valor:
+        return ""
+
+    try:
+        return datetime.strptime(str(valor)[:10], "%Y-%m-%d").strftime("%d/%m/%Y")
+    except ValueError:
+        return str(valor)
+
 def obtener_nombre_imagen_vehiculo(ruta_imagen):
     """
     Normaliza la imagen del vehículo para profile.html.
@@ -360,6 +392,43 @@ def asegurar_migraciones_admin():
             motivo TEXT
         )
     """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS mantenimientos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            usuario_id INTEGER NOT NULL,
+            vehiculo_id INTEGER NOT NULL,
+            usuario_vehiculo_id INTEGER,
+            tipo_servicio TEXT NOT NULL,
+            fecha_servicio TEXT NOT NULL,
+            kilometraje INTEGER,
+            costo REAL DEFAULT 0,
+            taller TEXT,
+            descripcion TEXT,
+            proximo_servicio_fecha TEXT,
+            proximo_servicio_km INTEGER,
+            creado_en TEXT,
+            actualizado_en TEXT
+        )
+    """)
+
+    ejecutar_sql_seguro(
+        cursor,
+        """
+        CREATE INDEX IF NOT EXISTS idx_mantenimientos_usuario_fecha
+        ON mantenimientos(usuario_id, fecha_servicio)
+        """,
+        "índice de mantenimientos por usuario y fecha"
+    )
+
+    ejecutar_sql_seguro(
+        cursor,
+        """
+        CREATE INDEX IF NOT EXISTS idx_mantenimientos_vehiculo
+        ON mantenimientos(vehiculo_id)
+        """,
+        "índice de mantenimientos por vehículo"
+    )
 
     conexion.commit()
     conexion.close()
@@ -1193,6 +1262,8 @@ def register():
 @login_required
 def perfil():
 
+    asegurar_migraciones_admin()
+
     conexion = conectar_db()
     cursor = conexion.cursor()
 
@@ -1233,8 +1304,6 @@ def perfil():
     ))
 
     filas_vehiculos = cursor.fetchall()
-    conexion.close()
-
     mis_vehiculos = []
 
     for fila in filas_vehiculos:
@@ -1251,14 +1320,13 @@ def perfil():
         vehiculo["kilometraje_inicial"] = kilometraje_inicial
         vehiculo["kilometraje_catalogo"] = kilometraje_catalogo
 
-        # profile.html usa vehiculo.kilometraje para mostrar
-        # "Kilometraje inicial". Por eso priorizamos el kilometraje guardado
-        # en usuarios_vehiculos al momento del canje.
         vehiculo["kilometraje"] = (
             kilometraje_inicial
             if kilometraje_inicial is not None
             else kilometraje_catalogo
         )
+
+        vehiculo["kilometraje_actual"] = vehiculo["kilometraje"]
 
         vehiculo["imagen"] = obtener_nombre_imagen_vehiculo(
             vehiculo.get("imagen")
@@ -1266,13 +1334,299 @@ def perfil():
 
         mis_vehiculos.append(vehiculo)
 
+    cursor.execute("""
+        SELECT
+            mantenimientos.*,
+            vehiculos.codigo_catalogo,
+            vehiculos.marca,
+            vehiculos.modelo,
+            vehiculos.anio,
+            vehiculos.tipo_vehiculo,
+            vehiculos.transmision
+        FROM mantenimientos
+        INNER JOIN vehiculos
+            ON vehiculos.id = mantenimientos.vehiculo_id
+        WHERE mantenimientos.usuario_id = ?
+        ORDER BY DATE(mantenimientos.fecha_servicio) DESC, mantenimientos.id DESC
+    """, (
+        session["usuario_id"],
+    ))
+
+    historial_mantenimientos = []
+
+    for fila in cursor.fetchall():
+        mantenimiento = dict(fila)
+        mantenimiento["fecha_visible"] = formatear_fecha_visible(
+            mantenimiento.get("fecha_servicio")
+        )
+        mantenimiento["proximo_servicio_fecha_visible"] = formatear_fecha_visible(
+            mantenimiento.get("proximo_servicio_fecha")
+        )
+        mantenimiento["kilometraje"] = normalizar_kilometraje(
+            mantenimiento.get("kilometraje")
+        )
+        mantenimiento["proximo_servicio_km"] = normalizar_kilometraje(
+            mantenimiento.get("proximo_servicio_km")
+        )
+        mantenimiento["costo"] = normalizar_precio(
+            mantenimiento.get("costo")
+        ) or 0
+        historial_mantenimientos.append(mantenimiento)
+
+    conexion.close()
+
+    vehiculos_por_id = {vehiculo["id"]: vehiculo for vehiculo in mis_vehiculos}
+
+    for mantenimiento in historial_mantenimientos:
+        vehiculo = vehiculos_por_id.get(mantenimiento["vehiculo_id"])
+
+        if not vehiculo:
+            continue
+
+        km_mantenimiento = mantenimiento.get("kilometraje")
+
+        if km_mantenimiento is not None:
+            km_actual = vehiculo.get("kilometraje_actual")
+
+            if km_actual is None or km_mantenimiento > km_actual:
+                vehiculo["kilometraje_actual"] = km_mantenimiento
+
+    hoy = datetime.now().date()
+    limite_proximo = hoy + timedelta(days=30)
+    servicios_proximos = []
+
+    for mantenimiento in historial_mantenimientos:
+        proximo_fecha = mantenimiento.get("proximo_servicio_fecha")
+        proximo_km = mantenimiento.get("proximo_servicio_km")
+
+        if not proximo_fecha and proximo_km is None:
+            continue
+
+        vehiculo = vehiculos_por_id.get(mantenimiento["vehiculo_id"], {})
+        km_actual = vehiculo.get("kilometraje_actual")
+        estado = "programado"
+        estado_texto = "Programado"
+        detalle = []
+
+        if proximo_fecha:
+            detalle.append(f"Fecha sugerida: {mantenimiento['proximo_servicio_fecha_visible']}")
+
+            try:
+                fecha_objetivo = datetime.strptime(proximo_fecha, "%Y-%m-%d").date()
+
+                if fecha_objetivo <= hoy:
+                    estado = "vencido"
+                    estado_texto = "Vencido"
+                elif fecha_objetivo <= limite_proximo and estado != "vencido":
+                    estado = "proximo"
+                    estado_texto = "Próximo"
+
+            except ValueError:
+                pass
+
+        if proximo_km is not None:
+            detalle.append(f"Kilometraje sugerido: {proximo_km:,} km".replace(",", "."))
+
+            if km_actual is not None:
+                km_restante = proximo_km - km_actual
+
+                if km_restante <= 0:
+                    estado = "vencido"
+                    estado_texto = "Vencido"
+                elif km_restante <= 1000 and estado != "vencido":
+                    estado = "proximo"
+                    estado_texto = "Próximo"
+
+                detalle.append(f"Referencia actual: {km_actual:,} km".replace(",", "."))
+
+        servicio = dict(mantenimiento)
+        servicio["estado"] = estado
+        servicio["estado_texto"] = estado_texto
+        servicio["detalle_programacion"] = " • ".join(detalle)
+        servicios_proximos.append(servicio)
+
+    prioridad_estado = {"vencido": 0, "proximo": 1, "programado": 2}
+    servicios_proximos.sort(
+        key=lambda servicio: (
+            prioridad_estado.get(servicio.get("estado"), 9),
+            servicio.get("proximo_servicio_fecha") or "9999-12-31",
+            servicio.get("proximo_servicio_km") or 999999999
+        )
+    )
+
+    ultimo_mantenimiento = historial_mantenimientos[0] if historial_mantenimientos else None
+    proximo_mantenimiento = servicios_proximos[0] if servicios_proximos else None
+    total_alertas = sum(1 for servicio in servicios_proximos if servicio.get("estado") == "vencido")
+
     return render_template(
         "profile.html",
         nombre=session["usuario"],
         rol=session["rol"],
         foto_perfil=session.get("foto_perfil"),
-        mis_vehiculos=mis_vehiculos
+        mis_vehiculos=mis_vehiculos,
+        historial_mantenimientos=historial_mantenimientos,
+        servicios_proximos=servicios_proximos,
+        ultimo_mantenimiento=ultimo_mantenimiento,
+        proximo_mantenimiento=proximo_mantenimiento,
+        total_alertas_mantenimiento=total_alertas
     )
+
+
+@app.route("/perfil/mantenimiento/registrar", methods=["POST"])
+@login_required
+def registrar_mantenimiento():
+
+    asegurar_migraciones_admin()
+
+    usuario_vehiculo_id = request.form.get("usuario_vehiculo_id", type=int)
+    tipo_servicio = request.form.get("tipo_servicio", "").strip()
+    fecha_servicio = normalizar_fecha(request.form.get("fecha_servicio"))
+    kilometraje = normalizar_kilometraje(request.form.get("kilometraje"))
+    costo = normalizar_precio(request.form.get("costo", "0"))
+    taller = request.form.get("taller", "").strip()
+    descripcion = request.form.get("descripcion", "").strip()
+    proximo_servicio_fecha = normalizar_fecha(request.form.get("proximo_servicio_fecha"))
+    proximo_servicio_km = normalizar_kilometraje(request.form.get("proximo_servicio_km"))
+
+    if not usuario_vehiculo_id:
+        flash("Selecciona el vehículo al que pertenece el mantenimiento.", "warning")
+        return redirect("/perfil#seccion-historial")
+
+    if not tipo_servicio:
+        flash("Indica el tipo de servicio realizado.", "warning")
+        return redirect("/perfil#seccion-historial")
+
+    if not fecha_servicio:
+        flash("Ingresa una fecha válida para el mantenimiento.", "warning")
+        return redirect("/perfil#seccion-historial")
+
+    if kilometraje is None:
+        flash("Ingresa un kilometraje válido para el mantenimiento.", "warning")
+        return redirect("/perfil#seccion-historial")
+
+    if costo is None:
+        costo = 0
+
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT
+                usuarios_vehiculos.id AS usuario_vehiculo_id,
+                usuarios_vehiculos.vehiculo_id
+            FROM usuarios_vehiculos
+            WHERE usuarios_vehiculos.id = ?
+              AND usuarios_vehiculos.usuario_id = ?
+            LIMIT 1
+        """, (
+            usuario_vehiculo_id,
+            session["usuario_id"]
+        ))
+
+        registro_vehiculo = cursor.fetchone()
+
+        if not registro_vehiculo:
+            flash("No puedes registrar mantenimiento para un vehículo que no pertenece a tu perfil.", "warning")
+            return redirect("/perfil#seccion-historial")
+
+        ahora = fecha_actual()
+
+        cursor.execute("""
+            INSERT INTO mantenimientos (
+                usuario_id,
+                vehiculo_id,
+                usuario_vehiculo_id,
+                tipo_servicio,
+                fecha_servicio,
+                kilometraje,
+                costo,
+                taller,
+                descripcion,
+                proximo_servicio_fecha,
+                proximo_servicio_km,
+                creado_en,
+                actualizado_en
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            session["usuario_id"],
+            registro_vehiculo["vehiculo_id"],
+            registro_vehiculo["usuario_vehiculo_id"],
+            tipo_servicio,
+            fecha_servicio,
+            kilometraje,
+            costo,
+            taller,
+            descripcion,
+            proximo_servicio_fecha,
+            proximo_servicio_km,
+            ahora,
+            ahora
+        ))
+
+        conexion.commit()
+        flash("Mantenimiento registrado correctamente.", "success")
+
+    except Exception as error:
+        conexion.rollback()
+        print("Error al registrar mantenimiento:", error)
+        flash("No se pudo registrar el mantenimiento. Intenta nuevamente.", "error")
+
+    finally:
+        conexion.close()
+
+    return redirect("/perfil#seccion-historial")
+
+
+@app.route("/perfil/mantenimiento/<int:mantenimiento_id>/eliminar", methods=["POST"])
+@login_required
+def eliminar_mantenimiento(mantenimiento_id):
+
+    asegurar_migraciones_admin()
+
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT id
+            FROM mantenimientos
+            WHERE id = ?
+              AND usuario_id = ?
+            LIMIT 1
+        """, (
+            mantenimiento_id,
+            session["usuario_id"]
+        ))
+
+        mantenimiento = cursor.fetchone()
+
+        if not mantenimiento:
+            flash("Mantenimiento no encontrado.", "warning")
+            return redirect("/perfil#seccion-historial")
+
+        cursor.execute("""
+            DELETE FROM mantenimientos
+            WHERE id = ?
+              AND usuario_id = ?
+        """, (
+            mantenimiento_id,
+            session["usuario_id"]
+        ))
+
+        conexion.commit()
+        flash("Mantenimiento eliminado del historial.", "success")
+
+    except Exception as error:
+        conexion.rollback()
+        print("Error al eliminar mantenimiento:", error)
+        flash("No se pudo eliminar el mantenimiento.", "error")
+
+    finally:
+        conexion.close()
+
+    return redirect("/perfil#seccion-historial")
 
 
 # ================= CANJEAR CÓDIGO DE VEHÍCULO =================

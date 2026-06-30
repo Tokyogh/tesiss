@@ -1254,3 +1254,269 @@ body {
         width: 100%;
     }
 }
+/* ================= MÓDULO MANTENIMIENTO REAL ================= */
+
+.maintenance-layout {
+    display: grid;
+    grid-template-columns: minmax(320px, 0.95fr) minmax(360px, 1.05fr);
+    gap: 24px;
+    align-items: start;
+}
+
+.maintenance-form-panel,
+.maintenance-history-panel {
+    min-width: 0;
+}
+
+.maintenance-panel-title {
+    margin-bottom: 20px;
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+}
+
+.maintenance-title-icon {
+    width: 46px;
+    height: 46px;
+    border-radius: 14px;
+    display: grid;
+    place-items: center;
+    color: #bfdbfe;
+    background: rgba(79, 70, 229, 0.16);
+    border: 1px solid rgba(129, 140, 248, 0.25);
+    flex-shrink: 0;
+}
+
+.maintenance-panel-title h3 {
+    margin: 0 0 6px;
+    color: #ffffff;
+    font-size: 1.08rem;
+}
+
+.maintenance-panel-title p {
+    margin: 0;
+    color: #94a3b8;
+    line-height: 1.45;
+    font-size: 0.9rem;
+}
+
+.form-group textarea {
+    width: 100%;
+    resize: vertical;
+    min-height: 118px;
+    background: #111827;
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 13px 14px;
+    border-radius: 12px;
+    outline: none;
+}
+
+.form-group textarea:focus {
+    border-color: rgba(79, 70, 229, 0.9);
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+}
+
+.form-group-wide {
+    grid-column: 1 / -1;
+}
+
+.maintenance-history-item {
+    align-items: flex-start;
+}
+
+.maintenance-history-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.maintenance-history-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: flex-start;
+}
+
+.maintenance-history-head strong {
+    color: #bfdbfe;
+    white-space: nowrap;
+}
+
+.maintenance-history-meta {
+    margin-top: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.maintenance-history-meta span {
+    min-height: 30px;
+    padding: 0 10px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    color: #cbd5e1;
+    background: rgba(255, 255, 255, 0.055);
+    border: 1px solid rgba(255, 255, 255, 0.075);
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.maintenance-description {
+    margin-top: 13px;
+    color: #cbd5e1 !important;
+    line-height: 1.55;
+}
+
+.maintenance-delete-form {
+    margin-top: 14px;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.maintenance-delete-form button {
+    min-height: 34px;
+    padding: 0 12px;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #fca5a5;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: 0.2s ease;
+}
+
+.maintenance-delete-form button:hover {
+    color: #ffffff;
+    background: rgba(239, 68, 68, 0.18);
+    border-color: rgba(239, 68, 68, 0.5);
+    transform: translateY(-2px);
+}
+
+.compact-state {
+    padding: 28px 22px;
+}
+
+.mini-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    cursor: pointer;
+    opacity: 1;
+}
+
+.mini-action-btn:hover {
+    background: rgba(79, 70, 229, 0.16);
+    border-color: rgba(129, 140, 248, 0.4);
+    color: #ffffff;
+    transform: translateY(-2px);
+}
+
+.maintenance-service-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.maintenance-service-card {
+    position: relative;
+    overflow: hidden;
+}
+
+.maintenance-service-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(circle at top right, rgba(129, 140, 248, 0.12), transparent 38%);
+}
+
+.service-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 14px;
+    margin-bottom: 16px;
+    position: relative;
+    z-index: 1;
+}
+
+.service-card-top i {
+    margin-bottom: 0;
+}
+
+.service-status-badge {
+    min-height: 28px;
+    padding: 0 10px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.72rem;
+    font-weight: 900;
+}
+
+.service-status-badge.programado {
+    color: #bfdbfe;
+    background: rgba(59, 130, 246, 0.14);
+    border: 1px solid rgba(59, 130, 246, 0.28);
+}
+
+.service-status-badge.proximo {
+    color: #fde68a;
+    background: rgba(245, 158, 11, 0.14);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.service-status-badge.vencido {
+    color: #fecaca;
+    background: rgba(239, 68, 68, 0.14);
+    border: 1px solid rgba(239, 68, 68, 0.32);
+}
+
+.service-card.service-vencido {
+    border-color: rgba(239, 68, 68, 0.35);
+}
+
+.service-card.service-proximo {
+    border-color: rgba(245, 158, 11, 0.35);
+}
+
+.maintenance-service-card h3,
+.maintenance-service-card p,
+.maintenance-service-card strong,
+.maintenance-service-card small {
+    position: relative;
+    z-index: 1;
+}
+
+.maintenance-service-card small {
+    display: block;
+    margin-top: 13px;
+    color: #94a3b8;
+    line-height: 1.5;
+}
+
+@media (max-width: 1100px) {
+    .maintenance-layout,
+    .maintenance-service-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 720px) {
+    .maintenance-history-item,
+    .maintenance-history-head {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .maintenance-history-head strong {
+        white-space: normal;
+    }
+}

@@ -172,24 +172,34 @@
                         <i class="fa-solid fa-road"></i>
                         <p>Próximo mantenimiento</p>
                         <br>
-                        <h2>Próximamente</h2>
-                        <p>En desarrollo</p>
+                        {% if proximo_mantenimiento %}
+                            <h2>{{ proximo_mantenimiento.estado_texto }}</h2>
+                            <p>{{ proximo_mantenimiento.tipo_servicio }}</p>
+                        {% else %}
+                            <h2>Sin programar</h2>
+                            <p>Registra un servicio</p>
+                        {% endif %}
                     </div>
 
                     <div class="card">
                         <i class="fa-solid fa-calendar"></i>
                         <p>Último servicio</p>
                         <br>
-                        <h2>Sin registros</h2>
-                        <p>Aún no disponible</p>
+                        {% if ultimo_mantenimiento %}
+                            <h2>{{ ultimo_mantenimiento.fecha_visible }}</h2>
+                            <p>{{ ultimo_mantenimiento.tipo_servicio }}</p>
+                        {% else %}
+                            <h2>Sin registros</h2>
+                            <p>Aún no disponible</p>
+                        {% endif %}
                     </div>
 
                     <div class="card">
                         <i class="fa-solid fa-triangle-exclamation"></i>
                         <p>Alertas</p>
                         <br>
-                        <h2>0</h2>
-                        <p>Pendientes</p>
+                        <h2>{{ total_alertas_mantenimiento|default(0) }}</h2>
+                        <p>Vencidas</p>
                     </div>
 
                 </section>
@@ -347,17 +357,17 @@
                                         </div>
 
                                         <div class="vehicle-actions-row">
-                                            <button type="button" class="mini-action-btn" disabled>
-                                                Monitoreo
-                                            </button>
+                                            <a href="#seccion-historial" class="mini-action-btn sidebar-link" data-section="historial">
+                                                Registrar servicio
+                                            </a>
 
-                                            <button type="button" class="mini-action-btn" disabled>
+                                            <a href="#seccion-historial" class="mini-action-btn sidebar-link" data-section="historial">
                                                 Historial
-                                            </button>
+                                            </a>
 
-                                            <button type="button" class="mini-action-btn" disabled>
-                                                Servicios
-                                            </button>
+                                            <a href="#seccion-proximos-servicios" class="mini-action-btn sidebar-link" data-section="proximos-servicios">
+                                                Próximos servicios
+                                            </a>
                                         </div>
 
                                     </div>
@@ -454,53 +464,196 @@
                 <div class="section-title">
                     <span>MANTENIMIENTO</span>
                     <h2>Historial de servicios</h2>
-                    <p>Consulta los mantenimientos realizados a tus vehículos.</p>
+                    <p>Registra y consulta los mantenimientos realizados a tus vehículos.</p>
                 </div>
 
-                <section class="info-panel">
+                <section class="maintenance-layout">
 
-                    <div class="history-list">
-
-                        <article class="history-item">
-                            <div class="history-icon">
-                                <i class="fa-solid fa-oil-can"></i>
+                    <article class="form-panel maintenance-form-panel">
+                        <div class="maintenance-panel-title">
+                            <div class="maintenance-title-icon">
+                                <i class="fa-solid fa-screwdriver-wrench"></i>
                             </div>
-
                             <div>
-                                <h3>Cambio de aceite</h3>
-                                <p>Toyota Corolla • 15 Junio 2026</p>
+                                <h3>Registrar mantenimiento</h3>
+                                <p>Guarda servicios realizados y programa el próximo mantenimiento.</p>
                             </div>
+                        </div>
 
-                            <strong>$45.00</strong>
-                        </article>
+                        {% if mis_vehiculos %}
+                            <form class="vehicle-form maintenance-form" action="{{ url_for('registrar_mantenimiento') }}" method="POST">
 
-                        <article class="history-item">
-                            <div class="history-icon">
-                                <i class="fa-solid fa-car-battery"></i>
+                                <div class="form-grid">
+                                    <div class="form-group">
+                                        <label for="usuario_vehiculo_id">Vehículo</label>
+                                        <select id="usuario_vehiculo_id" name="usuario_vehiculo_id" required>
+                                            <option value="">Seleccionar vehículo</option>
+                                            {% for vehiculo in mis_vehiculos %}
+                                                <option
+                                                    value="{{ vehiculo.usuario_vehiculo_id }}"
+                                                    data-current-km="{{ vehiculo.kilometraje_actual if vehiculo.kilometraje_actual is not none else vehiculo.kilometraje if vehiculo.kilometraje is not none else '' }}">
+                                                    {{ vehiculo.marca }} {{ vehiculo.modelo }} {{ vehiculo.anio }}
+                                                    {% if vehiculo.codigo_catalogo %} • {{ vehiculo.codigo_catalogo }}{% endif %}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="tipo_servicio">Tipo de servicio</label>
+                                        <input
+                                            type="text"
+                                            id="tipo_servicio"
+                                            name="tipo_servicio"
+                                            placeholder="Cambio de aceite, revisión general..."
+                                            required>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="fecha_servicio">Fecha del servicio</label>
+                                        <input type="date" id="fecha_servicio" name="fecha_servicio" required>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="kilometraje">Kilometraje actual</label>
+                                        <input
+                                            type="number"
+                                            id="kilometraje"
+                                            name="kilometraje"
+                                            min="0"
+                                            placeholder="Ej. 55430"
+                                            required>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="costo">Costo USD</label>
+                                        <input type="number" id="costo" name="costo" min="0" step="0.01" placeholder="0.00">
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="taller">Taller / concesionaria</label>
+                                        <input type="text" id="taller" name="taller" placeholder="Nombre del taller">
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="proximo_servicio_fecha">Próxima fecha sugerida</label>
+                                        <input type="date" id="proximo_servicio_fecha" name="proximo_servicio_fecha">
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="proximo_servicio_km">Próximo kilometraje sugerido</label>
+                                        <input type="number" id="proximo_servicio_km" name="proximo_servicio_km" min="0" placeholder="Ej. 60430">
+                                    </div>
+
+                                    <div class="form-group form-group-wide">
+                                        <label for="descripcion">Detalle del servicio</label>
+                                        <textarea
+                                            id="descripcion"
+                                            name="descripcion"
+                                            rows="4"
+                                            placeholder="Notas, repuestos usados, observaciones del taller..."></textarea>
+                                    </div>
+                                </div>
+
+                                <div class="form-actions">
+                                    <button type="submit" class="profile-save-btn">
+                                        <i class="fa-solid fa-floppy-disk"></i>
+                                        Guardar mantenimiento
+                                    </button>
+                                </div>
+
+                            </form>
+                        {% else %}
+                            <div class="empty-vehicles-state compact-state">
+                                <i class="fa-solid fa-car-side"></i>
+                                <h3>Primero registra un vehículo</h3>
+                                <p>Necesitas tener un vehículo en tu perfil para guardar mantenimientos.</p>
+                                <a href="#seccion-agregar-vehiculo" class="profile-save-btn sidebar-link sidebar-link-like" data-section="agregar-vehiculo">
+                                    Agregar vehículo
+                                </a>
                             </div>
+                        {% endif %}
+                    </article>
 
+                    <article class="info-panel maintenance-history-panel">
+                        <div class="maintenance-panel-title">
+                            <div class="maintenance-title-icon">
+                                <i class="fa-solid fa-clock-rotate-left"></i>
+                            </div>
                             <div>
-                                <h3>Revisión de batería</h3>
-                                <p>Toyota C-HR 2021 • 02 Mayo 2026</p>
+                                <h3>Servicios registrados</h3>
+                                <p>{{ historial_mantenimientos|default([])|length }} registro(s) guardado(s).</p>
                             </div>
+                        </div>
 
-                            <strong>$20.00</strong>
-                        </article>
+                        <div class="history-list">
 
-                        <article class="history-item">
-                            <div class="history-icon">
-                                <i class="fa-solid fa-circle-dot"></i>
-                            </div>
+                            {% if historial_mantenimientos %}
+                                {% for mantenimiento in historial_mantenimientos %}
+                                    <article class="history-item maintenance-history-item">
+                                        <div class="history-icon">
+                                            <i class="fa-solid fa-screwdriver-wrench"></i>
+                                        </div>
 
-                            <div>
-                                <h3>Alineación y balanceo</h3>
-                                <p>Toyota Corolla • 18 Abril 2026</p>
-                            </div>
+                                        <div class="maintenance-history-body">
+                                            <div class="maintenance-history-head">
+                                                <div>
+                                                    <h3>{{ mantenimiento.tipo_servicio }}</h3>
+                                                    <p>
+                                                        {{ mantenimiento.marca }} {{ mantenimiento.modelo }} {{ mantenimiento.anio }}
+                                                        • {{ mantenimiento.fecha_visible }}
+                                                    </p>
+                                                </div>
 
-                            <strong>$35.00</strong>
-                        </article>
+                                                <strong>${{ "{:,.2f}".format(mantenimiento.costo|float) }}</strong>
+                                            </div>
 
-                    </div>
+                                            <div class="maintenance-history-meta">
+                                                {% if mantenimiento.kilometraje is not none %}
+                                                    <span><i class="fa-solid fa-gauge-high"></i> {{ "{:,}".format(mantenimiento.kilometraje).replace(",", ".") }} km</span>
+                                                {% endif %}
+
+                                                {% if mantenimiento.taller %}
+                                                    <span><i class="fa-solid fa-warehouse"></i> {{ mantenimiento.taller }}</span>
+                                                {% endif %}
+
+                                                {% if mantenimiento.proximo_servicio_fecha %}
+                                                    <span><i class="fa-solid fa-calendar-days"></i> Próxima fecha: {{ mantenimiento.proximo_servicio_fecha_visible }}</span>
+                                                {% endif %}
+
+                                                {% if mantenimiento.proximo_servicio_km is not none %}
+                                                    <span><i class="fa-solid fa-road"></i> Próximo: {{ "{:,}".format(mantenimiento.proximo_servicio_km).replace(",", ".") }} km</span>
+                                                {% endif %}
+                                            </div>
+
+                                            {% if mantenimiento.descripcion %}
+                                                <p class="maintenance-description">{{ mantenimiento.descripcion }}</p>
+                                            {% endif %}
+
+                                            <form
+                                                action="{{ url_for('eliminar_mantenimiento', mantenimiento_id=mantenimiento.id) }}"
+                                                method="POST"
+                                                class="maintenance-delete-form"
+                                                data-confirm-delete="¿Eliminar este mantenimiento del historial?">
+                                                <button type="submit">
+                                                    <i class="fa-solid fa-trash-can"></i>
+                                                    Eliminar
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </article>
+                                {% endfor %}
+                            {% else %}
+                                <div class="empty-vehicles-state compact-state">
+                                    <i class="fa-solid fa-clock-rotate-left"></i>
+                                    <h3>Sin historial todavía</h3>
+                                    <p>Cuando registres un mantenimiento, aparecerá en esta lista.</p>
+                                </div>
+                            {% endif %}
+
+                        </div>
+
+                    </article>
 
                 </section>
 
@@ -513,33 +666,47 @@
                 <div class="section-title">
                     <span>MANTENIMIENTO</span>
                     <h2>Próximos servicios</h2>
-                    <p>Revisa los mantenimientos pendientes o recomendados.</p>
+                    <p>Revisa los mantenimientos pendientes, próximos o programados según tu historial.</p>
                 </div>
 
-                <section class="service-grid">
+                {% if servicios_proximos %}
+                    <section class="service-grid maintenance-service-grid">
 
-                    <article class="service-card">
-                        <i class="fa-solid fa-oil-can"></i>
-                        <h3>Cambio de aceite</h3>
-                        <p>Toyota Corolla</p>
-                        <strong>En 1,500 km</strong>
-                    </article>
+                        {% for servicio in servicios_proximos %}
+                            <article class="service-card maintenance-service-card service-{{ servicio.estado }}">
+                                <div class="service-card-top">
+                                    <i class="fa-solid fa-screwdriver-wrench"></i>
+                                    <span class="service-status-badge {{ servicio.estado }}">
+                                        {{ servicio.estado_texto }}
+                                    </span>
+                                </div>
 
-                    <article class="service-card">
-                        <i class="fa-solid fa-filter"></i>
-                        <h3>Cambio de filtro</h3>
-                        <p>Toyota C-HR 2021</p>
-                        <strong>En 2 meses</strong>
-                    </article>
+                                <h3>{{ servicio.tipo_servicio }}</h3>
+                                <p>{{ servicio.marca }} {{ servicio.modelo }} {{ servicio.anio }}</p>
 
-                    <article class="service-card">
-                        <i class="fa-solid fa-screwdriver-wrench"></i>
-                        <h3>Revisión general</h3>
-                        <p>Todos los vehículos</p>
-                        <strong>Pendiente</strong>
-                    </article>
+                                {% if servicio.detalle_programacion %}
+                                    <strong>{{ servicio.detalle_programacion }}</strong>
+                                {% endif %}
 
-                </section>
+                                {% if servicio.descripcion %}
+                                    <small>{{ servicio.descripcion }}</small>
+                                {% endif %}
+                            </article>
+                        {% endfor %}
+
+                    </section>
+                {% else %}
+                    <section class="info-panel">
+                        <div class="empty-vehicles-state compact-state">
+                            <i class="fa-solid fa-calendar-check"></i>
+                            <h3>No hay próximos servicios programados</h3>
+                            <p>Registra un mantenimiento e indica una próxima fecha o kilometraje sugerido.</p>
+                            <a href="#seccion-historial" class="profile-save-btn sidebar-link sidebar-link-like" data-section="historial">
+                                Registrar mantenimiento
+                            </a>
+                        </div>
+                    </section>
+                {% endif %}
 
             </section>
 

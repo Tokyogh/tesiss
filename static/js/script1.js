@@ -136,4 +136,31 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         });
     }
+
+
+    // ================= MANTENIMIENTO =================
+
+    const vehicleSelect = document.getElementById("usuario_vehiculo_id");
+    const kmInput = document.getElementById("kilometraje");
+
+    if (vehicleSelect && kmInput) {
+        vehicleSelect.addEventListener("change", () => {
+            const selectedOption = vehicleSelect.options[vehicleSelect.selectedIndex];
+            const currentKm = selectedOption ? selectedOption.dataset.currentKm : "";
+
+            if (currentKm && !kmInput.value) {
+                kmInput.value = currentKm;
+            }
+        });
+    }
+
+    document.querySelectorAll("[data-confirm-delete]").forEach((form) => {
+        form.addEventListener("submit", (event) => {
+            const message = form.dataset.confirmDelete || "¿Eliminar este registro?";
+
+            if (!confirm(message)) {
+                event.preventDefault();
+            }
+        });
+    });
 });
