@@ -390,6 +390,84 @@ def tiene_canje_real(cursor, vehiculo_id):
     return cursor.fetchone()[0] > 0
 
 
+def validar_codigo_reactivable(cursor, codigo_id):
+    """
+    Valida que un código inactivo pueda volver a estar disponible.
+
+    Solo se permite reactivar si:
+    - El código existe.
+    - No fue usado.
+    - Está inactivo.
+    - El vehículo existe, no está vendido, no está archivado y está activo.
+    - El vehículo no está registrado actualmente en el perfil de ningún usuario.
+    """
+
+    cursor.execute("""
+        SELECT
+            codigos_vehiculo.*,
+            vehiculos.id AS vehiculo_id_real,
+            vehiculos.codigo_catalogo,
+            vehiculos.marca,
+            vehiculos.modelo,
+            vehiculos.anio,
+            vehiculos.activo AS vehiculo_activo,
+            COALESCE(NULLIF(TRIM(vehiculos.estado), ''), 'Disponible') AS estado_vehiculo,
+            COALESCE(vehiculos.archivado, 0) AS vehiculo_archivado
+        FROM codigos_vehiculo
+        LEFT JOIN vehiculos
+            ON vehiculos.id = codigos_vehiculo.vehiculo_id
+        WHERE codigos_vehiculo.id = ?
+        LIMIT 1
+    """, (
+        codigo_id,
+    ))
+
+    codigo = cursor.fetchone()
+
+    if not codigo:
+        return None, "Código no encontrado."
+
+    if codigo["usado"] == 1:
+        return None, "No puedes reactivar un código que ya fue usado. Si fue un error, primero reversa/anula el canje desde administración."
+
+    if codigo["activo"] == 1:
+        return None, "Este código ya está activo."
+
+    if not codigo["vehiculo_id_real"]:
+        return None, "El código no tiene un vehículo válido asociado."
+
+    if codigo["vehiculo_archivado"] == 1:
+        return None, "No puedes reactivar el código de un vehículo archivado."
+
+    if codigo["estado_vehiculo"] == "Vendido":
+        return None, "No puedes reactivar el código de un vehículo vendido."
+
+    if codigo["vehiculo_activo"] != 1:
+        return None, "El vehículo debe estar activo para reactivar el código."
+
+    if tiene_canje_real(cursor, codigo["vehiculo_id_real"]):
+        return None, "Este vehículo ya está registrado en un perfil. No se puede reactivar su código."
+
+    return codigo, None
+
+
+def reactivar_codigo_vehiculo_seguro(cursor, codigo_id):
+    codigo, error = validar_codigo_reactivable(cursor, codigo_id)
+
+    if error:
+        return None, error
+
+    cursor.execute("""
+        UPDATE codigos_vehiculo
+        SET activo = 1
+        WHERE id = ?
+    """, (
+        codigo_id,
+    ))
+
+    return codigo, None
+
+
 def generar_codigo_canje():
     """
     Genera un código privado de canje para entregar al comprador.
@@ -646,8 +724,9 @@ def personal_required(ruta):
 @app.context_processor
 def contexto_panel_trabajador():
     panel_url = ""
+    rol_actual = str(session.get("rol", "")).upper()
 
-    if str(session.get("rol", "")).upper() == "TRABAJADOR":
+    if rol_actual in {"ADMIN", "TRABAJADOR"}:
         try:
             panel_url = url_for("trabajador_panel")
         except Exception:
@@ -772,7 +851,9 @@ def trabajador_panel():
         vehiculos_reservados=vehiculos_reservados,
         codigos_disponibles=codigos_disponibles,
         total_canjes=total_canjes,
-        trabajador_generar_codigo_url="/trabajador/vehiculos/__ID__/codigo/generar"
+        trabajador_generar_codigo_url="/trabajador/vehiculos/__ID__/codigo/generar",
+        trabajador_archivar_vehiculo_url="/trabajador/vehiculos/__ID__/archivar",
+        trabajador_reactivar_codigo_url="/trabajador/codigos/__ID__/reactivar"
     )
 
 
@@ -879,6 +960,104 @@ def trabajador_generar_codigo_vehiculo(vehiculo_id):
         conexion.rollback()
         print("Error al generar código desde panel trabajador:", error)
         flash("No se pudo generar el código de canje.", "error")
+
+    finally:
+        conexion.close()
+
+    return redirect(url_for("trabajador_panel") + "#trabajador-codigos")
+
+
+@app.route("/trabajador/vehiculos/<int:vehiculo_id>/archivar", methods=["POST"])
+@login_required
+@personal_required
+def trabajador_archivar_vehiculo(vehiculo_id):
+
+    asegurar_migraciones_admin()
+
+    motivo = request.form.get("motivo_archivado", "").strip()
+    ahora = fecha_actual()
+
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT
+                *,
+                COALESCE(archivado, 0) AS archivado_normalizado
+            FROM vehiculos
+            WHERE id = ?
+        """, (
+            vehiculo_id,
+        ))
+
+        vehiculo = cursor.fetchone()
+
+        if not vehiculo:
+            flash("Vehículo no encontrado.", "warning")
+            return redirect(url_for("trabajador_panel") + "#trabajador-vehiculos")
+
+        if vehiculo["archivado_normalizado"] == 1:
+            flash("Este vehículo ya estaba archivado.", "warning")
+            return redirect(url_for("trabajador_panel") + "#trabajador-vehiculos")
+
+        cursor.execute("""
+            UPDATE vehiculos
+            SET
+                archivado = 1,
+                archivado_en = ?,
+                archivado_por = ?,
+                motivo_archivado = ?,
+                activo = 0,
+                actualizado_en = ?
+            WHERE id = ?
+        """, (
+            ahora,
+            session["usuario_id"],
+            motivo or "Archivado desde panel trabajador",
+            ahora,
+            vehiculo_id
+        ))
+
+        conexion.commit()
+        flash("Vehículo archivado correctamente. Administración podrá verlo en Archivados.", "success")
+
+    except Exception as error:
+        conexion.rollback()
+        print("Error al archivar vehículo desde panel trabajador:", error)
+        flash("No se pudo archivar el vehículo.", "error")
+
+    finally:
+        conexion.close()
+
+    return redirect(url_for("trabajador_panel") + "#trabajador-vehiculos")
+
+
+@app.route("/trabajador/codigos/<int:codigo_id>/reactivar", methods=["POST"])
+@login_required
+@personal_required
+def trabajador_reactivar_codigo_vehiculo(codigo_id):
+
+    asegurar_migraciones_admin()
+
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    try:
+        codigo, error = reactivar_codigo_vehiculo_seguro(cursor, codigo_id)
+
+        if error:
+            conexion.rollback()
+            flash(error, "warning")
+            return redirect(url_for("trabajador_panel") + "#trabajador-codigos")
+
+        conexion.commit()
+        flash(f"Código reactivado correctamente: {codigo['codigo']}", "success")
+
+    except Exception as error:
+        conexion.rollback()
+        print("Error al reactivar código desde panel trabajador:", error)
+        flash("No se pudo reactivar el código.", "error")
 
     finally:
         conexion.close()
@@ -1738,7 +1917,7 @@ def catalog():
         paginas_catalogo=construir_paginas_catalogo(pagina_actual, total_paginas),
         rango_inicio=rango_inicio,
         rango_fin=rango_fin,
-        trabajador_panel_url=None
+        trabajador_panel_url=url_for("trabajador_panel") if str(session.get("rol", "")).upper() in {"ADMIN", "TRABAJADOR"} else ""
     )
 
 
@@ -2691,6 +2870,37 @@ def admin_desactivar_codigo_vehiculo(codigo_id):
     flash("Código de canje desactivado correctamente.", "success")
     return redirigir_admin("vehiculos")
 
+
+@app.route("/admin/codigos/<int:codigo_id>/reactivar", methods=["POST"])
+@login_required
+@admin_required
+def admin_reactivar_codigo_vehiculo(codigo_id):
+
+    asegurar_migraciones_admin()
+
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    try:
+        codigo, error = reactivar_codigo_vehiculo_seguro(cursor, codigo_id)
+
+        if error:
+            conexion.rollback()
+            flash(error, "warning")
+            return redirigir_admin("codigos")
+
+        conexion.commit()
+        flash(f"Código de canje reactivado correctamente: {codigo['codigo']}", "success")
+
+    except Exception as error:
+        conexion.rollback()
+        print("Error al reactivar código de canje:", error)
+        flash("No se pudo reactivar el código de canje.", "error")
+
+    finally:
+        conexion.close()
+
+    return redirigir_admin("codigos")
 
 
 # ================= ADMIN USUARIOS / TRABAJADORES =================

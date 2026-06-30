@@ -703,6 +703,12 @@
                                                                     Desactivar
                                                                 </button>
                                                             </form>
+                                                        {% elif codigo['usado'] == 0 and codigo['activo'] == 0 %}
+                                                            <form action="{{ url_for('admin_reactivar_codigo_vehiculo', codigo_id=codigo['id']) }}" method="POST">
+                                                                <button type="submit" class="admin-code-action">
+                                                                    Reactivar
+                                                                </button>
+                                                            </form>
                                                         {% endif %}
 
                                                     </div>
@@ -877,6 +883,12 @@
                                             <form action="{{ url_for('admin_desactivar_codigo_vehiculo', codigo_id=codigo['id']) }}" method="POST">
                                                 <button type="submit" class="admin-mini-btn admin-mini-btn-muted">
                                                     Desactivar
+                                                </button>
+                                            </form>
+                                        {% elif codigo['usado'] == 0 and codigo['activo'] == 0 %}
+                                            <form action="{{ url_for('admin_reactivar_codigo_vehiculo', codigo_id=codigo['id']) }}" method="POST">
+                                                <button type="submit" class="admin-mini-btn admin-mini-btn-code">
+                                                    Reactivar
                                                 </button>
                                             </form>
                                         {% else %}

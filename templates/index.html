@@ -52,7 +52,7 @@
                         <a href="{{ url_for('admin_vehiculos') }}">Panel admin</a>
                     {% endif %}
 
-                    {% if es_trabajador and trabajador_panel_url|default('') %}
+                    {% if (es_admin or es_trabajador) and trabajador_panel_url|default('') %}
                         <a href="{{ trabajador_panel_url }}">Panel trabajador</a>
                     {% endif %}
                 </div>

@@ -9,7 +9,7 @@
     box-sizing: border-box;
 }
 /* ==========================================
-             animacion de entrada
+             Animacion de entrada
 ========================================== */
 body {
     animation: fadeInAnimation ease 1s;

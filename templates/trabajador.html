@@ -21,6 +21,8 @@
 {% set codigos_lista = codigos|default([]) %}
 {% set ventas_lista = ventas_canje|default(canjes|default([])) %}
 {% set generar_codigo_base_url = trabajador_generar_codigo_url|default('') %}
+{% set archivar_base_url = trabajador_archivar_vehiculo_url|default('') %}
+{% set reactivar_codigo_base_url = trabajador_reactivar_codigo_url|default('') %}
 
 <div class="worker-shell">
 
@@ -265,7 +267,7 @@
                 <div>
                     <span>CATÁLOGO INTERNO</span>
                     <h2>Vehículos</h2>
-                    <p>Consulta unidades disponibles, reservadas, vendidas u ocultas. Los trabajadores no pueden editar ni archivar vehículos.</p>
+                    <p>Consulta unidades disponibles, reservadas, vendidas u ocultas. Los trabajadores pueden generar códigos, reactivar códigos inactivos y archivar vehículos.</p>
                 </div>
 
                 <div class="worker-section-actions">
@@ -288,6 +290,7 @@
                             {% set codigo_actual = vehiculo.codigo_canje|default('') %}
                             {% set puede_generar = vehiculo.estado == 'Disponible' and vehiculo.activo == 1 and not codigo_actual %}
                             {% set generar_url = generar_codigo_base_url.replace('__ID__', vehiculo.id|string) if generar_codigo_base_url else '' %}
+                            {% set archivar_url = archivar_base_url.replace('__ID__', vehiculo.id|string) if archivar_base_url else '' %}
 
                             <article class="worker-vehicle-row" data-worker-item>
                                 <div class="worker-vehicle-img">
@@ -355,6 +358,16 @@
                                                     No disponible
                                                 {% endif %}
                                             </button>
+                                        {% endif %}
+
+                                        {% if archivar_url %}
+                                            <form method="POST" action="{{ archivar_url }}" class="worker-inline-form" data-worker-confirm="¿Seguro que deseas archivar esta unidad? Se ocultará del catálogo y quedará en el historial interno.">
+                                                <input type="hidden" name="motivo_archivado" value="Archivado desde panel trabajador">
+                                                <button type="submit" class="worker-danger-btn">
+                                                    <i data-lucide="archive"></i>
+                                                    Archivar
+                                                </button>
+                                            </form>
                                         {% endif %}
 
                                         <button type="button" class="worker-mini-btn worker-disabled-action">
@@ -431,9 +444,21 @@
                                             {% endif %}
                                         </td>
                                         <td>
-                                            <button type="button" class="worker-mini-btn" data-copy-code="{{ codigo.codigo }}">
-                                                Copiar
-                                            </button>
+                                            {% set reactivar_codigo_url = reactivar_codigo_base_url.replace('__ID__', codigo.id|string) if reactivar_codigo_base_url else '' %}
+                                            <div class="worker-actions">
+                                                <button type="button" class="worker-mini-btn" data-copy-code="{{ codigo.codigo }}">
+                                                    Copiar
+                                                </button>
+
+                                                {% if codigo.usado == 0 and codigo.activo == 0 and reactivar_codigo_url %}
+                                                    <form method="POST" action="{{ reactivar_codigo_url }}" class="worker-inline-form" data-worker-confirm="¿Reactivar este código de canje? Volverá a estar disponible para el cliente.">
+                                                        <button type="submit" class="worker-success-btn">
+                                                            <i data-lucide="rotate-ccw"></i>
+                                                            Reactivar
+                                                        </button>
+                                                    </form>
+                                                {% endif %}
+                                            </div>
                                         </td>
                                     </tr>
                                 {% endfor %}

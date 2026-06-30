@@ -971,3 +971,69 @@ a {
         height: 170px;
     }
 }
+
+
+/* ============================= */
+/* BOTONES DE ACCIÓN OPERATIVA */
+/* ============================= */
+
+.worker-danger-btn,
+.worker-success-btn {
+    min-height: 36px;
+    padding: 0 13px;
+    border-radius: 10px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-family: inherit;
+    font-size: 0.8rem;
+    font-weight: 900;
+    text-decoration: none;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease, color 0.2s ease, opacity 0.2s ease;
+}
+
+.worker-danger-btn {
+    color: #fca5a5;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.28);
+}
+
+.worker-success-btn {
+    color: #bbf7d0;
+    background: rgba(34, 197, 94, 0.1);
+    border: 1px solid rgba(34, 197, 94, 0.28);
+}
+
+.worker-danger-btn svg,
+.worker-success-btn svg {
+    width: 16px;
+    height: 16px;
+    color: currentColor;
+    stroke: currentColor;
+}
+
+.worker-danger-btn:hover:not(:disabled) {
+    color: #ffffff;
+    background: rgba(239, 68, 68, 0.18);
+    border-color: rgba(239, 68, 68, 0.55);
+    box-shadow: 0 0 16px rgba(239, 68, 68, 0.22);
+    transform: translateY(-2px);
+}
+
+.worker-success-btn:hover:not(:disabled) {
+    color: #ffffff;
+    background: rgba(34, 197, 94, 0.18);
+    border-color: rgba(34, 197, 94, 0.55);
+    box-shadow: 0 0 16px rgba(34, 197, 94, 0.22);
+    transform: translateY(-2px);
+}
+
+.worker-danger-btn:disabled,
+.worker-success-btn:disabled {
+    opacity: 0.52;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
