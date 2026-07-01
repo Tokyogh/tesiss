@@ -410,6 +410,7 @@
                     </div>
 
                     <form action="{{ url_for('admin_guardar_vehiculo') }}" method="POST" enctype="multipart/form-data" class="admin-form">
+                        <input type="hidden" name="origen" value="admin">
 
                         {% if vehiculo_editar %}
                             <input type="hidden" name="vehiculo_id" value="{{ vehiculo_editar['id'] }}">
@@ -585,6 +586,38 @@
                                     <option value="gltf" {% if modelo_3d_tipo_actual == 'gltf' %}selected{% endif %}>GLTF</option>
                                     <option value="pendiente" {% if modelo_3d_tipo_actual == 'pendiente' %}selected{% endif %}>Pendiente</option>
                                 </select>
+                            </label>
+
+                            <div class="admin-field admin-field-wide admin-info-box">
+                                <strong>Recursos por modelo</strong>
+                                <small>Los datos 3D y manuales se comparten por marca + modelo + año. Si ya existe otro vehículo igual, VINOVA reutiliza esos recursos automáticamente.</small>
+                            </div>
+
+                            <label class="admin-field">
+                                <span>Título del manual del modelo</span>
+                                <input type="text" name="manual_titulo" placeholder="Manual del propietario">
+                            </label>
+
+                            <label class="admin-field">
+                                <span>Tipo de manual</span>
+                                <input type="text" name="manual_tipo_documento" placeholder="Manual, garantía, guía técnica" value="Manual">
+                            </label>
+
+                            <label class="admin-field admin-field-wide">
+                                <span>Subir manual para este modelo</span>
+                                <input type="file" name="manual_file" accept=".pdf,image/jpeg,image/png,image/webp">
+                                <small>Opcional. Si subes un manual aquí, todos los vehículos iguales lo usarán.</small>
+                            </label>
+
+                            <label class="admin-field admin-field-wide">
+                                <span>Enlace o archivo local del manual</span>
+                                <input type="url" name="manual_enlace" placeholder="https://...">
+                                <input type="text" name="manual_archivo" placeholder="docs/manuales/manual-rav4.pdf">
+                            </label>
+
+                            <label class="admin-field admin-field-wide">
+                                <span>Descripción del manual</span>
+                                <textarea name="manual_descripcion" rows="2" placeholder="Manual de propietario, guía de mantenimiento, garantía..."></textarea>
                             </label>
 
                             <label class="admin-field admin-field-wide">
@@ -1718,8 +1751,8 @@
             <div class="admin-section-header">
                 <div>
                     <span>DOCUMENTACIÓN</span>
-                    <h2>Manuales de vehículos</h2>
-                    <p>Asigna manuales a unidades del inventario. Los usuarios que tengan ese vehículo los verán en su perfil.</p>
+                    <h2>Manuales por modelo</h2>
+                    <p>Asigna manuales a marca + modelo + año. Todas las unidades iguales los comparten automáticamente.</p>
                 </div>
             </div>
 
@@ -1733,50 +1766,53 @@
                     </div>
 
                     <form action="{{ url_for('admin_guardar_manual_vehiculo') }}" method="POST" enctype="multipart/form-data" class="admin-form">
+                        <input type="hidden" name="origen" value="admin">
                         <div class="admin-form-grid">
-                            <label class="admin-field admin-field-wide">
-                                <span>Vehículo</span>
-                                <select name="vehiculo_id" required>
-                                    <option value="">Seleccionar vehículo</option>
-                                    {% for vehiculo in vehiculos|default([]) %}
-                                        <option value="{{ vehiculo.id }}">
-                                            {{ vehiculo.marca }} {{ vehiculo.modelo }} {{ vehiculo.anio }}
-                                            {% if vehiculo.codigo_catalogo %} • {{ vehiculo.codigo_catalogo }}{% endif %}
-                                        </option>
-                                    {% endfor %}
-                                </select>
+                            <label class="admin-field">
+                                <span>Marca</span>
+                                <input type="text" name="marca" placeholder="Toyota" required>
+                            </label>
+
+                            <label class="admin-field">
+                                <span>Modelo</span>
+                                <input type="text" name="modelo" placeholder="RAV4" required>
+                            </label>
+
+                            <label class="admin-field">
+                                <span>Año</span>
+                                <input type="number" name="anio" min="1980" max="2035" placeholder="2024" required>
                             </label>
 
                             <label class="admin-field">
                                 <span>Título</span>
-                                <input type="text" name="titulo" placeholder="Manual del propietario" required>
+                                <input type="text" name="manual_titulo" placeholder="Manual del propietario" required>
                             </label>
 
                             <label class="admin-field">
                                 <span>Tipo de documento</span>
-                                <input type="text" name="tipo_documento" placeholder="Manual, garantía, guía técnica..." value="Manual">
+                                <input type="text" name="manual_tipo_documento" placeholder="Manual, garantía, guía técnica..." value="Manual">
                             </label>
 
                             <label class="admin-field admin-field-wide">
                                 <span>Enlace externo</span>
-                                <input type="url" name="enlace" placeholder="https://...">
+                                <input type="url" name="manual_enlace" placeholder="https://...">
                             </label>
 
                             <label class="admin-field admin-field-wide">
                                 <span>Subir PDF o imagen</span>
-                                <input type="file" name="archivo_pdf" accept=".pdf,image/jpeg,image/png,image/webp">
+                                <input type="file" name="manual_file" accept=".pdf,image/jpeg,image/png,image/webp">
                                 <small>Formatos permitidos: PDF, JPG, PNG o WEBP. Se guardará en static/docs/manuales.</small>
                             </label>
 
                             <label class="admin-field admin-field-wide">
                                 <span>Archivo local ya existente</span>
-                                <input type="text" name="archivo" placeholder="docs/manuales/manual-rav4.pdf">
+                                <input type="text" name="manual_archivo" placeholder="docs/manuales/manual-rav4.pdf">
                                 <small>Úsalo solo si ya tienes el archivo dentro de static. Si subes un archivo o agregas enlace externo, puede quedar vacío.</small>
                             </label>
 
                             <label class="admin-field admin-field-wide">
                                 <span>Descripción</span>
-                                <textarea name="descripcion" rows="3" placeholder="Manual de propietario, guía de mantenimiento, garantía..."></textarea>
+                                <textarea name="manual_descripcion" rows="3" placeholder="Manual de propietario, guía de mantenimiento, garantía..."></textarea>
                             </label>
                         </div>
 
@@ -1884,7 +1920,7 @@
                     <div class="admin-panel-title">
                         <div>
                             <span>NUEVA FACTURA</span>
-                            <h2>Registrar factura</h2>
+                            <h2>Generar factura PDF</h2>
                         </div>
                     </div>
 
@@ -1922,37 +1958,40 @@
                             </label>
 
                             <label class="admin-field">
+                                <span>Tipo de factura</span>
+                                <select name="tipo_factura">
+                                    <option value="Producto">Producto</option>
+                                    <option value="Servicio">Servicio</option>
+                                    <option value="Venta vehículo">Venta vehículo</option>
+                                    <option value="Otro">Otro</option>
+                                </select>
+                            </label>
+
+                            <label class="admin-field">
                                 <span>Monto USD</span>
                                 <input type="number" name="monto" min="0" step="0.01" placeholder="0.00">
                             </label>
 
-                            <label class="admin-field admin-field-wide">
-                                <span>Subir factura</span>
-                                <input type="file" name="archivo_factura" accept=".pdf,image/jpeg,image/png,image/webp">
-                                <small>Formatos permitidos: PDF, JPG, PNG o WEBP. Se guardará en static/docs/facturas.</small>
+                            <label class="admin-field">
+                                <span>Impuesto USD</span>
+                                <input type="number" name="impuesto" min="0" step="0.01" placeholder="0.00">
                             </label>
 
                             <label class="admin-field admin-field-wide">
-                                <span>Enlace externo</span>
-                                <input type="url" name="enlace" placeholder="https://...">
-                                <small>Úsalo si la factura ya está alojada fuera del sistema.</small>
-                            </label>
-
-                            <label class="admin-field admin-field-wide">
-                                <span>Archivo local ya existente</span>
-                                <input type="text" name="archivo" placeholder="docs/facturas/factura-rav4.pdf">
+                                <span>Concepto</span>
+                                <input type="text" name="concepto" placeholder="Repuesto, accesorio, servicio adicional...">
                             </label>
 
                             <label class="admin-field admin-field-wide">
                                 <span>Descripción</span>
-                                <textarea name="descripcion" rows="3" placeholder="Factura de compra, canje, mantenimiento o servicio realizado..."></textarea>
+                                <textarea name="descripcion" rows="3" placeholder="Detalle de la compra o servicio. VINOVA generará el PDF automáticamente."></textarea>
                             </label>
                         </div>
 
                         <div class="admin-actions">
                             <button type="submit" class="admin-primary-btn">
                                 <i data-lucide="file-plus-2"></i>
-                                Registrar factura
+                                Generar factura PDF
                             </button>
                         </div>
                     </form>
@@ -2027,7 +2066,7 @@
                                             <div class="admin-empty">
                                                 <i data-lucide="file-text"></i>
                                                 <h3>Sin facturas registradas</h3>
-                                                <p>Cuando VINOVA suba facturas de clientes, aparecerán aquí.</p>
+                                                <p>Cuando VINOVA genere facturas de clientes, aparecerán aquí.</p>
                                             </div>
                                         </td>
                                     </tr>

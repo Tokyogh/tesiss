@@ -1,0 +1,72 @@
+%PDF-1.4
+% VINOVA
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+6 0 obj
+<< /Length 1770 >>
+stream
+0.015 0.043 0.090 rg 0 742 595 100 re f
+0.000 0.471 1.000 rg 0 736 595 6 re f
+0.000 0.471 1.000 RG 1.5 w 36 788 m 56 818 l 76 788 l S
+0.940 0.970 1.000 rg
+BT /F2 28 Tf 92 790 Td (VINOVA) Tj ET
+BT /F1 10 Tf 92 770 Td (Factura generada por el sistema) Tj ET
+BT /F2 12 Tf 430 792 Td (VNV-FAC-20260630-00002-C6EA) Tj ET
+BT /F1 10 Tf 430 774 Td (2026-06-30  17:31) Tj ET
+0.020 0.045 0.090 rg
+BT /F2 14 Tf 36 700 Td (Datos del cliente) Tj ET
+BT /F2 14 Tf 330 700 Td (Datos del vehículo) Tj ET
+0.850 0.890 0.960 RG 0.8 w 36 692 m 270 692 l S 330 692 m 560 692 l S
+BT /F1 10 Tf 36 670 Td (Cliente: Admin1) Tj ET
+BT /F1 10 Tf 36 652 Td (Correo: admin1@outlook.com) Tj ET
+BT /F1 10 Tf 36 634 Td (Local: Vinova Sur) Tj ET
+BT /F1 10 Tf 36 616 Td (Responsable: Prueba 2) Tj ET
+BT /F1 10 Tf 330 670 Td (Vehículo: Toyota RAV4 2024) Tj ET
+BT /F1 10 Tf 330 652 Td (Código: VIN-RAV4-2024) Tj ET
+BT /F1 10 Tf 330 634 Td (Kilometraje: 55430 km) Tj ET
+0.965 0.975 0.995 rg 36 460 524 112 re f
+0.750 0.820 0.940 RG 1 w 36 460 524 112 re S
+0.020 0.045 0.090 rg
+BT /F2 13 Tf 56 540 Td (Detalle) Tj ET
+BT /F1 10 Tf 56 516 Td (Concepto: Mantenimiento - Revisión general) Tj ET
+BT /F1 10 Tf 56 496 Td (Descripción: se hizo una revision para akjdajkass) Tj ET
+BT /F1 10 Tf 56 476 Td (Tipo: Mantenimiento) Tj ET
+0.015 0.043 0.090 rg 350 320 210 100 re f
+0.940 0.970 1.000 rg
+BT /F1 11 Tf 370 390 Td (Subtotal: $89.00) Tj ET
+BT /F1 11 Tf 370 368 Td (Impuesto: $0.00) Tj ET
+0.000 0.471 1.000 rg 350 345 210 2 re f
+1 1 1 rg
+BT /F2 15 Tf 370 330 Td (TOTAL: $89.00) Tj ET
+0.390 0.450 0.560 rg
+BT /F1 9 Tf 36 70 Td (VINOVA - Documento generado automáticamente. Conserva este comprobante en tu perfil.) Tj ET
+BT /F1 8 Tf 36 52 Td (Este documento puede ser verificado en la plataforma interna VINOVA.) Tj ET
+endstream
+endobj
+xref
+0 7
+0000000000 65535 f 
+0000000018 00000 n 
+0000000067 00000 n 
+0000000124 00000 n 
+0000000260 00000 n 
+0000000330 00000 n 
+0000000405 00000 n 
+trailer
+<< /Size 7 /Root 1 0 R >>
+startxref
+2227
+%%EOF

@@ -50,3 +50,13 @@ pip install -r requirements.txt
 ================================
 borrar todo lo no guardado
 git reset --hard HEAD
+
+
+
+
+
+=================
+pacman -Syu
+
+pacman -S mingw-w64-ucrt-x86_64-pango
+$env:WEASYPRINT_DLL_DIRECTORIES="C:\msys64\ucrt64\bin"

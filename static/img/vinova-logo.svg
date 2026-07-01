@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="2300" height="520" viewBox="0 0 2300 520" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">VINOVA Logo</title>
+  <desc id="desc">Logo vectorial de VINOVA con emblema V futurista y palabra VINOVA.</desc>
+
+  <defs>
+    <linearGradient id="navyGradient" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#07152E"/>
+      <stop offset="50%" stop-color="#020B1B"/>
+      <stop offset="100%" stop-color="#000714"/>
+    </linearGradient>
+
+    <linearGradient id="blueGradient" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#00B8FF"/>
+      <stop offset="45%" stop-color="#1D63FF"/>
+      <stop offset="100%" stop-color="#0047FF"/>
+    </linearGradient>
+
+    <linearGradient id="letterGradient" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="55%" stop-color="#EAF2FF"/>
+      <stop offset="100%" stop-color="#B8C7E8"/>
+    </linearGradient>
+
+    <filter id="blueGlow" x="-80%" y="-80%" width="260%" height="260%" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="9" result="blur"/>
+      <feColorMatrix in="blur" type="matrix" values="0 0 0 0 0.00  0 0 0 0 0.35  0 0 0 0 1.00  0 0 0 0.75 0" result="blueBlur"/>
+      <feMerge>
+        <feMergeNode in="blueBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <filter id="softShadow" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#00143A" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+
+  <!-- Transparent background -->
+
+  <!-- Emblem -->
+  <g id="vinova-emblem" transform="translate(70 80)" filter="url(#softShadow)">
+    <path d="M38 36 L153 68 L225 164 L299 68 L416 36" stroke="url(#blueGradient)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" filter="url(#blueGlow)"/>
+    <path d="M70 45 L142 72 L225 178 L310 72 L382 45" stroke="#9BD7FF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
+
+    <path d="M50 78 L150 108 L225 270 L300 108 L402 78 L225 430 Z" fill="url(#navyGradient)"/>
+    <path d="M68 92 L145 116 L225 315 L305 116 L382 92 L225 392 Z" fill="url(#letterGradient)"/>
+    <path d="M132 99 L222 266 L316 99 L296 108 L225 178 L154 108 Z" fill="url(#navyGradient)"/>
+    <path d="M148 72 L207 145 L225 177 L244 145 L304 72 L318 68 L225 198 L134 68 Z" fill="url(#blueGradient)" opacity="0.98" filter="url(#blueGlow)"/>
+    <path d="M225 198 L253 151 L323 74" stroke="#73C9FF" stroke-width="5" stroke-linecap="round" opacity="0.75"/>
+    <path d="M225 198 L197 151 L127 74" stroke="#1D63FF" stroke-width="4" stroke-linecap="round" opacity="0.75"/>
+  </g>
+
+  <!-- Wordmark -->
+  <g id="vinova-wordmark" transform="translate(610 155)" fill="url(#letterGradient)" filter="url(#softShadow)">
+    <path d="M0 0 H63 L122 128 L181 0 H244 L153 210 H91 Z"/>
+    <path d="M305 0 H363 V210 H305 Z"/>
+    <path d="M305 0 H363 V38 L305 58 Z" fill="url(#blueGradient)" filter="url(#blueGlow)"/>
+    <path d="M438 0 H499 L631 122 V0 H690 V210 H630 L498 88 V210 H438 Z"/>
+    <path fill-rule="evenodd" clip-rule="evenodd" d="M794 0 H956 C1006 0 1036 30 1036 80 V130 C1036 180 1006 210 956 210 H794 C744 210 714 180 714 130 V80 C714 30 744 0 794 0 Z M806 50 C786 50 774 62 774 82 V128 C774 148 786 160 806 160 H944 C964 160 976 148 976 128 V82 C976 62 964 50 944 50 Z"/>
+    <path d="M1068 0 H1131 L1190 128 L1249 0 H1312 L1221 210 H1159 Z"/>
+    <path d="M1344 210 L1444 0 H1506 L1606 210 H1540 L1475 70 L1410 210 Z"/>
+  </g>
+</svg>

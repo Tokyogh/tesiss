@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Factura {{ factura.numero_factura|default('VINOVA') }}</title>
+
+    <link rel="stylesheet" href="{{ css_src|default(url_for('static', filename='css/factura_pdf.css'), true) }}">
+</head>
+
+<body>
+    {% set subtotal = factura.subtotal|default(0, true)|float %}
+    {% set impuesto = factura.impuesto|default(0, true)|float %}
+    {% set descuento = factura.descuento|default(0, true)|float %}
+    {% set total = factura.total|default(subtotal + impuesto - descuento, true)|float %}
+
+    {% set vehiculo_nombre = vehiculo.nombre_completo|default('', true) %}
+    {% if not vehiculo_nombre %}
+        {% set vehiculo_nombre = (vehiculo.marca|default('', true) ~ ' ' ~ vehiculo.modelo|default('', true) ~ ' ' ~ vehiculo.anio|default('', true))|trim %}
+    {% endif %}
+
+    <main class="invoice-page">
+        <div class="invoice-content">
+
+            <header class="invoice-header">
+                <div class="invoice-logo">
+                    <img src="{{ logo_src|default(url_for('static', filename='img/vinova-logo.svg'), true) }}" alt="VINOVA">
+                </div>
+
+                <h1>FACTURA</h1>
+            </header>
+
+            <div class="invoice-glow-line"></div>
+
+            <section class="invoice-top">
+                <article class="company-info">
+                    <h2>VINOVA AUTOMOTIVE S.A.S.</h2>
+                    <p>Soluciones Automotrices Integrales</p>
+                    <p>Quito, Pichincha - Ecuador</p>
+
+                    <div class="company-list">
+                        <p><span>D</span>{{ empresa.direccion|default('Av. De los Granados E11-67 y De las Hiedras', true) }}</p>
+                        <p><span>@</span>{{ empresa.correo|default('info@vinova.ec', true) }}</p>
+                        <p><span>T</span>{{ empresa.telefono|default('+593 2 395 8721', true) }}</p>
+                        <p><span>W</span>{{ empresa.web|default('www.vinova.com.ec', true) }}</p>
+                    </div>
+                </article>
+
+                <article class="invoice-info">
+                    <div>
+                        <strong>N° Factura</strong>
+                        <span>{{ factura.numero_factura|default('N/D', true) }}</span>
+                    </div>
+
+                    <div>
+                        <strong>Fecha</strong>
+                        <span>{{ factura.fecha_factura|default('N/D', true) }}</span>
+                    </div>
+
+                    <div>
+                        <strong>Hora</strong>
+                        <span>{{ factura.hora_factura|default('N/D', true) }}</span>
+                    </div>
+
+                    <div>
+                        <strong>Establecimiento</strong>
+                        <span>{{ factura.establecimiento|default('VINOVA', true) }}</span>
+                    </div>
+                </article>
+            </section>
+
+            <section class="invoice-cards">
+                <article class="data-card">
+                    <h3><span>C</span>Datos del cliente</h3>
+
+                    <p><strong>Cliente:</strong> {{ cliente.nombre|default('Cliente VINOVA', true) }}</p>
+                    <p><strong>Correo:</strong> {{ cliente.correo|default('N/D', true) }}</p>
+                    <p><strong>Cédula / RUC:</strong> {{ cliente.cedula|default('N/D', true) }}</p>
+                </article>
+
+                <article class="data-card">
+                    <h3><span>V</span>Datos del vehículo</h3>
+
+                    <p><strong>Vehículo:</strong> {{ vehiculo_nombre|default('N/D', true) }}</p>
+                    <p><strong>Código catálogo:</strong> {{ vehiculo.codigo_catalogo|default('N/D', true) }}</p>
+                    <p><strong>Placa:</strong> {{ vehiculo.placa|default('N/D', true) }}</p>
+                    <p><strong>Kilometraje:</strong> {{ vehiculo.kilometraje|default('N/D', true) }}{% if vehiculo.kilometraje %} km{% endif %}</p>
+                </article>
+
+                <article class="data-card">
+                    <h3><span>A</span>Atendido por</h3>
+
+                    <p><strong>Atendido:</strong> {{ responsable.nombre|default('Equipo VINOVA', true) }}</p>
+                    <p><strong>Cargo:</strong> {{ responsable.rol|default('Personal VINOVA', true) }}</p>
+                    <p><strong>Servicio:</strong> {{ factura.tipo_factura|default('Servicio', true) }}</p>
+                </article>
+            </section>
+
+            <section class="service-strip">
+                <article>
+                    <h3><span>A</span>Atendido por</h3>
+                    <p><strong>Nombre:</strong> {{ responsable.nombre|default('Equipo VINOVA', true) }}</p>
+                    <p><strong>Cargo:</strong> {{ responsable.rol|default('Personal VINOVA', true) }}</p>
+                </article>
+
+                <article>
+                    <h3><span>S</span>Servicio</h3>
+                    <p><strong>Servicio:</strong> {{ factura.concepto|default('Servicio VINOVA', true) }}</p>
+                    <p><strong>Tipo:</strong> {{ factura.tipo_factura|default('Otro', true) }}</p>
+                </article>
+
+                <article>
+                    <h3><span>E</span>Establecimiento</h3>
+                    <p><strong>Sucursal:</strong> {{ factura.establecimiento|default('VINOVA', true) }}</p>
+                    <p><strong>Dirección:</strong> {{ empresa.direccion|default('Quito, Ecuador', true) }}</p>
+                </article>
+            </section>
+
+            <table class="items-table">
+                <thead>
+                    <tr>
+                        <th class="item-marker-col"></th>
+                        <th>Descripción</th>
+                        <th>Cant.</th>
+                        <th>P. Unitario</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for item in items %}
+                        <tr>
+                            <td class="item-marker-col">
+                                <span class="item-marker"></span>
+                            </td>
+                            <td>{{ item.descripcion|default('Concepto VINOVA', true) }}</td>
+                            <td class="center">{{ "%.2f"|format(item.cantidad|default(1, true)|float) }}</td>
+                            <td class="right">$ {{ "%.2f"|format(item.precio_unitario|default(0, true)|float) }}</td>
+                            <td class="right">$ {{ "%.2f"|format(item.total|default(0, true)|float) }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <section class="invoice-bottom">
+                <article class="notes-box">
+                    <h3>Observaciones</h3>
+                    <p>
+                        {{ factura.observaciones|default(factura.descripcion|default('Gracias por preferir nuestros servicios. Todos los repuestos y servicios cuentan con respaldo VINOVA.', true), true) }}
+                    </p>
+                </article>
+
+                <article class="totals-box">
+                    <div>
+                        <strong>Subtotal</strong>
+                        <span>$ {{ "%.2f"|format(subtotal) }}</span>
+                    </div>
+
+                    {% if descuento > 0 %}
+                        <div>
+                            <strong>Descuento</strong>
+                            <span>$ {{ "%.2f"|format(descuento) }}</span>
+                        </div>
+                    {% endif %}
+
+                    <div>
+                        <strong>IVA</strong>
+                        <span>$ {{ "%.2f"|format(impuesto) }}</span>
+                    </div>
+
+                    <div class="grand-total">
+                        <strong>TOTAL</strong>
+                        <span>$ {{ "%.2f"|format(total) }} <small>USD</small></span>
+                    </div>
+                </article>
+            </section>
+
+            <section class="thanks-box">
+                <div></div>
+                <p>Gracias por confiar en <strong>VINOVA</strong></p>
+                <div></div>
+            </section>
+
+            <footer class="invoice-footer">
+                <span>V</span>
+
+                <p>
+                    Esta factura es un comprobante de venta válido de acuerdo con la normativa tributaria vigente.
+                    <br>
+                    Conserve esta factura para cualquier aclaración futura.
+                </p>
+            </footer>
+
+        </div>
+    </main>
+</body>
+</html>

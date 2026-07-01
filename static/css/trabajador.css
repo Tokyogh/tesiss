@@ -1280,3 +1280,30 @@ a {
         grid-template-columns: 1fr;
     }
 }
+
+/* ============================= */
+/* VINOVA PRO - FORMULARIOS OPERATIVOS */
+/* ============================= */
+
+.worker-form-panel {
+    margin-bottom: 22px;
+}
+
+.worker-switch {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--worker-muted);
+    font-size: 0.88rem;
+    grid-column: 1 / -1;
+}
+
+.worker-switch input {
+    accent-color: var(--worker-blue);
+}
+
+.worker-field input + input,
+.worker-field input + small,
+.worker-field textarea + small {
+    margin-top: 8px;
+}

@@ -296,6 +296,41 @@
                 </div>
             </div>
 
+            <section class="worker-panel worker-form-panel">
+                <div class="worker-panel-title">
+                    <div>
+                        <span>NUEVA UNIDAD</span>
+                        <h2>Agregar vehículo al catálogo</h2>
+                        <p>Los manuales y modelos 3D se comparten por marca + modelo + año.</p>
+                    </div>
+                </div>
+
+                <form action="{{ url_for('admin_guardar_vehiculo') }}" method="POST" enctype="multipart/form-data" class="worker-form">
+                    <input type="hidden" name="origen" value="trabajador">
+                    <div class="worker-form-grid">
+                        <label class="worker-field"><span>Código catálogo</span><input type="text" name="codigo_catalogo" placeholder="VIN-RAV4-2024" required></label>
+                        <label class="worker-field"><span>Marca</span><input type="text" name="marca" placeholder="Toyota" required></label>
+                        <label class="worker-field"><span>Modelo</span><input type="text" name="modelo" placeholder="RAV4" required></label>
+                        <label class="worker-field"><span>Año</span><input type="number" name="anio" min="1980" max="2035" placeholder="2024" required></label>
+                        <label class="worker-field"><span>Tipo</span><input type="text" name="tipo_vehiculo" placeholder="SUV" required></label>
+                        <label class="worker-field"><span>Combustible</span><input type="text" name="combustible" placeholder="Gasolina" required></label>
+                        <label class="worker-field"><span>Transmisión</span><input type="text" name="transmision" placeholder="Automática" required></label>
+                        <label class="worker-field"><span>Kilometraje</span><input type="number" name="kilometraje" min="0" value="0"></label>
+                        <label class="worker-field"><span>Precio USD</span><input type="number" name="precio" min="0" step="0.01" value="0"></label>
+                        <label class="worker-field"><span>Estado</span><select name="estado"><option value="Disponible">Disponible</option><option value="Reservado">Reservado</option><option value="No disponible">No disponible</option></select></label>
+                        <label class="worker-field worker-field-wide"><span>Imagen</span><input type="file" name="imagen" accept="image/png,image/jpeg,image/webp"></label>
+                        <label class="worker-field"><span>ID modelo 3D</span><input type="text" name="modelo_3d_id" placeholder="rav4_2024"></label>
+                        <label class="worker-field"><span>Ruta modelo 3D</span><input type="text" name="modelo_3d" placeholder="models/vehicles/rav4_2024.glb"></label>
+                        <label class="worker-field"><span>Tipo modelo 3D</span><select name="modelo_3d_tipo"><option value="glb">GLB</option><option value="gltf">GLTF</option><option value="pendiente">Pendiente</option></select></label>
+                        <label class="worker-field worker-field-wide"><span>Manual del modelo</span><input type="text" name="manual_titulo" placeholder="Manual del propietario"><input type="file" name="manual_file" accept=".pdf,image/jpeg,image/png,image/webp"><small>Opcional. Se aplica a todos los vehículos iguales.</small></label>
+                        <label class="worker-field worker-field-wide"><span>Enlace o archivo del manual</span><input type="url" name="manual_enlace" placeholder="https://..."><input type="text" name="manual_archivo" placeholder="docs/manuales/manual-rav4.pdf"></label>
+                        <label class="worker-field worker-field-wide"><span>Descripción</span><textarea name="descripcion" rows="3" placeholder="Descripción breve del vehículo..."></textarea></label>
+                        <label class="worker-switch"><input type="checkbox" name="activo" checked><span></span>Mostrar en catálogo</label>
+                    </div>
+                    <button type="submit" class="worker-primary-btn"><i data-lucide="save"></i>Crear vehículo</button>
+                </form>
+            </section>
+
             <section class="worker-panel">
                 <div class="worker-panel-title">
                     <div>
@@ -746,7 +781,7 @@
                 <div>
                     <span>DOCUMENTACIÓN</span>
                     <h2>Facturas</h2>
-                    <p>Sube facturas para vehículos registrados en perfiles de clientes. El cliente solo verá sus propias facturas.</p>
+                    <p>Genera facturas PDF para compras, productos o servicios. Los mantenimientos generan su factura automáticamente.</p>
                 </div>
             </div>
 
@@ -755,7 +790,7 @@
                     <div class="worker-panel-title">
                         <div>
                             <span>NUEVA FACTURA</span>
-                            <h2>Registrar factura</h2>
+                            <h2>Generar factura PDF</h2>
                         </div>
                     </div>
 
@@ -793,31 +828,40 @@
                             </label>
 
                             <label class="worker-field">
+                                <span>Tipo de factura</span>
+                                <select name="tipo_factura">
+                                    <option value="Producto">Producto</option>
+                                    <option value="Servicio">Servicio</option>
+                                    <option value="Venta vehículo">Venta vehículo</option>
+                                    <option value="Otro">Otro</option>
+                                </select>
+                            </label>
+
+                            <label class="worker-field">
                                 <span>Monto USD</span>
                                 <input type="number" name="monto" min="0" step="0.01" placeholder="0.00">
                             </label>
 
-                            <label class="worker-field worker-field-wide">
-                                <span>Subir factura</span>
-                                <input type="file" name="archivo_factura" accept=".pdf,image/jpeg,image/png,image/webp">
-                                <small>Formatos permitidos: PDF, JPG, PNG o WEBP.</small>
+                            <label class="worker-field">
+                                <span>Impuesto USD</span>
+                                <input type="number" name="impuesto" min="0" step="0.01" placeholder="0.00">
                             </label>
 
                             <label class="worker-field worker-field-wide">
-                                <span>Enlace externo</span>
-                                <input type="url" name="enlace" placeholder="https://...">
+                                <span>Concepto</span>
+                                <input type="text" name="concepto" placeholder="Repuesto, accesorio, servicio adicional...">
                             </label>
 
                             <label class="worker-field worker-field-wide">
                                 <span>Descripción</span>
-                                <textarea name="descripcion" rows="3" placeholder="Factura de compra, canje, mantenimiento o servicio realizado..."></textarea>
+                                <textarea name="descripcion" rows="3" placeholder="Detalle para generar la factura PDF automáticamente."></textarea>
                             </label>
                         </div>
 
                         <div class="worker-actions-bar">
                             <button type="submit" class="worker-primary-btn">
                                 <i data-lucide="file-plus-2"></i>
-                                Registrar factura
+                                Generar factura PDF
                             </button>
                         </div>
                     </form>
@@ -907,7 +951,7 @@
                         <li>Generar códigos para vehículos disponibles sin código previo.</li>
                         <li>Consultar historial básico de canjes.</li>
                         <li>Registrar mantenimientos realizados por VINOVA.</li>
-                        <li>Subir y consultar facturas asociadas a usuarios y vehículos.</li>
+                        <li>Generar y consultar facturas PDF asociadas a usuarios y vehículos.</li>
                         <li>Ver próximos kilometrajes y fechas calculadas automáticamente.</li>
                         <li>Ayudar al cliente a registrar su vehículo.</li>
                     </ul>
