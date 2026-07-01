@@ -6,6 +6,7 @@
     <title>VINOVA</title>
 
     <script src="https://unpkg.com/lucide@latest"></script>
+    <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
 
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
 
@@ -123,12 +124,13 @@
         </h1>
 
         <p>
-            Consulta historial, recomendaciones personalizadas y documentación técnica.
+            Busca a través de nuestro catálogo de vehículos y elige el que mejor se adapte a tus necesidades, con un toque
+            <span>innovador</span>.
         </p>
 
         <div class="hero-buttons">
-            <button class="primary-btn">Comenzar</button>
-            <button class="secondary-btn">Ver demo</button>
+            <a href="{{ url_for('catalog') }}" class="primary-btn vinova-hero-link">Comenzar</a>
+            <button type="button" class="secondary-btn" id="openVehiclePreview">Ver preview 3D</button>
         </div>
     </div>
 
@@ -234,6 +236,210 @@
 
     </div>
 </section>
+
+
+<!-- ================= PREVIEW 3D VINOVA ================= -->
+<div class="vehicle-preview-modal" id="vehiclePreviewModal" aria-hidden="true">
+    <div class="vehicle-preview-backdrop" data-close-preview></div>
+
+    <section class="vehicle-preview-window" role="dialog" aria-modal="true" aria-labelledby="vehiclePreviewTitle">
+        <header class="vehicle-preview-header">
+            <div>
+                <span>VINOVA 3D PREVIEW</span>
+                <h2 id="vehiclePreviewTitle">Preview general del vehículo</h2>
+            </div>
+
+            <button type="button" class="vehicle-preview-close" data-close-preview aria-label="Cerrar preview 3D">
+                <i data-lucide="x"></i>
+            </button>
+        </header>
+
+        <nav class="vehicle-preview-tabs" aria-label="Navegación del preview 3D">
+            <button type="button" class="vehicle-preview-tab active" data-preview-tab="technical">
+                Información general
+            </button>
+
+            <button type="button" class="vehicle-preview-tab" data-preview-tab="model">
+                Modelo 3D
+            </button>
+        </nav>
+
+        <div class="vehicle-preview-body" data-preview-current-tab="technical">
+            <section class="vehicle-general-panel" data-preview-panel="technical" aria-label="Información general del vehículo">
+                <article class="vehicle-general-visual">
+                    <div class="vehicle-general-badge">
+                        <i data-lucide="scan-line"></i>
+                        <span>Preview visual</span>
+                    </div>
+
+                    <div class="vehicle-general-image-wrap">
+                        <img src="{{ url_for('static', filename='img/fondo.png') }}" alt="Preview visual de vehículo VINOVA">
+                    </div>
+
+                    <div class="vehicle-general-status">
+                        <span><i data-lucide="image"></i> Vista ligera con imagen</span>
+                        <span><i data-lucide="loader"></i> El modelo 3D se prepara en segundo plano</span>
+                    </div>
+                </article>
+
+                <aside class="vehicle-general-card">
+                    <span class="vehicle-info-label">Información general del vehículo</span>
+                    <h3>Vehículo demo VINOVA</h3>
+
+                    <p>
+                        Esta vista funciona como una preview del sistema 3D usado en el catálogo. Primero se muestra
+                        una versión ligera con imagen para que el usuario pueda leer información sin esperar la carga
+                        del modelo interactivo.
+                    </p>
+
+                    <div class="vehicle-general-spec-grid">
+                        <div>
+                            <strong>Tipo</strong>
+                            <span>Sedán / SUV compacto de referencia</span>
+                        </div>
+
+                        <div>
+                            <strong>Uso del preview</strong>
+                            <span>Exploración visual y consulta técnica</span>
+                        </div>
+
+                        <div>
+                            <strong>Formato 3D esperado</strong>
+                            <span>GLB optimizado para web</span>
+                        </div>
+
+                        <div>
+                            <strong>Ruta del modelo</strong>
+                            <span>static/models/demo/demo-car.glb</span>
+                        </div>
+                    </div>
+
+                    <div class="vehicle-general-note">
+                        <i data-lucide="mouse-pointer-click"></i>
+                        <div>
+                            <strong>Exploración técnica</strong>
+                            <span>Entra a “Modelo 3D” para rotar el vehículo y consultar sistemas como motor, frenos, suspensión o transmisión.</span>
+                        </div>
+                    </div>
+                </aside>
+            </section>
+
+            <section class="vehicle-model-workspace" data-preview-panel="model" aria-label="Modelo 3D e información técnica por sistemas">
+                <aside class="vehicle-system-nav" aria-label="Sistemas del vehículo">
+                    <button type="button" class="vehicle-system-btn active" data-system="motor">
+                        <i data-lucide="settings"></i>
+                        <span>Motor</span>
+                    </button>
+
+                    <button type="button" class="vehicle-system-btn" data-system="transmision">
+                        <i data-lucide="git-branch"></i>
+                        <span>Transmisión</span>
+                    </button>
+
+                    <button type="button" class="vehicle-system-btn" data-system="frenos">
+                        <i data-lucide="disc-3"></i>
+                        <span>Frenos</span>
+                    </button>
+
+                    <button type="button" class="vehicle-system-btn" data-system="suspension">
+                        <i data-lucide="activity"></i>
+                        <span>Suspensión</span>
+                    </button>
+
+                    <button type="button" class="vehicle-system-btn" data-system="direccion">
+                        <i data-lucide="circle-dot"></i>
+                        <span>Dirección</span>
+                    </button>
+
+                    <button type="button" class="vehicle-system-btn" data-system="electrico">
+                        <i data-lucide="zap"></i>
+                        <span>Sistema eléctrico</span>
+                    </button>
+
+                    <button type="button" class="vehicle-system-btn" data-system="carroceria">
+                        <i data-lucide="car-front"></i>
+                        <span>Carrocería</span>
+                    </button>
+                </aside>
+
+                <section class="vehicle-model-panel">
+                    <div class="vehicle-model-toolbar">
+                        <span id="previewModeLabel">Modelo 3D interactivo con ficha técnica por sistemas</span>
+
+                        <button type="button" class="vehicle-model-tool" id="resetVehicleCamera">
+                            <i data-lucide="rotate-ccw"></i>
+                            Reset cámara
+                        </button>
+                    </div>
+
+                    <div class="vehicle-model-stage">
+                        <model-viewer
+                            id="vinovaPreviewModel"
+                            data-model-src="{{ url_for('static', filename='models/demo/demo-car.glb') }}"
+                            alt="Modelo 3D de vehículo VINOVA"
+                            camera-controls
+                            auto-rotate
+                            rotation-per-second="18deg"
+                            shadow-intensity="0.9"
+                            exposure="1.05"
+                            camera-orbit="35deg 72deg 7m"
+                            min-camera-orbit="auto auto 4m"
+                            max-camera-orbit="auto auto 12m"
+                            field-of-view="30deg"
+                            touch-action="pan-y">
+                        </model-viewer>
+
+                        <div class="vehicle-model-placeholder" id="demoModelStatus">
+                            <i data-lucide="loader"></i>
+                            <strong>Preparando modelo 3D</strong>
+                            <p>
+                                El archivo se carga cuando abres el preview. Si todavía no aparece, espera unos segundos o coloca tu modelo en
+                                <code>static/models/demo/demo-car.glb</code>.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="vehicle-model-controls">
+                        <span><i data-lucide="move-3d"></i> Arrastra para rotar</span>
+                        <span><i data-lucide="zoom-in"></i> Rueda para acercar</span>
+                        <span><i data-lucide="mouse-pointer-click"></i> Elige un sistema para ver detalles</span>
+                    </div>
+                </section>
+
+                <aside class="vehicle-info-card" aria-label="Información técnica del sistema seleccionado">
+                    <div class="vehicle-info-icon">
+                        <i data-lucide="settings" id="previewSystemIcon"></i>
+                    </div>
+
+                    <span class="vehicle-info-label">Sistema seleccionado</span>
+                    <h3 id="previewSystemName">Sistema de motor</h3>
+
+                    <dl class="vehicle-info-table">
+                        <div>
+                            <dt>Especificación principal</dt>
+                            <dd id="previewSystemSpec">Motor 1.6L, 4 cilindros, gasolina</dd>
+                        </div>
+
+                        <div>
+                            <dt>Descripción breve</dt>
+                            <dd id="previewSystemDescription">Conjunto encargado de generar la potencia principal del vehículo.</dd>
+                        </div>
+
+                        <div>
+                            <dt>Ubicación</dt>
+                            <dd id="previewSystemLocation">Compartimiento frontal del vehículo.</dd>
+                        </div>
+                    </dl>
+
+                    <div class="vehicle-price-box">
+                        <h4>Precios de repuesto</h4>
+                        <ul id="previewSystemPrices"></ul>
+                    </div>
+                </aside>
+            </section>
+        </div>
+    </section>
+</div>
 
 <script src="{{ url_for('static', filename='js/script.js') }}"></script>
 
