@@ -1307,10 +1307,10 @@ body.light-mode .grupo-input input::placeholder {
 
 .vinova-auth-logo {
     display: block;
-    width: 210px;
+    width: 250px;
     max-width: 100%;
     height: auto;
-    max-height: 52px;
+    max-height: 64px;
     object-fit: contain;
     object-position: left center;
     filter: drop-shadow(0 0 12px rgba(37, 99, 235, 0.24));
@@ -1326,7 +1326,7 @@ body.light-mode .grupo-input input::placeholder {
 
 @media (max-width: 768px) {
     .vinova-auth-logo {
-        width: 170px;
-        max-height: 44px;
+        width: 190px;
+        max-height: 50px;
     }
 }

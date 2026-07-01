@@ -1581,10 +1581,10 @@ body {
 }
 
 .sidebar .logo .vinova-profile-logo {
-    width: 160px;
+    width: 190px;
     max-width: 100%;
     height: auto;
-    max-height: 42px;
+    max-height: 50px;
     border-radius: 0;
     object-fit: contain;
     object-position: left center;
