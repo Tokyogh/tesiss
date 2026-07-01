@@ -1198,6 +1198,18 @@
                             </div>
 
                             <label class="admin-field">
+                                <span>Cédula / RUC del cliente</span>
+                                <input
+                                    type="text"
+                                    name="cliente_cedula"
+                                    placeholder="Ej. 1723456789 o 1790012345001"
+                                    maxlength="13"
+                                    inputmode="numeric"
+                                    autocomplete="off">
+                                <small>Lo ingresa el personal al emitir la factura. Si el cliente ya tiene identificación guardada, puedes dejarlo vacío.</small>
+                            </label>
+
+                            <label class="admin-field">
                                 <span>Tipo de servicio</span>
                                 <select name="tipo_servicio" required>
                                     <option value="Cambio de aceite">Cambio de aceite</option>
@@ -1451,6 +1463,17 @@
                             </label>
 
                             <label class="admin-field">
+                                <span>Cédula / RUC</span>
+                                <input
+                                    type="text"
+                                    name="cedula"
+                                    placeholder="Ej. 1723456789 o 1790012345001"
+                                    maxlength="13"
+                                    inputmode="numeric">
+                                <small>Opcional. Si se ingresa, VINOVA valida el número.</small>
+                            </label>
+
+                            <label class="admin-field">
                                 <span>Contraseña temporal</span>
                                 <input type="password" name="password" placeholder="Mínimo 8 caracteres" minlength="8" required>
                             </label>
@@ -1503,6 +1526,7 @@
                                     <tr>
                                         <th>Nombre</th>
                                         <th>Correo</th>
+                                        <th>Cédula / RUC</th>
                                         <th>Rol</th>
                                         <th>Vehículos</th>
                                         <th>Estado</th>
@@ -1517,6 +1541,7 @@
                                         <tr data-admin-item>
                                             <td>{{ usuario['nombre'] }}</td>
                                             <td>{{ usuario['correo'] }}</td>
+                                            <td>{{ usuario['cedula']|default('N/D', true) or 'N/D' }}</td>
                                             <td>{{ usuario['rol'] }}</td>
                                             <td>{{ usuario['total_vehiculos']|default(0) }}</td>
                                             <td>
@@ -1945,6 +1970,18 @@
 
                                 <div class="maintenance-results" data-maintenance-results hidden></div>
                             </div>
+
+                            <label class="admin-field">
+                                <span>Cédula / RUC del cliente</span>
+                                <input
+                                    type="text"
+                                    name="cliente_cedula"
+                                    placeholder="Ej. 1723456789 o 1790012345001"
+                                    maxlength="13"
+                                    inputmode="numeric"
+                                    autocomplete="off">
+                                <small>Lo ingresa el personal al emitir la factura. Si el cliente ya tiene identificación guardada, puedes dejarlo vacío.</small>
+                            </label>
 
                             <label class="admin-field">
                                 <span>Número de factura</span>

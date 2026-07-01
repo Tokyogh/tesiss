@@ -23,6 +23,7 @@
 {% set clientes_vehiculos_lista = vehiculos_clientes|default([]) %}
 {% set mantenimientos_lista = mantenimientos|default([]) %}
 {% set facturas_lista = facturas|default([]) %}
+{% set clientes_lista = clientes|default([]) %}
 {% set generar_codigo_base_url = trabajador_generar_codigo_url|default('') %}
 {% set archivar_base_url = trabajador_archivar_vehiculo_url|default('') %}
 {% set reactivar_codigo_base_url = trabajador_reactivar_codigo_url|default('') %}
@@ -62,6 +63,11 @@
             <a href="#trabajador-canjes" class="worker-nav-link" data-worker-section="canjes">
                 <i data-lucide="receipt-text"></i>
                 <span>Ventas y canjes</span>
+            </a>
+
+            <a href="#trabajador-clientes" class="worker-nav-link" data-worker-section="clientes">
+                <i data-lucide="user-round-plus"></i>
+                <span>Clientes</span>
             </a>
 
             <a href="#trabajador-mantenimientos" class="worker-nav-link" data-worker-section="mantenimientos">
@@ -599,6 +605,124 @@
         </section>
 
 
+
+
+        <section class="worker-section" id="trabajador-clientes" data-worker-content="clientes">
+            <div class="worker-section-header">
+                <div>
+                    <span>CLIENTES</span>
+                    <h2>Crear usuario cliente</h2>
+                    <p>Los trabajadores pueden crear únicamente cuentas con rol Usuario. La cédula/RUC se guardará en el cliente para futuras facturas.</p>
+                </div>
+            </div>
+
+            <section class="worker-layout">
+                <section class="worker-panel worker-form-panel">
+                    <div class="worker-panel-title">
+                        <div>
+                            <span>NUEVA CUENTA</span>
+                            <h2>Registrar cliente</h2>
+                        </div>
+                    </div>
+
+                    <form action="{{ url_for('trabajador_crear_usuario') }}" method="POST" class="worker-form">
+                        <div class="worker-form-grid">
+                            <label class="worker-field">
+                                <span>Nombre</span>
+                                <input type="text" name="nombre" placeholder="Nombre completo" required>
+                            </label>
+
+                            <label class="worker-field">
+                                <span>Correo</span>
+                                <input type="email" name="correo" placeholder="cliente@correo.com" required>
+                            </label>
+
+                            <label class="worker-field">
+                                <span>Cédula / RUC</span>
+                                <input
+                                    type="text"
+                                    name="cedula"
+                                    placeholder="Ej. 1723456789 o 1790012345001"
+                                    maxlength="13"
+                                    inputmode="numeric">
+                                <small>Opcional. Si se ingresa, VINOVA valida el número.</small>
+                            </label>
+
+                            <label class="worker-field">
+                                <span>Contraseña temporal</span>
+                                <input type="password" name="password" placeholder="Mínimo 8 caracteres" minlength="8" required>
+                            </label>
+
+                            <label class="worker-field worker-field-wide">
+                                <span>Rol asignado</span>
+                                <input type="text" value="Usuario / Cliente" readonly>
+                                <small>Por seguridad, el trabajador no puede crear administradores ni trabajadores.</small>
+                            </label>
+                        </div>
+
+                        <button type="submit" class="worker-primary-btn">
+                            <i data-lucide="user-round-plus"></i>
+                            Crear cliente
+                        </button>
+                    </form>
+                </section>
+
+                <section class="worker-panel">
+                    <div class="worker-panel-title">
+                        <div>
+                            <span>CUENTAS</span>
+                            <h2>Clientes recientes</h2>
+                        </div>
+                        <input type="text" class="worker-search-input" data-worker-search="clients" placeholder="Buscar cliente...">
+                    </div>
+
+                    <div class="worker-table-wrap">
+                        <table class="worker-table" data-worker-list="clients">
+                            <thead>
+                                <tr>
+                                    <th>Cliente</th>
+                                    <th>Cédula / RUC</th>
+                                    <th>Vehículos</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if clientes_lista %}
+                                    {% for cliente in clientes_lista %}
+                                        <tr data-worker-item>
+                                            <td>
+                                                <strong>{{ cliente.nombre }}</strong>
+                                                <small>{{ cliente.correo }}</small>
+                                            </td>
+                                            <td>{{ cliente.cedula|default('N/D', true) or 'N/D' }}</td>
+                                            <td>{{ cliente.total_vehiculos|default(0) }}</td>
+                                            <td>
+                                                {% if cliente.activo|default(1)|int == 1 %}
+                                                    <span class="worker-status active">Activo</span>
+                                                {% else %}
+                                                    <span class="worker-status inactive">Inactivo</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="4">
+                                            <div class="worker-empty compact">
+                                                <i data-lucide="users"></i>
+                                                <h3>Sin clientes registrados</h3>
+                                                <p>Cuando se creen cuentas de usuario, aparecerán aquí.</p>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </section>
+        </section>
+
         <section class="worker-section" id="trabajador-mantenimientos" data-worker-content="mantenimientos">
             <div class="worker-section-header">
                 <div>
@@ -639,6 +763,18 @@
 
                                 <div class="maintenance-results" data-maintenance-results hidden></div>
                             </div>
+
+                            <label class="worker-field">
+                                <span>Cédula / RUC del cliente</span>
+                                <input
+                                    type="text"
+                                    name="cliente_cedula"
+                                    placeholder="Ej. 1723456789 o 1790012345001"
+                                    maxlength="13"
+                                    inputmode="numeric"
+                                    autocomplete="off">
+                                <small>Lo ingresa el trabajador al emitir la factura. Si el cliente ya tiene identificación guardada, puedes dejarlo vacío.</small>
+                            </label>
 
                             <label class="worker-field">
                                 <span>Tipo de servicio</span>
@@ -817,6 +953,18 @@
                             </div>
 
                             <label class="worker-field">
+                                <span>Cédula / RUC del cliente</span>
+                                <input
+                                    type="text"
+                                    name="cliente_cedula"
+                                    placeholder="Ej. 1723456789 o 1790012345001"
+                                    maxlength="13"
+                                    inputmode="numeric"
+                                    autocomplete="off">
+                                <small>Lo ingresa el trabajador al emitir la factura. Si el cliente ya tiene identificación guardada, puedes dejarlo vacío.</small>
+                            </label>
+
+                            <label class="worker-field">
                                 <span>Número de factura</span>
                                 <input type="text" name="numero_factura" placeholder="Ej. FAC-001">
                                 <small>Opcional. Si lo dejas vacío, VINOVA genera uno.</small>
@@ -951,6 +1099,7 @@
                         <li>Generar códigos para vehículos disponibles sin código previo.</li>
                         <li>Consultar historial básico de canjes.</li>
                         <li>Registrar mantenimientos realizados por VINOVA.</li>
+                        <li>Crear cuentas de clientes con rol Usuario y cédula/RUC opcional.</li>
                         <li>Generar y consultar facturas PDF asociadas a usuarios y vehículos.</li>
                         <li>Ver próximos kilometrajes y fechas calculadas automáticamente.</li>
                         <li>Ayudar al cliente a registrar su vehículo.</li>

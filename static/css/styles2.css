@@ -1294,3 +1294,39 @@ body.light-mode .grupo-input input::placeholder {
         padding: 25px;
     }
 }
+
+
+/* ================= LOGO SVG VINOVA EN LOGIN ================= */
+.logo.auth-brand {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 40px;
+}
+
+.vinova-auth-logo {
+    display: block;
+    width: 210px;
+    max-width: 100%;
+    height: auto;
+    max-height: 52px;
+    object-fit: contain;
+    object-position: left center;
+    filter: drop-shadow(0 0 12px rgba(37, 99, 235, 0.24));
+}
+
+.logo.auth-brand span {
+    margin-left: 3px;
+    color: var(--muted);
+    font-size: 12px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+
+@media (max-width: 768px) {
+    .vinova-auth-logo {
+        width: 170px;
+        max-height: 44px;
+    }
+}

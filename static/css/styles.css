@@ -629,3 +629,35 @@ body::before {
         text-overflow: ellipsis;
     }
 }
+
+/* ================= LOGO SVG VINOVA EN NAVBAR ================= */
+.logo {
+    display: flex;
+    align-items: center;
+}
+
+.vinova-navbar-brand {
+    display: inline-flex;
+    align-items: center;
+    text-decoration: none;
+    color: inherit;
+}
+
+.vinova-navbar-logo {
+    display: block;
+    width: 150px;
+    max-width: 150px;
+    height: auto;
+    max-height: 38px;
+    object-fit: contain;
+    object-position: left center;
+    filter: drop-shadow(0 0 10px rgba(37, 99, 235, 0.22));
+}
+
+@media (max-width: 768px) {
+    .vinova-navbar-logo {
+        width: 128px;
+        max-width: 128px;
+        max-height: 34px;
+    }
+}

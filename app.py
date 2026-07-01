@@ -860,6 +860,116 @@ def normalizar_precio(valor):
 
 
 
+
+def solo_digitos(valor):
+    """Devuelve solo los dígitos de una identificación."""
+    return re.sub(r"\D", "", str(valor or ""))
+
+
+def validar_cedula_ec(cedula):
+    """Valida cédula ecuatoriana por estructura, provincia y dígito verificador."""
+    cedula = solo_digitos(cedula)
+
+    if len(cedula) != 10:
+        return False
+
+    if cedula == cedula[0] * 10:
+        return False
+
+    provincia = int(cedula[:2])
+    tercer_digito = int(cedula[2])
+
+    if provincia < 1 or provincia > 24:
+        return False
+
+    if tercer_digito >= 6:
+        return False
+
+    coeficientes = [2, 1, 2, 1, 2, 1, 2, 1, 2]
+    suma = 0
+
+    for i in range(9):
+        producto = int(cedula[i]) * coeficientes[i]
+
+        if producto >= 10:
+            producto -= 9
+
+        suma += producto
+
+    digito_verificador = (10 - (suma % 10)) % 10
+
+    return digito_verificador == int(cedula[9])
+
+
+def calcular_modulo_11(numero, coeficientes):
+    """Calcula dígito verificador módulo 11 para RUC público o privado."""
+    suma = 0
+
+    for digito, coeficiente in zip(numero, coeficientes):
+        suma += int(digito) * coeficiente
+
+    resultado = 11 - (suma % 11)
+
+    if resultado == 11:
+        return 0
+
+    if resultado == 10:
+        return None
+
+    return resultado
+
+
+def validar_ruc_ec(ruc):
+    """Valida RUC ecuatoriano de persona natural, entidad pública o sociedad privada."""
+    ruc = solo_digitos(ruc)
+
+    if len(ruc) != 13:
+        return False
+
+    if ruc == ruc[0] * 13:
+        return False
+
+    provincia = int(ruc[:2])
+    tercer_digito = int(ruc[2])
+
+    if provincia < 1 or provincia > 24:
+        return False
+
+    # Los últimos 3 dígitos identifican el establecimiento.
+    if ruc[-3:] == "000":
+        return False
+
+    # RUC persona natural: los primeros 10 dígitos deben ser cédula válida.
+    if tercer_digito < 6:
+        return validar_cedula_ec(ruc[:10])
+
+    # RUC entidad pública: tercer dígito 6, verificador posición 9.
+    if tercer_digito == 6:
+        coeficientes = [3, 2, 7, 6, 5, 4, 3, 2]
+        digito = calcular_modulo_11(ruc[:8], coeficientes)
+        return digito is not None and digito == int(ruc[8])
+
+    # RUC sociedad privada: tercer dígito 9, verificador posición 10.
+    if tercer_digito == 9:
+        coeficientes = [4, 3, 2, 7, 6, 5, 4, 3, 2]
+        digito = calcular_modulo_11(ruc[:9], coeficientes)
+        return digito is not None and digito == int(ruc[9])
+
+    return False
+
+
+def validar_identificacion_ec(valor):
+    """Acepta cédula ecuatoriana de 10 dígitos o RUC de 13 dígitos."""
+    identificacion = solo_digitos(valor)
+
+    if len(identificacion) == 10:
+        return validar_cedula_ec(identificacion)
+
+    if len(identificacion) == 13:
+        return validar_ruc_ec(identificacion)
+
+    return False
+
 def normalizar_fecha(valor):
     """
     Valida fechas HTML tipo YYYY-MM-DD.
@@ -2040,6 +2150,26 @@ def trabajador_panel():
 
     cursor.execute("""
         SELECT
+            usuarios.id,
+            usuarios.nombre,
+            usuarios.correo,
+            usuarios.cedula,
+            COALESCE(usuarios.activo, 1) AS activo,
+            usuarios.creado_en,
+            usuarios.actualizado_en,
+            COUNT(usuarios_vehiculos.id) AS total_vehiculos
+        FROM usuarios
+        LEFT JOIN usuarios_vehiculos
+            ON usuarios_vehiculos.usuario_id = usuarios.id
+        WHERE usuarios.rol = 'USUARIO'
+        GROUP BY usuarios.id
+        ORDER BY usuarios.id DESC
+        LIMIT 80
+    """)
+    clientes = cursor.fetchall()
+
+    cursor.execute("""
+        SELECT
             mantenimientos.*,
             COALESCE(mantenimientos.kilometraje_actual, mantenimientos.kilometraje) AS km_servicio,
             COALESCE(mantenimientos.proximo_kilometraje, mantenimientos.proximo_servicio_km) AS km_proximo,
@@ -2178,6 +2308,7 @@ def trabajador_panel():
         codigos_disponibles=codigos_disponibles,
         total_canjes=total_canjes,
         vehiculos_clientes=vehiculos_clientes,
+        clientes=clientes,
         mantenimientos=mantenimientos,
         total_mantenimientos=total_mantenimientos,
         facturas=facturas,
@@ -2396,6 +2527,77 @@ def trabajador_reactivar_codigo_vehiculo(codigo_id):
 
     return redirect(url_for("trabajador_panel") + "#trabajador-codigos")
 
+
+
+@app.route("/trabajador/usuarios/crear", methods=["POST"])
+@login_required
+@personal_required
+def trabajador_crear_usuario():
+
+    asegurar_migraciones_admin()
+
+    nombre = request.form.get("nombre", "").strip()
+    correo = request.form.get("correo", "").strip().lower()
+    password = request.form.get("password", "").strip()
+    cedula = solo_digitos(request.form.get("cedula", ""))
+
+    destino = url_for("trabajador_panel") + "#trabajador-clientes"
+
+    if not nombre or not correo or not password:
+        flash("Nombre, correo y contraseña son obligatorios para crear el cliente.", "warning")
+        return redirect(destino)
+
+    if len(password) < 8:
+        flash("La contraseña debe tener al menos 8 caracteres.", "warning")
+        return redirect(destino)
+
+    if cedula and not validar_identificacion_ec(cedula):
+        flash("La cédula o RUC del cliente no es válida.", "warning")
+        return redirect(destino)
+
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    try:
+        ahora = fecha_actual()
+        password_hash = generate_password_hash(password)
+
+        cursor.execute("""
+            INSERT INTO usuarios (
+                nombre,
+                correo,
+                password,
+                rol,
+                activo,
+                creado_en,
+                establecimiento,
+                cedula
+            )
+            VALUES (?, ?, ?, 'USUARIO', 1, ?, '', ?)
+        """, (
+            nombre,
+            correo,
+            password_hash,
+            ahora,
+            cedula
+        ))
+
+        conexion.commit()
+        flash("Cliente creado correctamente.", "success")
+
+    except sqlite3.IntegrityError:
+        conexion.rollback()
+        flash("Ya existe una cuenta con ese correo.", "warning")
+
+    except Exception as error:
+        conexion.rollback()
+        print("Error al crear cliente desde panel trabajador:", error)
+        flash("No se pudo crear el cliente. Intenta nuevamente.", "error")
+
+    finally:
+        conexion.close()
+
+    return redirect(destino)
 
 # ================= INICIO =================
 
@@ -2851,6 +3053,7 @@ def buscar_vehiculos_mantenimiento():
             usuarios_vehiculos.fecha_registro,
             usuarios.nombre AS usuario_nombre,
             usuarios.correo AS usuario_correo,
+            usuarios.cedula AS usuario_cedula,
             vehiculos.codigo_catalogo,
             vehiculos.marca,
             vehiculos.modelo,
@@ -2901,6 +3104,7 @@ def buscar_vehiculos_mantenimiento():
             "vehiculo_id": fila["vehiculo_id"],
             "usuario_nombre": fila["usuario_nombre"] or "Cliente sin nombre",
             "usuario_correo": fila["usuario_correo"] or "Sin correo",
+            "usuario_cedula": fila["usuario_cedula"] or "",
             "vehiculo": vehiculo_texto,
             "codigo_catalogo": codigo_catalogo,
             "codigo_canje": codigo_canje,
@@ -2933,6 +3137,7 @@ def registrar_mantenimiento_empresarial():
     costo = normalizar_precio(request.form.get("costo", "0"))
     descripcion = request.form.get("descripcion", "").strip()
     observaciones = request.form.get("observaciones", "").strip()
+    cliente_cedula_form = solo_digitos(request.form.get("cliente_cedula", ""))
     establecimiento_form = request.form.get("establecimiento", "").strip()
     origen = request.form.get("origen", "trabajador").strip().lower()
 
@@ -2968,6 +3173,7 @@ def registrar_mantenimiento_empresarial():
                 usuarios_vehiculos.vehiculo_id,
                 usuarios.nombre AS usuario_nombre,
                 usuarios.correo AS usuario_correo,
+                usuarios.cedula AS usuario_cedula,
                 vehiculos.codigo_catalogo,
                 vehiculos.marca,
                 vehiculos.modelo,
@@ -2988,6 +3194,28 @@ def registrar_mantenimiento_empresarial():
         if not registro:
             flash("El vehículo registrado del usuario no existe.", "warning")
             return redirect(destino)
+
+        cedula_actual = solo_digitos(registro["usuario_cedula"])
+        cedula_factura = cliente_cedula_form or cedula_actual
+
+        if not cedula_factura:
+            flash("Ingresa la cédula o RUC del cliente para emitir la factura.", "warning")
+            return redirect(destino)
+
+        if not validar_identificacion_ec(cedula_factura):
+            flash("La cédula o RUC del cliente no es válida.", "warning")
+            return redirect(destino)
+
+        if cedula_factura != cedula_actual:
+            cursor.execute("""
+                UPDATE usuarios
+                SET cedula = ?, actualizado_en = ?
+                WHERE id = ?
+            """, (
+                cedula_factura,
+                fecha_actual(),
+                registro["usuario_id"]
+            ))
 
         establecimiento_trabajador = obtener_establecimiento_usuario(
             cursor,
@@ -3061,6 +3289,8 @@ def registrar_mantenimiento_empresarial():
         registro_factura["codigo_catalogo"] = registro_factura.get("codigo_catalogo") or ""
         registro_factura["kilometraje_actual"] = kilometraje_actual
         registro_factura["establecimiento"] = establecimiento
+        registro_factura["usuario_cedula"] = cedula_factura
+        registro_factura["cedula"] = cedula_factura
 
         factura_id = registrar_factura_generada(
             cursor,
@@ -4060,6 +4290,7 @@ def admin_vehiculos():
             usuarios.id,
             usuarios.nombre,
             usuarios.correo,
+            usuarios.cedula,
             usuarios.rol,
             usuarios.foto_perfil,
             usuarios.establecimiento,
@@ -4952,6 +5183,7 @@ def admin_crear_usuario():
     password = request.form.get("password", "").strip()
     rol = request.form.get("rol", "USUARIO").strip().upper()
     establecimiento = request.form.get("establecimiento", "").strip()
+    cedula = solo_digitos(request.form.get("cedula", ""))
 
     if rol == "ADMIN":
         flash("Los administradores solo pueden crearse desde consola raíz del proyecto.", "warning")
@@ -4969,6 +5201,10 @@ def admin_crear_usuario():
         flash("La contraseña debe tener al menos 8 caracteres.", "warning")
         return redirigir_admin("usuarios")
 
+    if cedula and not validar_identificacion_ec(cedula):
+        flash("La cédula o RUC ingresado no es válido.", "warning")
+        return redirigir_admin("usuarios")
+
     conexion = conectar_db()
     cursor = conexion.cursor()
 
@@ -4984,9 +5220,10 @@ def admin_crear_usuario():
                 rol,
                 activo,
                 creado_en,
-                establecimiento
+                establecimiento,
+                cedula
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             nombre,
             correo,
@@ -4994,7 +5231,8 @@ def admin_crear_usuario():
             rol,
             1,
             ahora,
-            establecimiento if rol == "TRABAJADOR" else ""
+            establecimiento if rol == "TRABAJADOR" else "",
+            cedula
         ))
 
         conexion.commit()
@@ -5298,6 +5536,7 @@ def guardar_factura_vehiculo():
     descripcion = request.form.get("descripcion", "").strip() or concepto
     subtotal = normalizar_precio(request.form.get("monto")) or normalizar_precio(request.form.get("subtotal")) or 0
     impuesto = normalizar_precio(request.form.get("impuesto")) or 0
+    cliente_cedula_form = solo_digitos(request.form.get("cliente_cedula", ""))
 
     if not usuario_vehiculo_id:
         flash("Selecciona el cliente y vehículo al que pertenece la factura.", "warning")
@@ -5315,6 +5554,7 @@ def guardar_factura_vehiculo():
                 usuarios_vehiculos.kilometraje_inicial AS kilometraje_referencia,
                 usuarios.nombre AS usuario_nombre,
                 usuarios.correo AS usuario_correo,
+                usuarios.cedula AS usuario_cedula,
                 vehiculos.codigo_catalogo,
                 vehiculos.marca,
                 vehiculos.modelo,
@@ -5333,9 +5573,35 @@ def guardar_factura_vehiculo():
             flash("No encontré ese vehículo registrado en un perfil de cliente.", "warning")
             return redirect(destino)
 
+        cedula_actual = solo_digitos(registro["usuario_cedula"])
+        cedula_factura = cliente_cedula_form or cedula_actual
+
+        if not cedula_factura:
+            flash("Ingresa la cédula o RUC del cliente para emitir la factura.", "warning")
+            return redirect(destino)
+
+        if not validar_identificacion_ec(cedula_factura):
+            flash("La cédula o RUC del cliente no es válida.", "warning")
+            return redirect(destino)
+
+        if cedula_factura != cedula_actual:
+            cursor.execute("""
+                UPDATE usuarios
+                SET cedula = ?, actualizado_en = ?
+                WHERE id = ?
+            """, (
+                cedula_factura,
+                fecha_actual(),
+                registro["usuario_id"]
+            ))
+
+        registro_factura = dict(registro)
+        registro_factura["usuario_cedula"] = cedula_factura
+        registro_factura["cedula"] = cedula_factura
+
         registrar_factura_generada(
             cursor,
-            registro=dict(registro),
+            registro=registro_factura,
             tipo_factura=tipo_factura,
             concepto=concepto,
             descripcion=descripcion,

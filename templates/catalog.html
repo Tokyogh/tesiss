@@ -38,8 +38,11 @@
 
 <header class="navbar">
     <div class="logo">
-        <a href="{{ url_for('inicio') }}" aria-label="Ir al inicio de VINOVA">
-            <h2>VINOVA</h2>
+        <a href="{{ url_for('inicio') }}" aria-label="Ir al inicio de VINOVA" class="vinova-navbar-brand">
+            <img
+                src="{{ url_for('static', filename='img/vinova-logo.svg') }}"
+                alt="VINOVA"
+                class="vinova-navbar-logo">
         </a>
     </div>
 

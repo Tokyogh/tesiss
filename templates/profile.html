@@ -20,8 +20,10 @@
         <aside class="sidebar">
 
             <a href="{{ url_for('inicio') }}" class="logo logo-link">
-                <img src="https://cdn.oreateai.com/aiimage/nano/65fe12013bda235231000940/1f545f192f6b978fac061ca943745ec4" alt="Logo VINOVA">
-                <h2>VINOVA</h2>
+                <img
+                    src="{{ url_for('static', filename='img/vinova-logo.svg') }}"
+                    alt="VINOVA"
+                    class="vinova-profile-logo">
             </a>
 
             <nav>
