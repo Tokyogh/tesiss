@@ -173,39 +173,54 @@ function cerrarNosotros() {
    ========================= */
 
 function iniciarPasswordToggle() {
-    const eyeIcon =
-        document.querySelector(".eye") ||
-        document.querySelector(".toggle-pass i") ||
-        document.querySelector(".toggle-pass");
+    document.querySelectorAll(".toggle-pass, .eye").forEach((icon) => {
+        if (icon.dataset.toggleReady === "1") return;
 
-    const passwordInput = document.getElementById("password");
+        icon.dataset.toggleReady = "1";
+        icon.addEventListener("click", () => togglePassword(icon));
 
-    if (!eyeIcon || !passwordInput) return;
-
-    eyeIcon.addEventListener("click", togglePassword);
+        icon.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                togglePassword(icon);
+            }
+        });
+    });
 }
 
-function togglePassword() {
-    const input = document.getElementById("password");
+function obtenerInputPassword(icon) {
+    if (!icon) return document.getElementById("password");
 
-    const icon =
-        document.querySelector(".eye") ||
-        document.querySelector(".toggle-pass i") ||
-        document.querySelector(".toggle-pass");
+    const targetId = icon.dataset.target || icon.getAttribute("data-target");
 
-    if (!input || !icon) return;
-
-    if (input.type === "password") {
-        input.type = "text";
-
-        icon.classList.remove("fa-eye");
-        icon.classList.add("fa-eye-slash");
-    } else {
-        input.type = "password";
-
-        icon.classList.remove("fa-eye-slash");
-        icon.classList.add("fa-eye");
+    if (targetId) {
+        return document.getElementById(targetId);
     }
+
+    const contenedor = icon.closest(".input-box, .modal-password-box");
+
+    if (contenedor) {
+        return contenedor.querySelector('input[type="password"], input[type="text"]');
+    }
+
+    return document.getElementById("password");
+}
+
+function togglePassword(icon = null) {
+    const trigger = icon && icon.classList ? icon : document.querySelector(".toggle-pass, .eye");
+    const input = obtenerInputPassword(trigger);
+
+    if (!input || !trigger) return;
+
+    const mostrar = input.type === "password";
+    input.type = mostrar ? "text" : "password";
+
+    trigger.classList.toggle("fa-eye", !mostrar);
+    trigger.classList.toggle("fa-eye-slash", mostrar);
+
+    const etiqueta = mostrar ? "Ocultar contraseña" : "Mostrar contraseña";
+    trigger.setAttribute("aria-label", etiqueta);
+    trigger.setAttribute("title", etiqueta);
 }
 
 /* =========================

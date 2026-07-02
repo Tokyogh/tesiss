@@ -162,6 +162,7 @@
 
                 <!-- FORMULARIO LOGIN -->
                 <form method="POST" action="/login">
+                    {{ csrf_input() }}
 
                     <label for="email">Correo electrónico</label>
 
@@ -193,7 +194,11 @@
 
                         <i
                             class="fa-regular fa-eye eye toggle-pass"
-                            onclick="togglePassword()">
+                            data-target="password"
+                            role="button"
+                            tabindex="0"
+                            aria-label="Mostrar contraseña"
+                            aria-controls="password">
                         </i>
 
                     </div>
@@ -272,6 +277,7 @@
             </p>
 
             <form method="POST" action="/recuperar">
+                {{ csrf_input() }}
 
                 <input
                     type="email"
@@ -311,6 +317,7 @@
             </p>
 
             <form method="POST" action="/register">
+                {{ csrf_input() }}
 
                 <input
                     type="text"
@@ -324,11 +331,24 @@
                     placeholder="Correo electrónico"
                     required>
 
-                <input
-                    type="password"
-                    name="password"
-                    placeholder="Contraseña"
-                    required>
+                <div class="input-box modal-password-box">
+                    <i class="fa-solid fa-lock"></i>
+                    <input
+                        type="password"
+                        id="register-password"
+                        name="password"
+                        placeholder="Contraseña"
+                        minlength="8"
+                        required>
+                    <i
+                        class="fa-regular fa-eye eye toggle-pass"
+                        data-target="register-password"
+                        role="button"
+                        tabindex="0"
+                        aria-label="Mostrar contraseña"
+                        aria-controls="register-password">
+                    </i>
+                </div>
 
                 <button type="submit">
                     Registrarse

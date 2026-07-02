@@ -10,6 +10,10 @@ import re
 import secrets
 import time
 import html
+import smtplib
+import ssl
+import hashlib
+from email.message import EmailMessage
 from dotenv import load_dotenv
 from markupsafe import Markup
 import cloudinary
@@ -85,6 +89,28 @@ LOGIN_LOCK_SECONDS = int(os.getenv("LOGIN_LOCK_SECONDS", "900"))
 ROLES_CREABLES_DESDE_PANEL = {"USUARIO", "TRABAJADOR"}
 
 
+# ================= CONFIGURACIÓN DE CORREOS =================
+# Por decisión del proyecto, VINOVA conserva la estructura de correos,
+# pero por defecto trabaja en modo simulado para no depender de Gmail,
+# Outlook u otro proveedor SMTP durante el desarrollo y la exposición.
+#
+# EMAIL_MODE=simulado  -> no envía correos reales; imprime el correo en consola.
+# EMAIL_MODE=smtp      -> intenta enviar correos reales usando SMTP.
+
+EMAIL_MODE = os.getenv("EMAIL_MODE", "simulado").strip().lower() or "simulado"
+SMTP_HOST = os.getenv("SMTP_HOST", "").strip()
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587") or 587)
+SMTP_USER = os.getenv("SMTP_USER", "").strip()
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "").strip()
+SMTP_FROM_EMAIL = os.getenv("SMTP_FROM_EMAIL", SMTP_USER or "noreply@vinova.local").strip()
+SMTP_FROM_NAME = os.getenv("SMTP_FROM_NAME", "VINOVA").strip()
+SMTP_USE_TLS = os.getenv("SMTP_USE_TLS", "1") == "1"
+SMTP_USE_SSL = os.getenv("SMTP_USE_SSL", "0") == "1"
+CONTACT_EMAIL = os.getenv("CONTACT_EMAIL", SMTP_FROM_EMAIL).strip()
+APP_BASE_URL = os.getenv("APP_BASE_URL", "").strip().rstrip("/")
+PASSWORD_RESET_MINUTES = int(os.getenv("PASSWORD_RESET_MINUTES", "30") or 30)
+
+
 # ================= CONFIGURACIÓN DE CLOUDINARY =================
 
 cloudinary.config(
@@ -101,6 +127,165 @@ def conectar_db():
     conexion = sqlite3.connect("vinova.db")
     conexion.row_factory = sqlite3.Row
     return conexion
+
+
+def correo_en_modo_simulado():
+    return EMAIL_MODE != "smtp"
+
+
+def smtp_configurado():
+    return bool(SMTP_HOST and SMTP_FROM_EMAIL and (SMTP_PASSWORD or not SMTP_USER))
+
+
+def construir_url_absoluta(endpoint, **valores):
+    """Crea enlaces absolutos para correos aunque se ejecute en local."""
+
+    if APP_BASE_URL:
+        return f"{APP_BASE_URL}{url_for(endpoint, **valores)}"
+
+    try:
+        return url_for(endpoint, _external=True, **valores)
+    except RuntimeError:
+        return url_for(endpoint, **valores)
+
+
+def enviar_correo(destinatario, asunto, texto, html_contenido=None, reply_to=None):
+    """Gestiona correos de VINOVA.
+
+    En modo simulado no conecta con proveedores externos. Solo imprime el
+    contenido en consola para mantener la estructura del sistema sin depender
+    de credenciales SMTP reales.
+    """
+
+    destinatario = str(destinatario or "").strip()
+
+    if not destinatario or "@" not in destinatario:
+        return False
+
+    if correo_en_modo_simulado():
+        print("\n================= CORREO VINOVA SIMULADO =================")
+        print(f"Para: {destinatario}")
+        print(f"Asunto: {asunto}")
+        if reply_to:
+            print(f"Responder a: {reply_to}")
+        print("-----------------------------------------------------------")
+        print(texto or "")
+        print("===========================================================\n")
+        return True
+
+    if not smtp_configurado():
+        print("Correo no enviado: falta configuración SMTP.")
+        print(f"Para: {destinatario} | Asunto: {asunto}")
+        return False
+
+    mensaje = EmailMessage()
+    mensaje["Subject"] = asunto
+    mensaje["From"] = f"{SMTP_FROM_NAME} <{SMTP_FROM_EMAIL}>"
+    mensaje["To"] = destinatario
+
+    if reply_to:
+        mensaje["Reply-To"] = reply_to
+
+    mensaje.set_content(texto or "")
+
+    if html_contenido:
+        mensaje.add_alternative(html_contenido, subtype="html")
+
+    try:
+        if SMTP_USE_SSL:
+            contexto = ssl.create_default_context()
+
+            with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, context=contexto, timeout=20) as servidor:
+                if SMTP_USER:
+                    servidor.login(SMTP_USER, SMTP_PASSWORD)
+
+                servidor.send_message(mensaje)
+        else:
+            with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=20) as servidor:
+                if SMTP_USE_TLS:
+                    servidor.starttls(context=ssl.create_default_context())
+
+                if SMTP_USER:
+                    servidor.login(SMTP_USER, SMTP_PASSWORD)
+
+                servidor.send_message(mensaje)
+
+        return True
+
+    except Exception as error:
+        print("Error al enviar correo:", error)
+        return False
+
+
+def plantilla_correo(titulo, contenido_html, texto_boton=None, url_boton=None):
+    boton = ""
+
+    if texto_boton and url_boton:
+        boton = (
+            '<p style="margin:28px 0;">'
+            f'<a href="{html.escape(url_boton, quote=True)}" '
+            'style="background:#2563eb;color:#ffffff;text-decoration:none;padding:12px 18px;border-radius:10px;font-weight:700;display:inline-block;">'
+            f'{html.escape(texto_boton)}'
+            '</a></p>'
+        )
+
+    return (
+        '<div style="margin:0;padding:0;background:#f4f7fb;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">'
+        '<div style="max-width:640px;margin:0 auto;padding:28px 16px;">'
+        '<div style="background:#040b17;color:#ffffff;border-radius:18px 18px 0 0;padding:24px 28px;">'
+        '<h1 style="margin:0;font-size:26px;letter-spacing:.04em;">VINOVA</h1>'
+        '<p style="margin:6px 0 0;color:#bfdbfe;">Plataforma automotriz comercial</p>'
+        '</div>'
+        '<div style="background:#ffffff;border:1px solid #e5e7eb;border-top:0;border-radius:0 0 18px 18px;padding:28px;">'
+        f'<h2 style="margin:0 0 14px;color:#0f172a;font-size:22px;">{html.escape(titulo)}</h2>'
+        '<div style="font-size:15px;line-height:1.65;color:#334155;">'
+        f'{contenido_html}'
+        '</div>'
+        f'{boton}'
+        '<p style="margin:30px 0 0;color:#64748b;font-size:12px;line-height:1.5;">'
+        'Este mensaje fue generado automáticamente por VINOVA. Si no reconoces esta actividad, contacta con administración.'
+        '</p></div></div></div>'
+    )
+
+
+def usuario_permite_correo(fila_usuario, categoria="general"):
+    if not fila_usuario:
+        return False
+
+    def valor_columna(nombre, defecto=1):
+        try:
+            if nombre in fila_usuario.keys():
+                valor = fila_usuario[nombre]
+                return defecto if valor is None else int(valor)
+        except Exception:
+            pass
+
+        return defecto
+
+    if valor_columna("notificar_correo", 1) != 1:
+        return False
+
+    if categoria == "mantenimiento":
+        return valor_columna("notificar_mantenimientos", 1) == 1
+
+    if categoria == "alerta":
+        return valor_columna("notificar_alertas", 1) == 1
+
+    if categoria == "factura":
+        return valor_columna("notificar_facturas", 1) == 1
+
+    return True
+
+
+def enviar_correo_usuario(fila_usuario, categoria, asunto, texto, html_contenido):
+    if not fila_usuario or not usuario_permite_correo(fila_usuario, categoria):
+        return False
+
+    return enviar_correo(fila_usuario["correo"], asunto, texto, html_contenido)
+
+
+def generar_hash_token(token):
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
 def extension_permitida(nombre_archivo, extensiones):
@@ -1267,7 +1452,14 @@ def asegurar_migraciones_admin():
             "creado_en": "TEXT",
             "actualizado_en": "TEXT",
             "establecimiento": "TEXT",
-            "cedula": "TEXT"
+            "cedula": "TEXT",
+            "reset_token_hash": "TEXT",
+            "reset_token_expira": "TEXT",
+            "notificar_correo": "INTEGER DEFAULT 1",
+            "notificar_mantenimientos": "INTEGER DEFAULT 1",
+            "notificar_alertas": "INTEGER DEFAULT 1",
+            "notificar_facturas": "INTEGER DEFAULT 1",
+            "notificar_recordatorios": "INTEGER DEFAULT 0"
         }
 
         for columna, definicion in columnas_usuarios.items():
@@ -1282,6 +1474,21 @@ def asegurar_migraciones_admin():
             """,
             "índice único de correo de usuario"
         )
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS mensajes_contacto (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nombre TEXT NOT NULL,
+            correo TEXT NOT NULL,
+            telefono TEXT,
+            asunto TEXT,
+            mensaje TEXT NOT NULL,
+            ip TEXT,
+            user_agent TEXT,
+            estado TEXT DEFAULT 'Nuevo',
+            creado_en TEXT
+        )
+    """)
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS canjes_reversados (
@@ -2612,6 +2819,33 @@ def trabajador_crear_usuario():
         ))
 
         conexion.commit()
+
+        usuario_correo = {
+            "nombre": nombre,
+            "correo": correo,
+            "notificar_correo": 1,
+            "notificar_mantenimientos": 1,
+            "notificar_alertas": 1,
+            "notificar_facturas": 1
+        }
+        contenido_html = plantilla_correo(
+            "Cuenta de cliente creada",
+            f"""
+            <p>Hola <strong>{html.escape(nombre)}</strong>,</p>
+            <p>El equipo de VINOVA creó una cuenta de cliente para ti.</p>
+            <p>Por seguridad, la contraseña temporal debe ser entregada por el asesor que registró la cuenta.</p>
+            """,
+            "Ir a VINOVA",
+            construir_url_absoluta("login")
+        )
+        enviar_correo_usuario(
+            usuario_correo,
+            "general",
+            "VINOVA | Cuenta de cliente creada",
+            "Tu cuenta de cliente VINOVA fue creada correctamente.",
+            contenido_html
+        )
+
         flash("Cliente creado correctamente.", "success")
 
     except sqlite3.IntegrityError:
@@ -2717,6 +2951,98 @@ def inicio():
     return render_template("index.html")
 
 
+@app.route("/contacto", methods=["POST"])
+def contacto():
+
+    asegurar_migraciones_admin()
+
+    nombre = request.form.get("nombre", "").strip()
+    correo = request.form.get("correo", "").strip().lower()
+    telefono = request.form.get("telefono", "").strip()
+    asunto = request.form.get("asunto", "").strip() or "Solicitud desde formulario de contacto"
+    mensaje = request.form.get("mensaje", "").strip()
+
+    destino = request.referrer or url_for("inicio") + "#contacto"
+
+    if not nombre or not correo or not mensaje:
+        flash("Completa nombre, correo y mensaje para enviar la solicitud.", "warning")
+        return redirect(destino)
+
+    if "@" not in correo:
+        flash("Ingresa un correo válido para que podamos responderte.", "warning")
+        return redirect(destino)
+
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    try:
+        cursor.execute("""
+            INSERT INTO mensajes_contacto (
+                nombre, correo, telefono, asunto, mensaje, ip, user_agent, estado, creado_en
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'Nuevo', ?)
+        """, (
+            nombre,
+            correo,
+            telefono,
+            asunto,
+            mensaje,
+            obtener_ip_cliente(),
+            request.headers.get("User-Agent", ""),
+            fecha_actual()
+        ))
+        conexion.commit()
+
+        mensaje_html = html.escape(mensaje).replace(chr(10), '<br>')
+        texto_admin = (
+            "Nueva solicitud de contacto en VINOVA\n\n"
+            f"Nombre: {nombre}\n"
+            f"Correo: {correo}\n"
+            f"Teléfono: {telefono or 'N/D'}\n"
+            f"Asunto: {asunto}\n\n"
+            f"Mensaje:\n{mensaje}"
+        )
+        html_admin = plantilla_correo(
+            "Nueva solicitud de contacto",
+            f"""
+            <p><strong>Nombre:</strong> {html.escape(nombre)}</p>
+            <p><strong>Correo:</strong> {html.escape(correo)}</p>
+            <p><strong>Teléfono:</strong> {html.escape(telefono or 'N/D')}</p>
+            <p><strong>Asunto:</strong> {html.escape(asunto)}</p>
+            <p><strong>Mensaje:</strong></p>
+            <p>{mensaje_html}</p>
+            """
+        )
+        enviar_correo(CONTACT_EMAIL, f"VINOVA | Contacto: {asunto}", texto_admin, html_admin, reply_to=correo)
+
+        texto_cliente = (
+            f"Hola {nombre},\n\n"
+            "Recibimos tu solicitud de contacto en VINOVA. Nuestro equipo revisará el mensaje y responderá lo antes posible.\n\n"
+            f"Asunto: {asunto}\n"
+        )
+        html_cliente = plantilla_correo(
+            "Solicitud recibida",
+            f"""
+            <p>Hola <strong>{html.escape(nombre)}</strong>,</p>
+            <p>Recibimos tu solicitud de contacto en VINOVA. Nuestro equipo revisará el mensaje y responderá lo antes posible.</p>
+            <p><strong>Asunto:</strong> {html.escape(asunto)}</p>
+            """
+        )
+        enviar_correo(correo, "VINOVA | Hemos recibido tu mensaje", texto_cliente, html_cliente)
+
+        flash("Mensaje registrado correctamente. La estructura de correo quedó preparada para envío real cuando se configure SMTP.", "success")
+
+    except Exception as error:
+        conexion.rollback()
+        print("Error al guardar/enviar contacto:", error)
+        flash("No se pudo enviar el mensaje de contacto. Intenta nuevamente.", "error")
+
+    finally:
+        conexion.close()
+
+    return redirect(url_for("inicio") + "#contacto")
+
+
 # ================= LOGIN =================
 
 @app.route("/login", methods=["GET", "POST"])
@@ -2780,14 +3106,179 @@ def login():
 @app.route("/recuperar", methods=["POST"])
 def recuperar_password():
 
-    correo = request.form.get("email", "").strip().lower()
+    correo = (
+        request.form.get("correo", "")
+        or request.form.get("email", "")
+    ).strip().lower()
 
-    if correo:
-        flash("Solicitud recibida. La recuperación de contraseña estará disponible próximamente.", "info")
-    else:
+    if not correo or "@" not in correo:
         flash("Ingresa un correo válido para solicitar recuperación de contraseña.", "warning")
+        return redirect(url_for("login"))
 
+    asegurar_migraciones_admin()
+
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT id, nombre, correo, activo
+            FROM usuarios
+            WHERE correo = ?
+            LIMIT 1
+        """, (correo,))
+        usuario = cursor.fetchone()
+
+        if usuario and usuario["activo"] == 1:
+            token = secrets.token_urlsafe(40)
+            token_hash = generar_hash_token(token)
+            expira = (datetime.now() + timedelta(minutes=PASSWORD_RESET_MINUTES)).strftime("%Y-%m-%d %H:%M:%S")
+
+            cursor.execute("""
+                UPDATE usuarios
+                SET reset_token_hash = ?,
+                    reset_token_expira = ?,
+                    actualizado_en = ?
+                WHERE id = ?
+            """, (
+                token_hash,
+                expira,
+                fecha_actual(),
+                usuario["id"]
+            ))
+            conexion.commit()
+
+            enlace = construir_url_absoluta("restablecer_password", token=token)
+            texto = (
+                f"Hola {usuario['nombre']},\n\n"
+                f"Solicitamos el restablecimiento de contraseña de tu cuenta VINOVA. "
+                f"Abre este enlace antes de {PASSWORD_RESET_MINUTES} minutos:\n{enlace}\n\n"
+                "Si no solicitaste este cambio, ignora este mensaje."
+            )
+            contenido_html = plantilla_correo(
+                "Recuperación de contraseña",
+                f"""
+                <p>Hola <strong>{html.escape(usuario['nombre'])}</strong>,</p>
+                <p>Recibimos una solicitud para restablecer la contraseña de tu cuenta VINOVA.</p>
+                <p>El enlace estará disponible durante <strong>{PASSWORD_RESET_MINUTES} minutos</strong>.</p>
+                <p>Si no solicitaste este cambio, puedes ignorar este mensaje.</p>
+                """,
+                "Restablecer contraseña",
+                enlace
+            )
+            enviar_correo(usuario["correo"], "VINOVA | Recuperación de contraseña", texto, contenido_html)
+        else:
+            conexion.rollback()
+
+    except Exception as error:
+        conexion.rollback()
+        print("Error al procesar recuperación de contraseña:", error)
+
+    finally:
+        conexion.close()
+
+    flash("Si el correo pertenece a una cuenta activa, se generó la solicitud de recuperación. En modo simulado, revisa la consola para ver el enlace.", "info")
     return redirect(url_for("login"))
+
+
+@app.route("/restablecer/<token>", methods=["GET", "POST"])
+def restablecer_password(token):
+
+    token = str(token or "").strip()
+
+    if not token:
+        flash("Enlace de recuperación inválido.", "warning")
+        return redirect(url_for("login"))
+
+    asegurar_migraciones_admin()
+
+    token_hash = generar_hash_token(token)
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    cursor.execute("""
+        SELECT id, nombre, correo, reset_token_expira, activo
+        FROM usuarios
+        WHERE reset_token_hash = ?
+        LIMIT 1
+    """, (token_hash,))
+    usuario = cursor.fetchone()
+
+    if not usuario or usuario["activo"] != 1:
+        conexion.close()
+        flash("El enlace de recuperación no es válido o ya fue utilizado.", "warning")
+        return redirect(url_for("login"))
+
+    try:
+        expira = datetime.strptime(str(usuario["reset_token_expira"]), "%Y-%m-%d %H:%M:%S")
+    except Exception:
+        expira = datetime.min
+
+    if expira < datetime.now():
+        cursor.execute("""
+            UPDATE usuarios
+            SET reset_token_hash = NULL,
+                reset_token_expira = NULL
+            WHERE id = ?
+        """, (usuario["id"],))
+        conexion.commit()
+        conexion.close()
+        flash("El enlace de recuperación expiró. Solicita uno nuevo.", "warning")
+        return redirect(url_for("login"))
+
+    if request.method == "GET":
+        conexion.close()
+        return render_template("reset_password.html", token=token, usuario=usuario)
+
+    nueva_password = request.form.get("password", "")
+    confirmar_password = request.form.get("confirmar_password", "")
+
+    if len(nueva_password) < 8:
+        conexion.close()
+        flash("La nueva contraseña debe tener al menos 8 caracteres.", "warning")
+        return redirect(url_for("restablecer_password", token=token))
+
+    if nueva_password != confirmar_password:
+        conexion.close()
+        flash("Las contraseñas no coinciden.", "warning")
+        return redirect(url_for("restablecer_password", token=token))
+
+    try:
+        cursor.execute("""
+            UPDATE usuarios
+            SET password = ?,
+                reset_token_hash = NULL,
+                reset_token_expira = NULL,
+                actualizado_en = ?
+            WHERE id = ?
+        """, (
+            generate_password_hash(nueva_password),
+            fecha_actual(),
+            usuario["id"]
+        ))
+        conexion.commit()
+
+        contenido_html = plantilla_correo(
+            "Contraseña actualizada",
+            f"""
+            <p>Hola <strong>{html.escape(usuario['nombre'])}</strong>,</p>
+            <p>La contraseña de tu cuenta VINOVA fue actualizada correctamente.</p>
+            <p>Si no realizaste este cambio, comunícate con administración inmediatamente.</p>
+            """
+        )
+        enviar_correo(usuario["correo"], "VINOVA | Contraseña actualizada", "Tu contraseña de VINOVA fue actualizada correctamente.", contenido_html)
+
+        flash("Contraseña actualizada correctamente. Ya puedes iniciar sesión.", "success")
+        return redirect(url_for("login"))
+
+    except Exception as error:
+        conexion.rollback()
+        print("Error al restablecer contraseña:", error)
+        flash("No se pudo actualizar la contraseña. Intenta nuevamente.", "error")
+        return redirect(url_for("restablecer_password", token=token))
+
+    finally:
+        conexion.close()
 
 
 # ================= REGISTRO =================
@@ -2845,6 +3336,32 @@ def register():
         ))
 
         conexion.commit()
+
+        usuario_correo = {
+            "nombre": nombre,
+            "correo": correo,
+            "notificar_correo": 1,
+            "notificar_mantenimientos": 1,
+            "notificar_alertas": 1,
+            "notificar_facturas": 1
+        }
+        contenido_html = plantilla_correo(
+            "Cuenta creada correctamente",
+            f"""
+            <p>Hola <strong>{html.escape(nombre)}</strong>,</p>
+            <p>Tu cuenta en VINOVA fue creada correctamente. Ya puedes iniciar sesión y registrar vehículos mediante códigos de activación.</p>
+            """,
+            "Iniciar sesión",
+            construir_url_absoluta("login")
+        )
+        enviar_correo_usuario(
+            usuario_correo,
+            "general",
+            "VINOVA | Cuenta creada",
+            "Tu cuenta en VINOVA fue creada correctamente.",
+            contenido_html
+        )
+
         flash("Cuenta creada correctamente.", "success")
 
     except Exception as error:
@@ -3098,6 +3615,18 @@ def perfil():
         factura["monto"] = normalizar_precio(factura.get("total")) or normalizar_precio(factura.get("monto")) or 0
         facturas_usuario.append(factura)
 
+    cursor.execute("""
+        SELECT
+            COALESCE(notificar_correo, 1) AS notificar_correo,
+            COALESCE(notificar_mantenimientos, 1) AS notificar_mantenimientos,
+            COALESCE(notificar_alertas, 1) AS notificar_alertas,
+            COALESCE(notificar_facturas, 1) AS notificar_facturas,
+            COALESCE(notificar_recordatorios, 0) AS notificar_recordatorios
+        FROM usuarios
+        WHERE id = ?
+    """, (session["usuario_id"],))
+    preferencias_notificacion = dict(cursor.fetchone() or {})
+
     conexion.close()
 
     ultimo_mantenimiento = historial_mantenimientos[0] if historial_mantenimientos else None
@@ -3116,8 +3645,57 @@ def perfil():
         proximo_mantenimiento=proximo_mantenimiento,
         total_alertas_mantenimiento=total_alertas,
         manuales_usuario=manuales_usuario,
-        facturas_usuario=facturas_usuario
+        facturas_usuario=facturas_usuario,
+        preferencias_notificacion=preferencias_notificacion
     )
+
+
+@app.route("/perfil/notificaciones", methods=["POST"])
+@login_required
+def actualizar_preferencias_notificacion():
+
+    asegurar_migraciones_admin()
+
+    notificar_correo = 1 if request.form.get("notificar_correo") == "1" else 0
+    notificar_mantenimientos = 1 if request.form.get("notificar_mantenimientos") == "1" else 0
+    notificar_alertas = 1 if request.form.get("notificar_alertas") == "1" else 0
+    notificar_facturas = 1 if request.form.get("notificar_facturas") == "1" else 0
+    notificar_recordatorios = 1 if request.form.get("notificar_recordatorios") == "1" else 0
+
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    try:
+        cursor.execute("""
+            UPDATE usuarios
+            SET notificar_correo = ?,
+                notificar_mantenimientos = ?,
+                notificar_alertas = ?,
+                notificar_facturas = ?,
+                notificar_recordatorios = ?,
+                actualizado_en = ?
+            WHERE id = ?
+        """, (
+            notificar_correo,
+            notificar_mantenimientos,
+            notificar_alertas,
+            notificar_facturas,
+            notificar_recordatorios,
+            fecha_actual(),
+            session["usuario_id"]
+        ))
+        conexion.commit()
+        flash("Preferencias de notificación actualizadas correctamente.", "success")
+
+    except Exception as error:
+        conexion.rollback()
+        print("Error al actualizar preferencias de notificación:", error)
+        flash("No se pudieron guardar las preferencias de notificación.", "error")
+
+    finally:
+        conexion.close()
+
+    return redirect("/perfil#seccion-notificaciones")
 
 
 @app.route("/perfil/mantenimiento/registrar", methods=["POST"])
@@ -3310,6 +3888,10 @@ def registrar_mantenimiento_empresarial():
                 usuarios.nombre AS usuario_nombre,
                 usuarios.correo AS usuario_correo,
                 usuarios.cedula AS usuario_cedula,
+                COALESCE(usuarios.notificar_correo, 1) AS notificar_correo,
+                COALESCE(usuarios.notificar_mantenimientos, 1) AS notificar_mantenimientos,
+                COALESCE(usuarios.notificar_alertas, 1) AS notificar_alertas,
+                COALESCE(usuarios.notificar_facturas, 1) AS notificar_facturas,
                 vehiculos.codigo_catalogo,
                 vehiculos.marca,
                 vehiculos.modelo,
@@ -3454,6 +4036,44 @@ def registrar_mantenimiento_empresarial():
             raise RuntimeError("No se pudo crear la factura del mantenimiento.")
 
         conexion.commit()
+
+        usuario_correo = {
+            "nombre": registro["usuario_nombre"],
+            "correo": registro["usuario_correo"],
+            "notificar_correo": registro["notificar_correo"],
+            "notificar_mantenimientos": registro["notificar_mantenimientos"],
+            "notificar_alertas": registro["notificar_alertas"],
+            "notificar_facturas": registro["notificar_facturas"]
+        }
+        vehiculo_texto = f"{registro['marca']} {registro['modelo']} {registro['anio']}"
+        proxima_fecha_visible = formatear_fecha_visible(calculo["proxima_fecha"]) if calculo.get("proxima_fecha") else "N/D"
+        proximo_km_visible = (f"{calculo['proximo_kilometraje']:,} km".replace(",", ".") if calculo.get("proximo_kilometraje") is not None else "N/D")
+        km_actual_visible = f"{kilometraje_actual:,} km".replace(",", ".")
+        contenido_html = plantilla_correo(
+            "Mantenimiento registrado",
+            f"""
+            <p>Hola <strong>{html.escape(registro['usuario_nombre'])}</strong>,</p>
+            <p>VINOVA registró un mantenimiento para tu vehículo <strong>{html.escape(vehiculo_texto)}</strong>.</p>
+            <ul>
+                <li><strong>Servicio:</strong> {html.escape(tipo_servicio)}</li>
+                <li><strong>Fecha:</strong> {html.escape(formatear_fecha_visible(fecha_servicio))}</li>
+                <li><strong>Kilometraje:</strong> {html.escape(km_actual_visible)}</li>
+                <li><strong>Próxima fecha sugerida:</strong> {html.escape(proxima_fecha_visible)}</li>
+                <li><strong>Próximo kilometraje sugerido:</strong> {html.escape(proximo_km_visible)}</li>
+            </ul>
+            <p>La factura generada ya está disponible en tu perfil.</p>
+            """,
+            "Ver mi perfil",
+            construir_url_absoluta("perfil")
+        )
+        enviar_correo_usuario(
+            usuario_correo,
+            "mantenimiento",
+            "VINOVA | Mantenimiento registrado",
+            f"VINOVA registró un mantenimiento para tu vehículo {vehiculo_texto}.",
+            contenido_html
+        )
+
         flash("Mantenimiento registrado correctamente. La factura ya está visible en el perfil del cliente.", "success")
 
     except Exception as error:
@@ -3573,13 +4193,22 @@ def canjear_codigo_vehiculo():
                 vehiculos.kilometraje,
                 vehiculos.estado AS estado_vehiculo,
                 vehiculos.activo AS vehiculo_activo,
-                COALESCE(vehiculos.archivado, 0) AS vehiculo_archivado
+                COALESCE(vehiculos.archivado, 0) AS vehiculo_archivado,
+                usuarios.nombre AS usuario_nombre,
+                usuarios.correo AS usuario_correo,
+                COALESCE(usuarios.notificar_correo, 1) AS notificar_correo,
+                COALESCE(usuarios.notificar_mantenimientos, 1) AS notificar_mantenimientos,
+                COALESCE(usuarios.notificar_alertas, 1) AS notificar_alertas,
+                COALESCE(usuarios.notificar_facturas, 1) AS notificar_facturas
             FROM codigos_vehiculo
             INNER JOIN vehiculos
                 ON vehiculos.id = codigos_vehiculo.vehiculo_id
+            INNER JOIN usuarios
+                ON usuarios.id = ?
             WHERE codigos_vehiculo.codigo = ?
             LIMIT 1
         """, (
+            session["usuario_id"],
             codigo_ingresado,
         ))
 
@@ -3672,6 +4301,33 @@ def canjear_codigo_vehiculo():
         ))
 
         conexion.commit()
+
+        usuario_correo = {
+            "nombre": codigo["usuario_nombre"],
+            "correo": codigo["usuario_correo"],
+            "notificar_correo": codigo["notificar_correo"],
+            "notificar_mantenimientos": codigo["notificar_mantenimientos"],
+            "notificar_alertas": codigo["notificar_alertas"],
+            "notificar_facturas": codigo["notificar_facturas"]
+        }
+        vehiculo_texto = f"{codigo['marca']} {codigo['modelo']} {codigo['anio']}"
+        contenido_html = plantilla_correo(
+            "Vehículo registrado en tu perfil",
+            f"""
+            <p>Hola <strong>{html.escape(codigo['usuario_nombre'])}</strong>,</p>
+            <p>El vehículo <strong>{html.escape(vehiculo_texto)}</strong> fue registrado correctamente en tu perfil VINOVA.</p>
+            <p>Desde tu panel podrás consultar historial de servicios, próximos mantenimientos, manuales y facturas asociadas.</p>
+            """,
+            "Ir a mi perfil",
+            construir_url_absoluta("perfil")
+        )
+        enviar_correo_usuario(
+            usuario_correo,
+            "general",
+            "VINOVA | Vehículo registrado",
+            f"El vehículo {vehiculo_texto} fue registrado correctamente en tu perfil VINOVA.",
+            contenido_html
+        )
 
         flash(
             f"Vehículo registrado correctamente: "
@@ -5378,6 +6034,32 @@ def admin_crear_usuario():
 
         conexion.commit()
 
+        usuario_correo = {
+            "nombre": nombre,
+            "correo": correo,
+            "notificar_correo": 1,
+            "notificar_mantenimientos": 1,
+            "notificar_alertas": 1,
+            "notificar_facturas": 1
+        }
+        contenido_html = plantilla_correo(
+            "Cuenta creada por administración",
+            f"""
+            <p>Hola <strong>{html.escape(nombre)}</strong>,</p>
+            <p>Administración creó una cuenta VINOVA con rol <strong>{html.escape(rol)}</strong>.</p>
+            <p>Por seguridad, la contraseña temporal debe ser entregada por el responsable que creó la cuenta.</p>
+            """,
+            "Iniciar sesión",
+            construir_url_absoluta("login")
+        )
+        enviar_correo_usuario(
+            usuario_correo,
+            "general",
+            "VINOVA | Cuenta creada",
+            "Administración creó una cuenta VINOVA para ti.",
+            contenido_html
+        )
+
         if rol == "USUARIO":
             flash("Usuario creado correctamente.", "success")
             return redirigir_admin("usuarios")
@@ -5696,6 +6378,10 @@ def guardar_factura_vehiculo():
                 usuarios.nombre AS usuario_nombre,
                 usuarios.correo AS usuario_correo,
                 usuarios.cedula AS usuario_cedula,
+                COALESCE(usuarios.notificar_correo, 1) AS notificar_correo,
+                COALESCE(usuarios.notificar_mantenimientos, 1) AS notificar_mantenimientos,
+                COALESCE(usuarios.notificar_alertas, 1) AS notificar_alertas,
+                COALESCE(usuarios.notificar_facturas, 1) AS notificar_facturas,
                 vehiculos.codigo_catalogo,
                 vehiculos.marca,
                 vehiculos.modelo,
@@ -5756,6 +6442,41 @@ def guardar_factura_vehiculo():
         )
 
         conexion.commit()
+
+        usuario_correo = {
+            "nombre": registro["usuario_nombre"],
+            "correo": registro["usuario_correo"],
+            "notificar_correo": registro["notificar_correo"],
+            "notificar_mantenimientos": registro["notificar_mantenimientos"],
+            "notificar_alertas": registro["notificar_alertas"],
+            "notificar_facturas": registro["notificar_facturas"]
+        }
+        vehiculo_texto = f"{registro['marca']} {registro['modelo']} {registro['anio']}"
+        total_estimado = max(0, subtotal + impuesto - descuento)
+        contenido_html = plantilla_correo(
+            "Factura disponible",
+            f"""
+            <p>Hola <strong>{html.escape(registro['usuario_nombre'])}</strong>,</p>
+            <p>VINOVA generó una factura asociada a tu vehículo <strong>{html.escape(vehiculo_texto)}</strong>.</p>
+            <ul>
+                <li><strong>Tipo:</strong> {html.escape(tipo_factura)}</li>
+                <li><strong>Concepto:</strong> {html.escape(concepto)}</li>
+                <li><strong>Fecha:</strong> {html.escape(formatear_fecha_visible(fecha_factura))}</li>
+                <li><strong>Total:</strong> ${total_estimado:,.2f}</li>
+            </ul>
+            <p>Puedes revisar el documento desde la sección Facturas de tu perfil.</p>
+            """,
+            "Ver facturas",
+            construir_url_absoluta("perfil") + "#seccion-facturas"
+        )
+        enviar_correo_usuario(
+            usuario_correo,
+            "factura",
+            "VINOVA | Factura disponible",
+            f"VINOVA generó una factura para tu vehículo {vehiculo_texto}.",
+            contenido_html
+        )
+
         flash("Factura PDF generada correctamente y visible en el perfil del cliente.", "success")
 
     except Exception as error:

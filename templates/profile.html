@@ -833,41 +833,83 @@
 
                 <section class="settings-panel">
 
-                    <label class="profile-toggle-row">
-                        <span>
-                            <i class="fa-solid fa-bell"></i>
-                            Notificaciones de mantenimiento
-                        </span>
+                    {% set prefs = preferencias_notificacion|default({}) %}
 
-                        <input type="checkbox" checked>
-                    </label>
+                    <form action="{{ url_for('actualizar_preferencias_notificacion') }}" method="POST" class="notification-settings-form">
 
-                    <label class="profile-toggle-row">
-                        <span>
-                            <i class="fa-solid fa-envelope"></i>
-                            Alertas por correo
-                        </span>
+                        <label class="profile-toggle-row">
+                            <span>
+                                <i class="fa-solid fa-envelope"></i>
+                                Alertas por correo
+                            </span>
 
-                        <input type="checkbox" checked>
-                    </label>
+                            <input
+                                type="checkbox"
+                                name="notificar_correo"
+                                value="1"
+                                {% if prefs.get('notificar_correo', 1)|int == 1 %}checked{% endif %}>
+                        </label>
 
-                    <label class="profile-toggle-row">
-                        <span>
-                            <i class="fa-solid fa-triangle-exclamation"></i>
-                            Alertas importantes del vehículo
-                        </span>
+                        <label class="profile-toggle-row">
+                            <span>
+                                <i class="fa-solid fa-bell"></i>
+                                Notificaciones de mantenimiento
+                            </span>
 
-                        <input type="checkbox" checked>
-                    </label>
+                            <input
+                                type="checkbox"
+                                name="notificar_mantenimientos"
+                                value="1"
+                                {% if prefs.get('notificar_mantenimientos', 1)|int == 1 %}checked{% endif %}>
+                        </label>
 
-                    <label class="profile-toggle-row">
-                        <span>
-                            <i class="fa-solid fa-calendar-days"></i>
-                            Recordatorios mensuales
-                        </span>
+                        <label class="profile-toggle-row">
+                            <span>
+                                <i class="fa-solid fa-file-invoice"></i>
+                                Facturas emitidas
+                            </span>
 
-                        <input type="checkbox">
-                    </label>
+                            <input
+                                type="checkbox"
+                                name="notificar_facturas"
+                                value="1"
+                                {% if prefs.get('notificar_facturas', 1)|int == 1 %}checked{% endif %}>
+                        </label>
+
+                        <label class="profile-toggle-row">
+                            <span>
+                                <i class="fa-solid fa-triangle-exclamation"></i>
+                                Alertas importantes del vehículo
+                            </span>
+
+                            <input
+                                type="checkbox"
+                                name="notificar_alertas"
+                                value="1"
+                                {% if prefs.get('notificar_alertas', 1)|int == 1 %}checked{% endif %}>
+                        </label>
+
+                        <label class="profile-toggle-row">
+                            <span>
+                                <i class="fa-solid fa-calendar-days"></i>
+                                Recordatorios mensuales
+                            </span>
+
+                            <input
+                                type="checkbox"
+                                name="notificar_recordatorios"
+                                value="1"
+                                {% if prefs.get('notificar_recordatorios', 0)|int == 1 %}checked{% endif %}>
+                        </label>
+
+                        <div class="form-actions">
+                            <button type="submit" class="profile-save-btn">
+                                <i class="fa-solid fa-floppy-disk"></i>
+                                Guardar preferencias
+                            </button>
+                        </div>
+
+                    </form>
 
                 </section>
 
