@@ -1811,6 +1811,19 @@ def reactivar_codigo_vehiculo_seguro(cursor, codigo_id):
     return codigo, None
 
 
+def desactivar_codigos_pendientes_vehiculo(cursor, vehiculo_id):
+    """Desactiva códigos no usados cuando una unidad sale de la operación visible."""
+
+    cursor.execute("""
+        UPDATE codigos_vehiculo
+        SET activo = 0
+        WHERE vehiculo_id = ?
+          AND usado = 0
+    """, (
+        vehiculo_id,
+    ))
+
+
 def generar_codigo_canje():
     """
     Genera un código privado de canje para entregar al comprador.
@@ -2482,8 +2495,10 @@ def trabajador_archivar_vehiculo(vehiculo_id):
             vehiculo_id
         ))
 
+        desactivar_codigos_pendientes_vehiculo(cursor, vehiculo_id)
+
         conexion.commit()
-        flash("Vehículo archivado correctamente. Administración podrá verlo en Archivados.", "success")
+        flash("Vehículo archivado correctamente. Sus códigos pendientes quedaron desactivados.", "success")
 
     except Exception as error:
         conexion.rollback()
@@ -2559,6 +2574,20 @@ def trabajador_crear_usuario():
     cursor = conexion.cursor()
 
     try:
+        if cedula:
+            cursor.execute("""
+                SELECT id, nombre, correo
+                FROM usuarios
+                WHERE cedula = ?
+                LIMIT 1
+            """, (cedula,))
+
+            usuario_con_cedula = cursor.fetchone()
+
+            if usuario_con_cedula:
+                flash("Esta cédula/RUC ya pertenece a otro cliente.", "warning")
+                return redirect(destino)
+
         ahora = fecha_actual()
         password_hash = generate_password_hash(password)
 
@@ -2593,6 +2622,88 @@ def trabajador_crear_usuario():
         conexion.rollback()
         print("Error al crear cliente desde panel trabajador:", error)
         flash("No se pudo crear el cliente. Intenta nuevamente.", "error")
+
+    finally:
+        conexion.close()
+
+    return redirect(destino)
+
+
+@app.route("/trabajador/usuarios/<int:usuario_id>/cedula", methods=["POST"])
+@login_required
+@personal_required
+def trabajador_actualizar_cedula_usuario(usuario_id):
+    """Permite al personal agregar o actualizar la cédula/RUC de un cliente existente."""
+
+    asegurar_migraciones_admin()
+
+    destino = url_for("trabajador_panel") + "#trabajador-clientes"
+    cedula = solo_digitos(request.form.get("cedula", ""))
+
+    if not cedula:
+        flash("Ingresa la cédula o RUC del cliente.", "warning")
+        return redirect(destino)
+
+    if not validar_identificacion_ec(cedula):
+        flash("La cédula o RUC del cliente no es válida.", "warning")
+        return redirect(destino)
+
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT id, nombre, correo, rol, cedula
+            FROM usuarios
+            WHERE id = ?
+        """, (usuario_id,))
+        usuario = cursor.fetchone()
+
+        if not usuario:
+            flash("Cliente no encontrado.", "warning")
+            return redirect(destino)
+
+        if str(usuario["rol"]).upper() != "USUARIO":
+            flash("Solo se puede actualizar la cédula/RUC de cuentas cliente.", "warning")
+            return redirect(destino)
+
+        cedula_actual = solo_digitos(usuario["cedula"])
+
+        if cedula_actual == cedula:
+            flash("La cédula/RUC ingresada ya está registrada en este cliente.", "info")
+            return redirect(destino)
+
+        cursor.execute("""
+            SELECT id, nombre, correo
+            FROM usuarios
+            WHERE cedula = ?
+              AND id != ?
+            LIMIT 1
+        """, (cedula, usuario_id))
+
+        usuario_con_cedula = cursor.fetchone()
+
+        if usuario_con_cedula:
+            flash("Esta cédula/RUC ya pertenece a otro cliente.", "warning")
+            return redirect(destino)
+
+        cursor.execute("""
+            UPDATE usuarios
+            SET cedula = ?, actualizado_en = ?
+            WHERE id = ?
+        """, (
+            cedula,
+            fecha_actual(),
+            usuario_id
+        ))
+
+        conexion.commit()
+        flash(f"Cédula/RUC actualizada para {usuario['nombre']}.", "success")
+
+    except Exception as error:
+        conexion.rollback()
+        print("Error al actualizar cédula/RUC desde panel trabajador:", error)
+        flash("No se pudo actualizar la cédula/RUC del cliente.", "error")
 
     finally:
         conexion.close()
@@ -2666,60 +2777,85 @@ def login():
     return redirect("/perfil")
 
 
+@app.route("/recuperar", methods=["POST"])
+def recuperar_password():
+
+    correo = request.form.get("email", "").strip().lower()
+
+    if correo:
+        flash("Solicitud recibida. La recuperación de contraseña estará disponible próximamente.", "info")
+    else:
+        flash("Ingresa un correo válido para solicitar recuperación de contraseña.", "warning")
+
+    return redirect(url_for("login"))
+
+
 # ================= REGISTRO =================
 
 @app.route("/register", methods=["POST"])
 def register():
 
-    nombre = request.form["nombre"].strip()
-    correo = request.form["correo"].strip().lower()
-    password = request.form["password"]
+    nombre = request.form.get("nombre", "").strip()
+    correo = request.form.get("correo", "").strip().lower()
+    password = request.form.get("password", "")
+
+    if not nombre or not correo or not password:
+        flash("Nombre, correo y contraseña son obligatorios.", "warning")
+        return redirect(url_for("login"))
+
+    if len(password) < 8:
+        flash("La contraseña debe tener al menos 8 caracteres.", "warning")
+        return redirect(url_for("login"))
 
     asegurar_migraciones_admin()
 
     conexion = conectar_db()
     cursor = conexion.cursor()
 
-    cursor.execute(
-        "SELECT * FROM usuarios WHERE correo = ?",
-        (correo,)
-    )
+    try:
+        cursor.execute(
+            "SELECT id FROM usuarios WHERE correo = ?",
+            (correo,)
+        )
 
-    if cursor.fetchone():
-        conexion.close()
-        flash("Este correo ya está registrado.", "warning")
-        return redirect("/login")
+        if cursor.fetchone():
+            flash("Este correo ya está registrado.", "warning")
+            return redirect(url_for("login"))
 
-    password_hash = generate_password_hash(password)
+        password_hash = generate_password_hash(password)
+        ahora = fecha_actual()
 
-    ahora = fecha_actual()
-
-    cursor.execute("""
-        INSERT INTO usuarios (
+        cursor.execute("""
+            INSERT INTO usuarios (
+                nombre,
+                correo,
+                password,
+                rol,
+                activo,
+                creado_en
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (
             nombre,
             correo,
-            password,
-            rol,
-            activo,
-            creado_en
-        )
-        VALUES (?, ?, ?, ?, ?, ?)
-    """, (
-        nombre,
-        correo,
-        password_hash,
-        "USUARIO",
-        1,
-        ahora
-    ))
+            password_hash,
+            "USUARIO",
+            1,
+            ahora
+        ))
 
-    conexion.commit()
-    conexion.close()
+        conexion.commit()
+        flash("Cuenta creada correctamente.", "success")
 
-    flash("Cuenta creada correctamente.", "success")
+    except Exception as error:
+        conexion.rollback()
+        print("Error al registrar usuario público:", error)
+        flash("No se pudo crear la cuenta. Intenta nuevamente.", "error")
 
-    return redirect("/login")
+    finally:
+        conexion.close()
 
+    return redirect(url_for("login"))
 
 # ================= PERFIL =================
 
@@ -4937,8 +5073,10 @@ def admin_archivar_vehiculo(vehiculo_id):
             vehiculo_id
         ))
 
+        desactivar_codigos_pendientes_vehiculo(cursor, vehiculo_id)
+
         conexion.commit()
-        flash("Vehículo archivado correctamente. Se conservará en el historial interno.", "success")
+        flash("Vehículo archivado correctamente. Se conservará en el historial interno y sus códigos pendientes quedaron desactivados.", "success")
 
     except Exception as error:
         conexion.rollback()
@@ -5049,6 +5187,9 @@ def admin_reversar_canje(usuario_vehiculo_id):
             usuario_vehiculo_id,
         ))
 
+        nuevo_activo = 0 if canje["vehiculo_archivado"] == 1 else 1
+        nuevo_codigo_activo = nuevo_activo
+
         if canje["codigo_vehiculo_id"]:
             cursor.execute("""
                 UPDATE codigos_vehiculo
@@ -5056,13 +5197,13 @@ def admin_reversar_canje(usuario_vehiculo_id):
                     usado = 0,
                     usado_por = NULL,
                     fecha_uso = NULL,
-                    activo = 1
+                    activo = ?
                 WHERE id = ?
             """, (
+                nuevo_codigo_activo,
                 canje["codigo_vehiculo_id"],
             ))
 
-        nuevo_activo = 0 if canje["vehiculo_archivado"] == 1 else 1
 
         cursor.execute("""
             UPDATE vehiculos

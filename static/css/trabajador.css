@@ -1307,3 +1307,38 @@ a {
 .worker-field textarea + small {
     margin-top: 8px;
 }
+
+
+/* ============================= */
+/* EDICIÓN DE CÉDULA/RUC EN CLIENTES */
+/* ============================= */
+
+.worker-cedula-form {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    min-width: 250px;
+}
+
+.worker-cedula-form input {
+    width: 145px;
+    min-height: 36px;
+    padding: 0 10px;
+    border-radius: 10px;
+    color: #ffffff;
+    background: rgba(2, 8, 20, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    outline: none;
+    font-size: 0.82rem;
+}
+
+.worker-cedula-form input:focus {
+    border-color: rgba(59, 130, 246, 0.62);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.14);
+}
+
+.worker-cedula-form .worker-mini-btn {
+    min-height: 36px;
+    white-space: nowrap;
+}

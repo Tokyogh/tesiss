@@ -694,7 +694,31 @@
                                                 <strong>{{ cliente.nombre }}</strong>
                                                 <small>{{ cliente.correo }}</small>
                                             </td>
-                                            <td>{{ cliente.cedula|default('N/D', true) or 'N/D' }}</td>
+                                            <td>
+                                                <form
+                                                    action="{{ url_for('trabajador_actualizar_cedula_usuario', usuario_id=cliente.id) }}"
+                                                    method="POST"
+                                                    class="worker-cedula-form">
+
+                                                    <input
+                                                        type="text"
+                                                        name="cedula"
+                                                        value="{{ cliente.cedula|default('', true) }}"
+                                                        placeholder="N/D"
+                                                        maxlength="13"
+                                                        inputmode="numeric"
+                                                        autocomplete="off"
+                                                        aria-label="Cédula o RUC de {{ cliente.nombre }}">
+
+                                                    <button type="submit" class="worker-mini-btn">
+                                                        {% if cliente.cedula|default('', true) %}
+                                                            Actualizar
+                                                        {% else %}
+                                                            Agregar
+                                                        {% endif %}
+                                                    </button>
+                                                </form>
+                                            </td>
                                             <td>{{ cliente.total_vehiculos|default(0) }}</td>
                                             <td>
                                                 {% if cliente.activo|default(1)|int == 1 %}
@@ -1100,9 +1124,11 @@
                         <li>Consultar historial básico de canjes.</li>
                         <li>Registrar mantenimientos realizados por VINOVA.</li>
                         <li>Crear cuentas de clientes con rol Usuario y cédula/RUC opcional.</li>
+                        <li>Agregar o actualizar la cédula/RUC de clientes existentes.</li>
                         <li>Generar y consultar facturas PDF asociadas a usuarios y vehículos.</li>
                         <li>Ver próximos kilometrajes y fechas calculadas automáticamente.</li>
                         <li>Ayudar al cliente a registrar su vehículo.</li>
+                        <li>Archivar vehículos cuando deban salir de la operación comercial visible.</li>
                     </ul>
                 </article>
 
@@ -1112,7 +1138,7 @@
                     <ul>
                         <li>Crear administradores o trabajadores.</li>
                         <li>Cambiar roles de usuarios.</li>
-                        <li>Archivar o eliminar vehículos.</li>
+                        <li>Eliminar vehículos de forma permanente.</li>
                         <li>Reversar canjes.</li>
                         <li>Tocar configuración crítica del sistema.</li>
                     </ul>

@@ -313,7 +313,7 @@
 
                     <div class="admin-mini-list">
 
-                        {% set hay_codigos_resumen = false %}
+                        {% set codigos_resumen_ns = namespace(hay_codigos=false) %}
 
                         {% if vehiculos %}
                             {% for vehiculo in vehiculos[:6] %}
@@ -321,7 +321,7 @@
 
                                 {% for codigo in codigos_unidad[:1] %}
 
-                                    {% set hay_codigos_resumen = true %}
+                                    {% set codigos_resumen_ns.hay_codigos = true %}
 
                                     <div class="admin-mini-item">
                                         <div class="admin-mini-icon">
@@ -346,7 +346,7 @@
                             {% endfor %}
                         {% endif %}
 
-                        {% if not hay_codigos_resumen %}
+                        {% if not codigos_resumen_ns.hay_codigos %}
                             <div class="admin-empty compact">
                                 <i data-lucide="key-round"></i>
                                 <h3>Sin códigos</h3>
@@ -882,7 +882,7 @@
 
                 <div class="admin-code-list" data-admin-list="codes">
 
-                    {% set hay_codigos = false %}
+                    {% set codigos_ns = namespace(hay_codigos=false) %}
 
                     {% if vehiculos %}
 
@@ -892,7 +892,7 @@
 
                             {% for codigo in codigos_unidad %}
 
-                                {% set hay_codigos = true %}
+                                {% set codigos_ns.hay_codigos = true %}
 
                                 <article class="admin-code-row" data-admin-item>
 
@@ -957,7 +957,7 @@
 
                     {% endif %}
 
-                    {% if not hay_codigos %}
+                    {% if not codigos_ns.hay_codigos %}
                         <div class="admin-empty">
                             <i data-lucide="key-round"></i>
                             <h3>No hay códigos generados</h3>
