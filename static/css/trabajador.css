@@ -1342,3 +1342,40 @@ a {
     min-height: 36px;
     white-space: nowrap;
 }
+
+/* ============================= */
+/* GENERADOR DE CÓDIGO Y CAMPOS 3D */
+/* ============================= */
+.vinova-code-tool {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: center;
+}
+
+.vinova-code-generate-btn {
+    min-height: 42px;
+    padding: 0 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(59, 130, 246, 0.34);
+    background: rgba(59, 130, 246, 0.12);
+    color: #bfdbfe;
+    font-family: inherit;
+    font-size: 0.78rem;
+    font-weight: 900;
+    cursor: pointer;
+    transition: 0.2s ease;
+}
+
+.vinova-code-generate-btn:hover {
+    color: #ffffff;
+    border-color: rgba(96, 165, 250, 0.72);
+    box-shadow: 0 0 14px rgba(59, 130, 246, 0.22);
+}
+
+.worker-field textarea[name="preview_sistemas_json"] {
+    min-height: 152px;
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    font-size: 0.78rem;
+    line-height: 1.55;
+}

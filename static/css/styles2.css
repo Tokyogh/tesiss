@@ -1364,3 +1364,16 @@ body.light-mode .grupo-input input::placeholder {
     border-radius: 999px;
 }
 
+
+.auth-brand-link {
+    display: inline-flex;
+    align-items: center;
+    text-decoration: none;
+    transition: transform 0.25s ease, opacity 0.25s ease, filter 0.25s ease;
+}
+
+.auth-brand-link:hover {
+    transform: translateY(-2px);
+    opacity: 0.92;
+    filter: drop-shadow(0 0 14px rgba(37, 99, 235, 0.32));
+}

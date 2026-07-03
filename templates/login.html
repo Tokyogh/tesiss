@@ -55,10 +55,12 @@
 
             <div class="logo auth-brand">
 
-                <img
-                    src="{{ url_for('static', filename='img/vinova-logo.svg') }}"
-                    alt="VINOVA"
-                    class="vinova-auth-logo">
+                <a href="{{ url_for('inicio') }}" class="auth-brand-link" aria-label="Volver al inicio de VINOVA">
+                    <img
+                        src="{{ url_for('static', filename='img/vinova-logo.svg') }}"
+                        alt="VINOVA"
+                        class="vinova-auth-logo">
+                </a>
 
                 <span>Tu taller inteligente</span>
 

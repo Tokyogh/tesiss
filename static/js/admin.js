@@ -173,8 +173,74 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function setMaintenanceMessage(resultsBox, message, type = "info") {
+        const safeTypes = new Set(["info", "warning", "success", "error"]);
+        const messageElement = document.createElement("div");
+
+        messageElement.className = `maintenance-results-message ${safeTypes.has(type) ? type : "info"}`;
+        messageElement.textContent = message;
+
         resultsBox.hidden = false;
-        resultsBox.innerHTML = `<div class="maintenance-results-message ${type}">${message}</div>`;
+        resultsBox.replaceChildren(messageElement);
+    }
+
+    function setMaintenanceSelectionEmpty(selectedBox) {
+        selectedBox.classList.add("is-empty");
+        selectedBox.textContent = "Ningún cliente/vehículo seleccionado.";
+    }
+
+    function appendMaintenanceText(parent, tagName, text) {
+        const element = document.createElement(tagName);
+        element.textContent = text;
+        parent.appendChild(element);
+        return element;
+    }
+
+    function renderMaintenanceSelection(selectedBox, result) {
+        selectedBox.classList.remove("is-empty");
+        selectedBox.replaceChildren();
+
+        appendMaintenanceText(selectedBox, "strong", result.usuario_nombre || "Cliente");
+        appendMaintenanceText(selectedBox, "span", result.usuario_correo || "Sin correo");
+        appendMaintenanceText(
+            selectedBox,
+            "small",
+            `${result.vehiculo || "Vehículo"} · ID vehículo: ${result.vehiculo_id || "N/D"} · Registro: ${result.usuario_vehiculo_id || "N/D"}`
+        );
+        appendMaintenanceText(
+            selectedBox,
+            "small",
+            `${result.codigo_catalogo || "Sin código"} · ${result.kilometraje_referencia_visible || "0"} km de referencia`
+        );
+    }
+
+    function renderMaintenanceResults(resultsBox, results, onSelect) {
+        const fragment = document.createDocumentFragment();
+
+        results.forEach((result) => {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "maintenance-result-item";
+            button.dataset.maintenanceResultId = String(result.usuario_vehiculo_id || "");
+
+            appendMaintenanceText(button, "strong", result.usuario_nombre || "Cliente");
+            appendMaintenanceText(button, "span", result.usuario_correo || "Sin correo");
+            appendMaintenanceText(
+                button,
+                "small",
+                `${result.vehiculo || "Vehículo"} · ID vehículo: ${result.vehiculo_id || "N/D"} · Registro: ${result.usuario_vehiculo_id || "N/D"}`
+            );
+            appendMaintenanceText(
+                button,
+                "small",
+                `${result.codigo_catalogo || "Sin código"} · ${result.kilometraje_referencia_visible || "0"} km`
+            );
+
+            button.addEventListener("click", () => onSelect(result));
+            fragment.appendChild(button);
+        });
+
+        resultsBox.hidden = false;
+        resultsBox.replaceChildren(fragment);
     }
 
     function initMaintenanceVehicleSearch() {
@@ -197,25 +263,18 @@ document.addEventListener("DOMContentLoaded", () => {
             function clearSelection() {
                 hiddenInput.value = "";
                 input.value = "";
-                selectedBox.classList.add("is-empty");
-                selectedBox.innerHTML = "Ningún cliente/vehículo seleccionado.";
+                setMaintenanceSelectionEmpty(selectedBox);
                 resultsBox.hidden = true;
-                resultsBox.innerHTML = "";
+                resultsBox.replaceChildren();
                 input.focus();
             }
 
             function selectResult(result) {
                 hiddenInput.value = result.usuario_vehiculo_id || "";
                 input.value = result.label || "";
-                selectedBox.classList.remove("is-empty");
-                selectedBox.innerHTML = `
-                    <strong>${result.usuario_nombre || "Cliente"}</strong>
-                    <span>${result.usuario_correo || "Sin correo"}</span>
-                    <small>${result.vehiculo || "Vehículo"} · ID vehículo: ${result.vehiculo_id || "N/D"} · Registro: ${result.usuario_vehiculo_id || "N/D"}</small>
-                    <small>${result.codigo_catalogo || "Sin código"} · ${result.kilometraje_referencia_visible || "0"} km de referencia</small>
-                `;
+                renderMaintenanceSelection(selectedBox, result);
                 resultsBox.hidden = true;
-                resultsBox.innerHTML = "";
+                resultsBox.replaceChildren();
 
                 const kmInput = form.querySelector('input[name="kilometraje_actual"]');
                 if (kmInput && result.kilometraje_referencia !== undefined && (!kmInput.value || Number(kmInput.value) === 0)) {
@@ -226,12 +285,11 @@ document.addEventListener("DOMContentLoaded", () => {
             async function searchVehicles() {
                 const query = input.value.trim();
                 hiddenInput.value = "";
-                selectedBox.classList.add("is-empty");
-                selectedBox.innerHTML = "Ningún cliente/vehículo seleccionado.";
+                setMaintenanceSelectionEmpty(selectedBox);
 
                 if (query.length < 2) {
                     resultsBox.hidden = true;
-                    resultsBox.innerHTML = "";
+                    resultsBox.replaceChildren();
                     return;
                 }
 
@@ -258,22 +316,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         return;
                     }
 
-                    resultsBox.hidden = false;
-                    resultsBox.innerHTML = results.map((result) => `
-                        <button type="button" class="maintenance-result-item" data-maintenance-result-id="${result.usuario_vehiculo_id}">
-                            <strong>${result.usuario_nombre || "Cliente"}</strong>
-                            <span>${result.usuario_correo || "Sin correo"}</span>
-                            <small>${result.vehiculo || "Vehículo"} · ID vehículo: ${result.vehiculo_id || "N/D"} · Registro: ${result.usuario_vehiculo_id || "N/D"}</small>
-                            <small>${result.codigo_catalogo || "Sin código"} · ${result.kilometraje_referencia_visible || "0"} km</small>
-                        </button>
-                    `).join("");
-
-                    resultsBox.querySelectorAll("[data-maintenance-result-id]").forEach((button) => {
-                        button.addEventListener("click", () => {
-                            const selected = results.find((result) => String(result.usuario_vehiculo_id) === String(button.dataset.maintenanceResultId));
-                            if (selected) selectResult(selected);
-                        });
-                    });
+                    renderMaintenanceResults(resultsBox, results, selectResult);
                 } catch (error) {
                     if (error.name === "AbortError") return;
                     setMaintenanceMessage(resultsBox, "No se pudo realizar la búsqueda. Intenta nuevamente.", "warning");
@@ -339,6 +382,38 @@ document.addEventListener("DOMContentLoaded", () => {
             if (!confirm(message)) {
                 event.preventDefault();
             }
+        });
+    });
+
+
+    // =============================
+    // GENERAR CÓDIGO DE CATÁLOGO
+    // =============================
+
+    function slugCatalogPart(value) {
+        return String(value || "")
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .toUpperCase()
+            .replace(/[^A-Z0-9]+/g, "-")
+            .replace(/^-+|-+$/g, "");
+    }
+
+    document.querySelectorAll("[data-generate-catalog-code]").forEach((button) => {
+        button.addEventListener("click", () => {
+            const form = button.closest("form");
+            if (!form) return;
+
+            const marca = slugCatalogPart(form.querySelector('[name="marca"]')?.value);
+            const modelo = slugCatalogPart(form.querySelector('[name="modelo"]')?.value);
+            const anio = slugCatalogPart(form.querySelector('[name="anio"]')?.value);
+            const codigoInput = form.querySelector('[name="codigo_catalogo"]');
+
+            if (!codigoInput) return;
+
+            const partes = ["VIN", marca, modelo, anio].filter(Boolean);
+            codigoInput.value = partes.join("-") || "VIN-VEHICULO";
+            codigoInput.focus();
         });
     });
 

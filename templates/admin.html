@@ -422,20 +422,25 @@
 
                             <label class="admin-field">
                                 <span>Código de catálogo</span>
-                                <input
-                                    type="text"
-                                    name="codigo_catalogo"
-                                    placeholder="VIN-RAV4-2024"
-                                    value="{{ vehiculo_editar['codigo_catalogo'] if vehiculo_editar else '' }}"
-                                    {% if vehiculo_editar and (vehiculo_editar['estado'] == 'Vendido' or codigos_edicion) %}readonly{% endif %}
-                                    required>
+                                <div class="vinova-code-tool">
+                                    <input
+                                        type="text"
+                                        name="codigo_catalogo"
+                                        placeholder="Automático: VIN-MARCA-MODELO-AÑO"
+                                        value="{{ vehiculo_editar['codigo_catalogo'] if vehiculo_editar else '' }}"
+                                        {% if vehiculo_editar and (vehiculo_editar['estado'] == 'Vendido' or codigos_edicion) %}readonly{% endif %}>
+
+                                    {% if not (vehiculo_editar and (vehiculo_editar['estado'] == 'Vendido' or codigos_edicion)) %}
+                                        <button type="button" class="vinova-code-generate-btn" data-generate-catalog-code>Generar</button>
+                                    {% endif %}
+                                </div>
 
                                 {% if vehiculo_editar and vehiculo_editar['estado'] == 'Vendido' %}
                                     <small>Referencia bloqueada porque el vehículo ya fue vendido o canjeado.</small>
                                 {% elif vehiculo_editar and codigos_edicion %}
                                     <small>Referencia bloqueada porque este vehículo ya tiene código de canje.</small>
                                 {% else %}
-                                    <small>Referencia pública de la unidad. Ejemplo: VIN-RAV4-2024.</small>
+                                    <small>Referencia pública opcional. Si lo dejas vacío, VINOVA la genera automáticamente.</small>
                                 {% endif %}
                             </label>
 
@@ -558,6 +563,16 @@
                                 {% endif %}
                             </label>
 
+                            <label class="admin-field admin-field-wide">
+                                <span>Subir modelo 3D</span>
+                                <input type="file" name="modelo_3d_file" accept=".glb,.gltf,model/gltf-binary,model/gltf+json">
+                                {% if vehiculo_editar and vehiculo_editar['modelo_3d'] %}
+                                    <small>Modelo actual: {{ vehiculo_editar['modelo_3d'] }}. Si subes otro, reemplazará la ruta para este modelo.</small>
+                                {% else %}
+                                    <small>Opcional. Se guardará en static/models/vehicles/ y se compartirá por marca + modelo + año.</small>
+                                {% endif %}
+                            </label>
+
                             <label class="admin-field">
                                 <span>ID modelo 3D</span>
                                 <input
@@ -611,14 +626,25 @@
 
                             <label class="admin-field admin-field-wide">
                                 <span>Enlace o archivo local del manual</span>
-                                <input type="url" name="manual_enlace" placeholder="https://...">
-                                <input type="text" name="manual_archivo" placeholder="docs/manuales/manual-rav4.pdf">
+                                <input type="url" name="manual_enlace" placeholder="https://..." list="adminManualLinks">
+                                <input type="text" name="manual_archivo" placeholder="Buscar o escribir ruta local..." list="adminManualFiles">
+                                <datalist id="adminManualLinks">
+                                    {% for manual in manuales_admin|default([]) %}
+                                        {% if manual['enlace'] %}<option value="{{ manual['enlace'] }}">{{ manual['titulo'] }} · {{ manual['marca'] }} {{ manual['modelo'] }} {{ manual['anio'] }}</option>{% endif %}
+                                    {% endfor %}
+                                </datalist>
+                                <datalist id="adminManualFiles">
+                                    {% for manual in manuales_admin|default([]) %}
+                                        {% if manual['archivo'] %}<option value="{{ manual['archivo'] }}">{{ manual['titulo'] }} · {{ manual['marca'] }} {{ manual['modelo'] }} {{ manual['anio'] }}</option>{% endif %}
+                                    {% endfor %}
+                                </datalist>
                             </label>
 
                             <label class="admin-field admin-field-wide">
                                 <span>Descripción del manual</span>
                                 <textarea name="manual_descripcion" rows="2" placeholder="Manual de propietario, guía de mantenimiento, garantía..."></textarea>
                             </label>
+
 
                             <label class="admin-field admin-field-wide">
                                 <span>Descripción</span>

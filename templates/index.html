@@ -10,6 +10,10 @@
 
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
 
+    <link 
+        rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+    />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
@@ -75,9 +79,7 @@
             <li class="dropdown">
                 <a href="#contacto">Contacto</a>
 
-                <div class="dropdown-menu">
-                    <a href="#contacto">Servicio al cliente</a>
-                </div>
+    
             </li>
         </ul>
     </nav>
@@ -250,72 +252,89 @@
     </div>
 </section>
 
-<section class="contact-section" id="contacto">
+<section class="contact-section contact-static-section" id="contacto">
     <div class="contact-content">
         <span class="contact-eyebrow">CONTACTO</span>
         <h2>Conecta con el equipo VINOVA</h2>
         <p>
-            Envía consultas sobre vehículos, ventas, mantenimiento, facturación o soporte de la plataforma.
-            El mensaje llegará al correo configurado para atención al cliente.
+            Encuentra nuestros canales principales para ventas, soporte, postventa y atención rápida por WhatsApp.
+            Este apartado es estático para que puedas editar los datos directamente desde el HTML cuando cambien.
         </p>
 
         <div class="contact-info-grid">
             <article>
                 <i data-lucide="mail"></i>
                 <strong>Correo</strong>
-                <span>Atención comercial y soporte</span>
+                <span>info@vinova.ec</span>
             </article>
 
             <article>
-                <i data-lucide="car-front"></i>
-                <strong>Ventas</strong>
-                <span>Consulta inventario, códigos y registro de vehículos.</span>
+                <i data-lucide="phone"></i>
+                <strong>Teléfono</strong>
+                <span>+593 2 395 8721</span>
             </article>
 
             <article>
-                <i data-lucide="wrench"></i>
-                <strong>Postventa</strong>
-                <span>Solicita ayuda sobre mantenimientos, facturas y manuales.</span>
+                <i data-lucide="map-pin"></i>
+                <strong>Ubicación</strong>
+                <span>Quito, Pichincha - Ecuador</span>
+            </article>
+
+            <article>
+                <i data-lucide="clock-3"></i>
+                <strong>Horario</strong>
+                <span>Lunes a viernes · 09:00 a 18:00</span>
             </article>
         </div>
     </div>
 
-    <form action="{{ url_for('contacto') }}" method="POST" class="contact-form">
-        <label>
-            <span>Nombre completo</span>
-            <input type="text" name="nombre" placeholder="Tu nombre" required>
-        </label>
+    <aside class="contact-static-panel">
+        <div class="contact-whatsapp-card">
+            <div class="contact-whatsapp-header">
+                <div class="contact-whatsapp-icon" aria-hidden="true">
+                    <i class="fa-brands fa-whatsapp"></i>
+                </div>
 
-        <label>
-            <span>Correo electrónico</span>
-            <input type="email" name="correo" placeholder="tu@correo.com" required>
-        </label>
+                <div>
+                    <span>ATENCIÓN RÁPIDA</span>
+                    <h3>WhatsApp VINOVA</h3>
+                    <p>Consulta disponibilidad, códigos de canje, facturas, manuales o mantenimientos.</p>
+                </div>
+            </div>
 
-        <label>
-            <span>Teléfono</span>
-            <input type="text" name="telefono" placeholder="Opcional">
-        </label>
+            <a href="https://wa.me/593999999999" target="_blank" rel="noopener" class="contact-whatsapp-btn">
+                <i class="fa-brands fa-whatsapp"></i>
+                Escribir por WhatsApp
+            </a>
+        </div>
 
-        <label>
-            <span>Asunto</span>
-            <select name="asunto">
-                <option value="Consulta comercial">Consulta comercial</option>
-                <option value="Soporte de cuenta">Soporte de cuenta</option>
-                <option value="Mantenimiento / postventa">Mantenimiento / postventa</option>
-                <option value="Facturación">Facturación</option>
-                <option value="Otro">Otro</option>
-            </select>
-        </label>
+        <div class="contact-social-grid" aria-label="Redes sociales VINOVA">
+            <a href="https://wa.me/593999999999" target="_blank" rel="noopener" class="contact-social-link social-whatsapp" aria-label="WhatsApp VINOVA">
+                <i class="fa-brands fa-whatsapp"></i>
+                <span>WhatsApp</span>
+            </a>
 
-        <label class="contact-field-wide">
-            <span>Mensaje</span>
-            <textarea name="mensaje" rows="5" placeholder="Escribe tu solicitud..." required></textarea>
-        </label>
+            <a href="https://www.instagram.com/" target="_blank" rel="noopener" class="contact-social-link social-instagram" aria-label="Instagram VINOVA">
+                <i class="fa-brands fa-instagram"></i>
+                <span>Instagram</span>
+            </a>
 
-        <button type="submit" class="primary-btn contact-submit-btn">
-            Enviar mensaje
-        </button>
-    </form>
+            <a href="https://www.facebook.com/" target="_blank" rel="noopener" class="contact-social-link social-facebook" aria-label="Facebook VINOVA">
+                <i class="fa-brands fa-facebook-f"></i>
+                <span>Facebook</span>
+            </a>
+
+            <a href="https://www.tiktok.com/" target="_blank" rel="noopener" class="contact-social-link social-tiktok" aria-label="TikTok VINOVA">
+                <i class="fa-brands fa-tiktok"></i>
+                <span>TikTok</span>
+            </a>
+
+            <a href="https://www.linkedin.com/" target="_blank" rel="noopener" class="contact-social-link social-linkedin" aria-label="LinkedIn VINOVA">
+                <i class="fa-brands fa-linkedin-in"></i>
+                <span>LinkedIn</span>
+            </a>
+        </div>
+    </aside>
 </section>
 
 <!-- ================= PREVIEW 3D VINOVA ================= -->

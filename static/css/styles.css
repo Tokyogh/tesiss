@@ -21,9 +21,9 @@ body {
     ESTILOS GENERALES body
 ========================================== */
 
-body {
-    zoom: 1.1; /* Fuerza un zoom del 110% en toda la página */
-}
+/*body {
+    zoom: 1.1; /* Fuerza un zoom del 110% en toda la página 
+} */
 
 body {
     font-family: 'Inter', sans-serif;
@@ -1817,5 +1817,245 @@ body.preview-modal-open {
     .contact-submit-btn {
         width: 100%;
         justify-self: stretch;
+    }
+}
+
+/* ==========================================
+   CONTACTO ESTÁTICO
+========================================== */
+.contact-static-section {
+    grid-template-columns: 0.95fr 1.05fr;
+}
+
+.contact-static-panel {
+    display: grid;
+    gap: 18px;
+}
+
+.contact-whatsapp-card,
+.contact-social-link {
+    position: relative;
+    overflow: hidden;
+    background: rgba(11, 19, 36, 0.88);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
+}
+
+.contact-whatsapp-card {
+    --social-rgb: 37, 211, 102;
+    min-height: 250px;
+    padding: 30px;
+    border-radius: 24px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 24px;
+    background:
+        radial-gradient(circle at 86% 14%, rgba(34, 197, 94, 0.23), transparent 34%),
+        linear-gradient(180deg, rgba(11, 19, 36, 0.94), rgba(4, 11, 23, 0.94));
+    border-color: rgba(37, 211, 102, 0.24);
+}
+
+.contact-whatsapp-card::before,
+.contact-social-link::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 18% 15%, rgba(var(--social-rgb, 59, 130, 246), 0.18), transparent 34%);
+    opacity: 0.9;
+    pointer-events: none;
+}
+
+.contact-whatsapp-header {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: 70px 1fr;
+    gap: 18px;
+    align-items: start;
+}
+
+.contact-whatsapp-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 20px;
+    display: grid;
+    place-items: center;
+    color: #ffffff;
+    background: linear-gradient(135deg, #128c7e, #25d366);
+    box-shadow:
+        0 0 24px rgba(37, 211, 102, 0.42),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.contact-whatsapp-icon i {
+    font-size: 2.2rem;
+}
+
+.contact-whatsapp-card span {
+    color: #25d366;
+    font-size: 0.78rem;
+    font-weight: 900;
+    letter-spacing: 0.14em;
+}
+
+.contact-whatsapp-card h3 {
+    margin: 12px 0 10px;
+    color: #ffffff;
+    font-size: 2rem;
+    letter-spacing: -0.04em;
+}
+
+.contact-whatsapp-card p {
+    color: #a6b0c2;
+    line-height: 1.65;
+}
+
+.contact-whatsapp-btn {
+    position: relative;
+    z-index: 1;
+    min-height: 48px;
+    width: fit-content;
+    padding: 0 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    border-radius: 14px;
+    color: #ffffff;
+    text-decoration: none;
+    font-weight: 900;
+    background: linear-gradient(135deg, #128c7e, #25d366);
+    box-shadow: 0 0 22px rgba(37, 211, 102, 0.28);
+    transition: 0.25s ease;
+}
+
+.contact-whatsapp-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 30px rgba(37, 211, 102, 0.48);
+}
+
+.contact-whatsapp-btn i {
+    font-size: 1.1rem;
+}
+
+.contact-social-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.contact-social-link {
+    --social-rgb: 59, 130, 246;
+    --social-main: #60a5fa;
+    min-height: 96px;
+    padding: 18px;
+    border-radius: 18px;
+    display: grid;
+    grid-template-columns: 48px 1fr;
+    align-items: center;
+    gap: 14px;
+    color: #dbeafe;
+    text-decoration: none;
+    font-weight: 850;
+    border-color: rgba(var(--social-rgb), 0.28);
+    box-shadow:
+        0 18px 42px rgba(0, 0, 0, 0.24),
+        inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    transition:
+        transform 0.25s ease,
+        border-color 0.25s ease,
+        box-shadow 0.25s ease,
+        background 0.25s ease;
+}
+
+.contact-social-link i,
+.contact-social-link span {
+    position: relative;
+    z-index: 1;
+}
+
+.contact-social-link i {
+    width: 48px;
+    height: 48px;
+    border-radius: 16px;
+    display: grid;
+    place-items: center;
+    color: #ffffff;
+    font-size: 1.45rem;
+    background: rgba(var(--social-rgb), 0.16);
+    border: 1px solid rgba(var(--social-rgb), 0.30);
+    box-shadow: 0 0 18px rgba(var(--social-rgb), 0.25);
+}
+
+.contact-social-link span {
+    color: #eef4ff;
+    font-size: 0.95rem;
+}
+
+.contact-social-link:hover {
+    color: #ffffff;
+    transform: translateY(-3px);
+    border-color: rgba(var(--social-rgb), 0.68);
+    background: rgba(var(--social-rgb), 0.08);
+    box-shadow:
+        0 0 24px rgba(var(--social-rgb), 0.26),
+        0 18px 42px rgba(0, 0, 0, 0.30);
+}
+
+.social-whatsapp {
+    --social-rgb: 37, 211, 102;
+    --social-main: #25d366;
+}
+
+.social-instagram {
+    --social-rgb: 225, 48, 108;
+    --social-main: #e1306c;
+}
+
+.social-instagram i {
+    background:
+        radial-gradient(circle at 30% 110%, rgba(252, 175, 69, 0.35), transparent 36%),
+        linear-gradient(135deg, rgba(131, 58, 180, 0.42), rgba(225, 48, 108, 0.24));
+}
+
+.social-facebook {
+    --social-rgb: 24, 119, 242;
+    --social-main: #1877f2;
+}
+
+.social-tiktok {
+    --social-rgb: 255, 0, 80;
+    --social-main: #ff0050;
+}
+
+.social-tiktok i {
+    text-shadow: 2px 2px 0 rgba(0, 242, 234, 0.55);
+}
+
+.social-linkedin {
+    --social-rgb: 10, 102, 194;
+    --social-main: #0a66c2;
+}
+
+@media (max-width: 980px) {
+    .contact-static-section {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 680px) {
+    .contact-whatsapp-header {
+        grid-template-columns: 1fr;
+    }
+
+    .contact-whatsapp-btn {
+        width: 100%;
+    }
+}
+
+@media (max-width: 560px) {
+    .contact-social-grid {
+        grid-template-columns: 1fr;
     }
 }

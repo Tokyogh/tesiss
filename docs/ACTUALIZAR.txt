@@ -51,8 +51,11 @@ pip install -r requirements.txt
 borrar todo lo no guardado
 git reset --hard HEAD
 
+========DRIVE===========
+https://drive.google.com/file/d/1IRVj3a9JBvkq69rfOAZeXqeRbNogTfqL/view?usp=sharing
 
-
+===============================
+preparar db flask --app app migrar-db
 
 
 =================

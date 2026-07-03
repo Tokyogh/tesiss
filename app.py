@@ -13,11 +13,14 @@ import html
 import smtplib
 import ssl
 import hashlib
+import json
+import threading
 from email.message import EmailMessage
 from dotenv import load_dotenv
 from markupsafe import Markup
 import cloudinary
 import cloudinary.uploader
+from PIL import Image, UnidentifiedImageError
 
 
 load_dotenv()
@@ -25,7 +28,7 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "vinova")
 app.permanent_session_lifetime = timedelta(days=1)
-app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024
+app.config["MAX_CONTENT_LENGTH"] = int(os.getenv("MAX_UPLOAD_MB", "80")) * 1024 * 1024
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["SESSION_COOKIE_SECURE"] = os.getenv("FLASK_COOKIE_SECURE", "0") == "1"
@@ -70,6 +73,7 @@ os.makedirs(app.config["INVOICE_FOLDER"], exist_ok=True)
 
 EXTENSIONES_IMAGEN_VEHICULO = {"jpg", "jpeg", "png", "webp"}
 EXTENSIONES_DOCUMENTO = {"pdf", "jpg", "jpeg", "png", "webp"}
+EXTENSIONES_MODELO_3D = {"glb", "gltf"}
 
 
 # ================= SEGURIDAD BÁSICA =================
@@ -123,9 +127,14 @@ cloudinary.config(
 
 # ================= FUNCIONES AUXILIARES =================
 
+DATABASE_PATH = os.getenv("DATABASE_PATH", os.path.join(app.root_path, "vinova.db"))
+MIGRACIONES_ADMIN_EJECUTADAS = False
+MIGRACIONES_ADMIN_LOCK = threading.Lock()
+
 def conectar_db():
-    conexion = sqlite3.connect("vinova.db")
+    conexion = sqlite3.connect(DATABASE_PATH)
     conexion.row_factory = sqlite3.Row
+    conexion.execute("PRAGMA foreign_keys = ON")
     return conexion
 
 
@@ -292,6 +301,81 @@ def extension_permitida(nombre_archivo, extensiones):
     return "." in nombre_archivo and nombre_archivo.rsplit(".", 1)[1].lower() in extensiones
 
 
+def reiniciar_stream_archivo(archivo):
+    try:
+        archivo.stream.seek(0)
+    except Exception:
+        try:
+            archivo.seek(0)
+        except Exception:
+            pass
+
+
+def obtener_extension_archivo(nombre_archivo):
+    return str(nombre_archivo or "").rsplit(".", 1)[-1].lower()
+
+
+def validar_archivo_imagen_real(archivo):
+    """Comprueba con Pillow que el archivo subido sea una imagen real."""
+
+    if not archivo or not getattr(archivo, "filename", ""):
+        raise ValueError("No se recibió una imagen válida.")
+
+    extension = obtener_extension_archivo(archivo.filename)
+    formatos_por_extension = {
+        "jpg": "JPEG",
+        "jpeg": "JPEG",
+        "png": "PNG",
+        "webp": "WEBP",
+    }
+
+    formato_esperado = formatos_por_extension.get(extension)
+
+    if not formato_esperado:
+        raise ValueError("Formato de imagen no permitido. Usa JPG, PNG o WEBP.")
+
+    try:
+        reiniciar_stream_archivo(archivo)
+
+        with Image.open(archivo.stream) as imagen:
+            formato_real = (imagen.format or "").upper()
+            imagen.verify()
+
+        if formato_real != formato_esperado:
+            raise ValueError("La extensión del archivo no coincide con el contenido real de la imagen.")
+
+    except UnidentifiedImageError as error:
+        raise ValueError("El archivo subido no es una imagen válida.") from error
+    except OSError as error:
+        raise ValueError("No se pudo validar la imagen subida. Intenta con otro archivo.") from error
+    finally:
+        reiniciar_stream_archivo(archivo)
+
+
+def validar_documento_subido_real(archivo, extension):
+    """Valida contenido real de PDF o imagen antes de guardarlo como documento."""
+
+    extension = str(extension or "").lower()
+
+    if extension in EXTENSIONES_IMAGEN_VEHICULO:
+        validar_archivo_imagen_real(archivo)
+        return
+
+    if extension == "pdf":
+        try:
+            reiniciar_stream_archivo(archivo)
+            encabezado = archivo.stream.read(5)
+        finally:
+            reiniciar_stream_archivo(archivo)
+
+        if encabezado != b"%PDF-":
+            raise ValueError("El archivo subido no es un PDF válido.")
+
+        return
+
+    raise ValueError("Formato de documento no permitido. Usa PDF, JPG, PNG o WEBP.")
+
+
 def normalizar_ruta_static_documento(ruta):
     """Normaliza rutas locales guardadas dentro de static para manuales/facturas."""
 
@@ -330,6 +414,8 @@ def guardar_documento_local(archivo, carpeta_config, prefijo):
         raise ValueError("Formato de documento no permitido. Usa PDF, JPG, PNG o WEBP.")
 
     extension = nombre_original.rsplit(".", 1)[1].lower()
+    validar_documento_subido_real(archivo, extension)
+
     prefijo_seguro = crear_slug(prefijo or "documento")
     nombre_final = f"{prefijo_seguro}-{int(time.time())}-{secrets.token_hex(4)}.{extension}"
 
@@ -377,6 +463,7 @@ def obtener_o_crear_modelo_base(
     modelo_3d="",
     modelo_3d_id="",
     modelo_3d_tipo="glb",
+    preview_sistemas_json="",
     usuario_id=None,
 ):
     """
@@ -394,6 +481,7 @@ def obtener_o_crear_modelo_base(
     modelo_3d = str(modelo_3d or "").strip()
     modelo_3d_id = str(modelo_3d_id or "").strip()
     modelo_3d_tipo = str(modelo_3d_tipo or "glb").strip() or "glb"
+    preview_sistemas_json = str(preview_sistemas_json or "").strip()
 
     cursor.execute("""
         SELECT *
@@ -412,6 +500,7 @@ def obtener_o_crear_modelo_base(
         modelo_3d_final = modelo_3d or fila["modelo_3d"] or ""
         modelo_3d_id_final = modelo_3d_id or fila["modelo_3d_id"] or ""
         modelo_3d_tipo_final = modelo_3d_tipo or fila["modelo_3d_tipo"] or "glb"
+        preview_sistemas_json_final = preview_sistemas_json or fila["preview_sistemas_json"] or ""
 
         cursor.execute("""
             UPDATE vehiculo_modelos
@@ -422,6 +511,7 @@ def obtener_o_crear_modelo_base(
                 modelo_3d = ?,
                 modelo_3d_id = ?,
                 modelo_3d_tipo = ?,
+                preview_sistemas_json = ?,
                 actualizado_en = ?
             WHERE id = ?
         """, (
@@ -431,6 +521,7 @@ def obtener_o_crear_modelo_base(
             modelo_3d_final,
             modelo_3d_id_final,
             modelo_3d_tipo_final,
+            preview_sistemas_json_final,
             ahora,
             modelo_id,
         ))
@@ -440,6 +531,7 @@ def obtener_o_crear_modelo_base(
             "modelo_3d": modelo_3d_final,
             "modelo_3d_id": modelo_3d_id_final,
             "modelo_3d_tipo": modelo_3d_tipo_final,
+            "preview_sistemas_json": preview_sistemas_json_final,
         }
 
     cursor.execute("""
@@ -453,12 +545,13 @@ def obtener_o_crear_modelo_base(
             modelo_3d,
             modelo_3d_id,
             modelo_3d_tipo,
+            preview_sistemas_json,
             creado_por,
             creado_en,
             actualizado_en,
             activo
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
     """, (
         marca,
         modelo,
@@ -469,6 +562,7 @@ def obtener_o_crear_modelo_base(
         modelo_3d,
         modelo_3d_id,
         modelo_3d_tipo,
+        preview_sistemas_json,
         usuario_id,
         ahora,
         ahora,
@@ -479,6 +573,7 @@ def obtener_o_crear_modelo_base(
         "modelo_3d": modelo_3d,
         "modelo_3d_id": modelo_3d_id,
         "modelo_3d_tipo": modelo_3d_tipo,
+        "preview_sistemas_json": preview_sistemas_json,
     }
 
 
@@ -1396,523 +1491,555 @@ def asegurar_migraciones_admin():
     - Auditoría de canjes reversados.
     - Estado activo/fechas para usuarios.
     - Índices UNIQUE para datos críticos cuando no existen duplicados previos.
+
+    La migración se ejecuta una sola vez por proceso para no repetir ALTER/CREATE
+    en cada request. Si falla, no se marca como ejecutada y podrá reintentarse.
     """
 
-    conexion = sqlite3.connect("vinova.db")
-    conexion.row_factory = sqlite3.Row
-    cursor = conexion.cursor()
+    global MIGRACIONES_ADMIN_EJECUTADAS
 
-    if tabla_existe(cursor, "vehiculos"):
-        columnas_vehiculos = {
-            "archivado": "INTEGER DEFAULT 0",
-            "archivado_en": "TEXT",
-            "archivado_por": "INTEGER",
-            "motivo_archivado": "TEXT",
-            "actualizado_en": "TEXT",
-            "placa": "TEXT"
-        }
+    if MIGRACIONES_ADMIN_EJECUTADAS:
+        return
 
-        for columna, definicion in columnas_vehiculos.items():
-            agregar_columna_si_falta(cursor, "vehiculos", columna, definicion)
+    with MIGRACIONES_ADMIN_LOCK:
+        if MIGRACIONES_ADMIN_EJECUTADAS:
+            return
 
-        ejecutar_sql_seguro(
-            cursor,
-            """
-            CREATE UNIQUE INDEX IF NOT EXISTS idx_vehiculos_codigo_catalogo_unico
-            ON vehiculos(codigo_catalogo)
-            WHERE codigo_catalogo IS NOT NULL AND TRIM(codigo_catalogo) != ''
-            """,
-            "índice único de código de catálogo"
-        )
+        conexion = sqlite3.connect(DATABASE_PATH)
+        conexion.row_factory = sqlite3.Row
+        conexion.execute("PRAGMA foreign_keys = ON")
+        cursor = conexion.cursor()
 
-    if tabla_existe(cursor, "codigos_vehiculo"):
-        ejecutar_sql_seguro(
-            cursor,
-            """
-            CREATE UNIQUE INDEX IF NOT EXISTS idx_codigos_vehiculo_codigo_unico
-            ON codigos_vehiculo(codigo)
-            WHERE codigo IS NOT NULL AND TRIM(codigo) != ''
-            """,
-            "índice único de código de canje"
-        )
+        try:
+            if tabla_existe(cursor, "vehiculos"):
+                columnas_vehiculos = {
+                    "archivado": "INTEGER DEFAULT 0",
+                    "archivado_en": "TEXT",
+                    "archivado_por": "INTEGER",
+                    "motivo_archivado": "TEXT",
+                    "actualizado_en": "TEXT",
+                    "placa": "TEXT",
+                    "preview_sistemas_json": "TEXT"
+                }
 
-        ejecutar_sql_seguro(
-            cursor,
-            """
-            CREATE UNIQUE INDEX IF NOT EXISTS idx_codigos_vehiculo_un_codigo_por_vehiculo
-            ON codigos_vehiculo(vehiculo_id)
-            WHERE vehiculo_id IS NOT NULL
-            """,
-            "índice único de un código por vehículo"
-        )
+                for columna, definicion in columnas_vehiculos.items():
+                    agregar_columna_si_falta(cursor, "vehiculos", columna, definicion)
 
-    if tabla_existe(cursor, "usuarios"):
-        columnas_usuarios = {
-            "activo": "INTEGER DEFAULT 1",
-            "creado_en": "TEXT",
-            "actualizado_en": "TEXT",
-            "establecimiento": "TEXT",
-            "cedula": "TEXT",
-            "reset_token_hash": "TEXT",
-            "reset_token_expira": "TEXT",
-            "notificar_correo": "INTEGER DEFAULT 1",
-            "notificar_mantenimientos": "INTEGER DEFAULT 1",
-            "notificar_alertas": "INTEGER DEFAULT 1",
-            "notificar_facturas": "INTEGER DEFAULT 1",
-            "notificar_recordatorios": "INTEGER DEFAULT 0"
-        }
-
-        for columna, definicion in columnas_usuarios.items():
-            agregar_columna_si_falta(cursor, "usuarios", columna, definicion)
-
-        ejecutar_sql_seguro(
-            cursor,
-            """
-            CREATE UNIQUE INDEX IF NOT EXISTS idx_usuarios_correo_unico
-            ON usuarios(correo)
-            WHERE correo IS NOT NULL AND TRIM(correo) != ''
-            """,
-            "índice único de correo de usuario"
-        )
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS mensajes_contacto (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nombre TEXT NOT NULL,
-            correo TEXT NOT NULL,
-            telefono TEXT,
-            asunto TEXT,
-            mensaje TEXT NOT NULL,
-            ip TEXT,
-            user_agent TEXT,
-            estado TEXT DEFAULT 'Nuevo',
-            creado_en TEXT
-        )
-    """)
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS canjes_reversados (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            usuario_vehiculo_id INTEGER,
-            usuario_id INTEGER,
-            vehiculo_id INTEGER,
-            codigo_vehiculo_id INTEGER,
-            codigo_canje TEXT,
-            usuario_nombre TEXT,
-            usuario_correo TEXT,
-            vehiculo_referencia TEXT,
-            vehiculo_descripcion TEXT,
-            kilometraje_inicial INTEGER,
-            fecha_registro_original TEXT,
-            reversado_por INTEGER,
-            reversado_en TEXT,
-            motivo TEXT
-        )
-    """)
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS mantenimientos (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            usuario_id INTEGER NOT NULL,
-            vehiculo_id INTEGER NOT NULL,
-            usuario_vehiculo_id INTEGER,
-            registrado_por INTEGER,
-            tipo_servicio TEXT NOT NULL,
-            descripcion TEXT,
-            kilometraje_actual INTEGER,
-            fecha_servicio TEXT NOT NULL,
-            intervalo_km INTEGER,
-            intervalo_meses INTEGER,
-            proximo_kilometraje INTEGER,
-            proxima_fecha TEXT,
-            observaciones TEXT,
-            establecimiento TEXT,
-            estado TEXT DEFAULT 'Realizado',
-            costo REAL DEFAULT 0,
-            taller TEXT,
-            kilometraje INTEGER,
-            proximo_servicio_fecha TEXT,
-            proximo_servicio_km INTEGER,
-            creado_en TEXT,
-            actualizado_en TEXT,
-            anulado INTEGER DEFAULT 0,
-            anulado_por INTEGER,
-            anulado_en TEXT,
-            motivo_anulacion TEXT
-        )
-    """)
-
-    if tabla_existe(cursor, "mantenimientos"):
-        columnas_mantenimientos = {
-            "registrado_por": "INTEGER",
-            "kilometraje_actual": "INTEGER",
-            "intervalo_km": "INTEGER",
-            "intervalo_meses": "INTEGER",
-            "proximo_kilometraje": "INTEGER",
-            "proxima_fecha": "TEXT",
-            "observaciones": "TEXT",
-            "establecimiento": "TEXT",
-            "estado": "TEXT DEFAULT 'Realizado'",
-            "anulado": "INTEGER DEFAULT 0",
-            "anulado_por": "INTEGER",
-            "anulado_en": "TEXT",
-            "motivo_anulacion": "TEXT"
-        }
-
-        for columna, definicion in columnas_mantenimientos.items():
-            agregar_columna_si_falta(cursor, "mantenimientos", columna, definicion)
-
-        cursor.execute("""
-            UPDATE mantenimientos
-            SET
-                kilometraje_actual = COALESCE(kilometraje_actual, kilometraje),
-                proximo_kilometraje = COALESCE(proximo_kilometraje, proximo_servicio_km),
-                proxima_fecha = COALESCE(proxima_fecha, proximo_servicio_fecha),
-                establecimiento = COALESCE(establecimiento, taller),
-                observaciones = COALESCE(observaciones, descripcion),
-                estado = COALESCE(NULLIF(TRIM(estado), ''), 'Realizado'),
-                anulado = COALESCE(anulado, 0)
-        """)
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS manuales_vehiculo (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            vehiculo_id INTEGER NOT NULL,
-            titulo TEXT NOT NULL,
-            tipo_documento TEXT,
-            archivo TEXT,
-            enlace TEXT,
-            descripcion TEXT,
-            subido_por INTEGER,
-            creado_en TEXT,
-            activo INTEGER DEFAULT 1
-        )
-    """)
-
-    if tabla_existe(cursor, "manuales_vehiculo"):
-        columnas_manuales = {
-            "tipo_documento": "TEXT",
-            "archivo": "TEXT",
-            "enlace": "TEXT",
-            "descripcion": "TEXT",
-            "subido_por": "INTEGER",
-            "creado_en": "TEXT",
-            "activo": "INTEGER DEFAULT 1"
-        }
-
-        for columna, definicion in columnas_manuales.items():
-            agregar_columna_si_falta(cursor, "manuales_vehiculo", columna, definicion)
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS facturas_vehiculo (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            usuario_id INTEGER NOT NULL,
-            vehiculo_id INTEGER NOT NULL,
-            usuario_vehiculo_id INTEGER,
-            numero_factura TEXT,
-            descripcion TEXT,
-            archivo TEXT,
-            enlace TEXT,
-            fecha_factura TEXT,
-            monto REAL DEFAULT 0,
-            establecimiento TEXT,
-            subido_por INTEGER,
-            creado_en TEXT,
-            actualizado_en TEXT,
-            activo INTEGER DEFAULT 1,
-            anulado_por INTEGER,
-            anulado_en TEXT,
-            motivo_anulacion TEXT
-        )
-    """)
-
-    if tabla_existe(cursor, "facturas_vehiculo"):
-        columnas_facturas = {
-            "usuario_vehiculo_id": "INTEGER",
-            "numero_factura": "TEXT",
-            "descripcion": "TEXT",
-            "archivo": "TEXT",
-            "enlace": "TEXT",
-            "fecha_factura": "TEXT",
-            "monto": "REAL DEFAULT 0",
-            "establecimiento": "TEXT",
-            "subido_por": "INTEGER",
-            "creado_en": "TEXT",
-            "actualizado_en": "TEXT",
-            "activo": "INTEGER DEFAULT 1",
-            "anulado_por": "INTEGER",
-            "anulado_en": "TEXT",
-            "motivo_anulacion": "TEXT"
-        }
-
-        for columna, definicion in columnas_facturas.items():
-            agregar_columna_si_falta(cursor, "facturas_vehiculo", columna, definicion)
-
-        cursor.execute("""
-            UPDATE facturas_vehiculo
-            SET activo = COALESCE(activo, 1),
-                monto = COALESCE(monto, 0),
-                creado_en = COALESCE(creado_en, CURRENT_TIMESTAMP)
-        """)
-
-    ejecutar_sql_seguro(
-        cursor,
-        """
-        CREATE INDEX IF NOT EXISTS idx_mantenimientos_usuario_fecha
-        ON mantenimientos(usuario_id, fecha_servicio)
-        """,
-        "índice de mantenimientos por usuario y fecha"
-    )
-
-    ejecutar_sql_seguro(
-        cursor,
-        """
-        CREATE INDEX IF NOT EXISTS idx_mantenimientos_vehiculo
-        ON mantenimientos(vehiculo_id)
-        """,
-        "índice de mantenimientos por vehículo"
-    )
-
-    ejecutar_sql_seguro(
-        cursor,
-        """
-        CREATE INDEX IF NOT EXISTS idx_mantenimientos_anulado
-        ON mantenimientos(anulado)
-        """,
-        "índice de mantenimientos anulados"
-    )
-
-    ejecutar_sql_seguro(
-        cursor,
-        """
-        CREATE INDEX IF NOT EXISTS idx_manuales_vehiculo
-        ON manuales_vehiculo(vehiculo_id, activo)
-        """,
-        "índice de manuales por vehículo"
-    )
-
-    ejecutar_sql_seguro(
-        cursor,
-        """
-        CREATE INDEX IF NOT EXISTS idx_facturas_usuario
-        ON facturas_vehiculo(usuario_id, activo)
-        """,
-        "índice de facturas por usuario"
-    )
-
-    ejecutar_sql_seguro(
-        cursor,
-        """
-        CREATE INDEX IF NOT EXISTS idx_facturas_vehiculo
-        ON facturas_vehiculo(vehiculo_id, activo)
-        """,
-        "índice de facturas por vehículo"
-    )
-
-
-
-    # ================= MODELOS BASE / RECURSOS COMPARTIDOS =================
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS vehiculo_modelos (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            marca TEXT NOT NULL,
-            modelo TEXT NOT NULL,
-            anio INTEGER NOT NULL,
-            tipo_vehiculo TEXT,
-            combustible TEXT,
-            transmision TEXT,
-            modelo_3d TEXT,
-            modelo_3d_id TEXT,
-            modelo_3d_tipo TEXT DEFAULT 'glb',
-            creado_por INTEGER,
-            creado_en TEXT,
-            actualizado_en TEXT,
-            activo INTEGER DEFAULT 1
-        )
-    """)
-
-    if tabla_existe(cursor, "vehiculos"):
-        agregar_columna_si_falta(cursor, "vehiculos", "modelo_base_id", "INTEGER")
-
-        cursor.execute("""
-            SELECT DISTINCT
-                TRIM(marca) AS marca,
-                TRIM(modelo) AS modelo,
-                anio,
-                COALESCE(tipo_vehiculo, '') AS tipo_vehiculo,
-                COALESCE(combustible, '') AS combustible,
-                COALESCE(transmision, '') AS transmision,
-                COALESCE(modelo_3d, '') AS modelo_3d,
-                COALESCE(modelo_3d_id, '') AS modelo_3d_id,
-                COALESCE(modelo_3d_tipo, 'glb') AS modelo_3d_tipo,
-                COALESCE(creado_por, NULL) AS creado_por
-            FROM vehiculos
-            WHERE TRIM(COALESCE(marca, '')) != ''
-              AND TRIM(COALESCE(modelo, '')) != ''
-              AND anio IS NOT NULL
-        """)
-
-        modelos_existentes = cursor.fetchall()
-        ahora_modelo = fecha_actual()
-
-        for modelo_base in modelos_existentes:
-            cursor.execute("""
-                SELECT id, modelo_3d, modelo_3d_id, modelo_3d_tipo
-                FROM vehiculo_modelos
-                WHERE LOWER(TRIM(marca)) = LOWER(TRIM(?))
-                  AND LOWER(TRIM(modelo)) = LOWER(TRIM(?))
-                  AND anio = ?
-                LIMIT 1
-            """, (modelo_base[0], modelo_base[1], modelo_base[2]))
-            fila_modelo = cursor.fetchone()
-
-            if fila_modelo:
-                modelo_id = fila_modelo[0]
-                cursor.execute("""
-                    UPDATE vehiculo_modelos
-                    SET
-                        tipo_vehiculo = COALESCE(NULLIF(TRIM(tipo_vehiculo), ''), ?),
-                        combustible = COALESCE(NULLIF(TRIM(combustible), ''), ?),
-                        transmision = COALESCE(NULLIF(TRIM(transmision), ''), ?),
-                        modelo_3d = COALESCE(NULLIF(TRIM(modelo_3d), ''), ?),
-                        modelo_3d_id = COALESCE(NULLIF(TRIM(modelo_3d_id), ''), ?),
-                        modelo_3d_tipo = COALESCE(NULLIF(TRIM(modelo_3d_tipo), ''), ?),
-                        actualizado_en = COALESCE(actualizado_en, ?)
-                    WHERE id = ?
-                """, (modelo_base[3], modelo_base[4], modelo_base[5], modelo_base[6], modelo_base[7], modelo_base[8], ahora_modelo, modelo_id))
-            else:
-                cursor.execute("""
-                    INSERT INTO vehiculo_modelos (
-                        marca, modelo, anio, tipo_vehiculo, combustible, transmision,
-                        modelo_3d, modelo_3d_id, modelo_3d_tipo, creado_por, creado_en, actualizado_en, activo
-                    )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
-                """, (*modelo_base, ahora_modelo, ahora_modelo))
-                modelo_id = cursor.lastrowid
-
-            cursor.execute("""
-                UPDATE vehiculos
-                SET
-                    modelo_base_id = ?,
-                    modelo_3d = COALESCE(NULLIF(TRIM(modelo_3d), ''), (SELECT modelo_3d FROM vehiculo_modelos WHERE id = ?)),
-                    modelo_3d_id = COALESCE(NULLIF(TRIM(modelo_3d_id), ''), (SELECT modelo_3d_id FROM vehiculo_modelos WHERE id = ?)),
-                    modelo_3d_tipo = COALESCE(NULLIF(TRIM(modelo_3d_tipo), ''), (SELECT modelo_3d_tipo FROM vehiculo_modelos WHERE id = ?))
-                WHERE LOWER(TRIM(marca)) = LOWER(TRIM(?))
-                  AND LOWER(TRIM(modelo)) = LOWER(TRIM(?))
-                  AND anio = ?
-                  AND (modelo_base_id IS NULL OR modelo_base_id = 0)
-            """, (modelo_id, modelo_id, modelo_id, modelo_id, modelo_base[0], modelo_base[1], modelo_base[2]))
-
-        ejecutar_sql_seguro(cursor, """
-            CREATE INDEX IF NOT EXISTS idx_vehiculos_modelo_base
-            ON vehiculos(modelo_base_id)
-        """, "índice de vehículos por modelo base")
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS manuales_modelo (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            modelo_id INTEGER NOT NULL,
-            titulo TEXT NOT NULL,
-            tipo_documento TEXT,
-            archivo TEXT,
-            enlace TEXT,
-            descripcion TEXT,
-            subido_por INTEGER,
-            creado_en TEXT,
-            activo INTEGER DEFAULT 1
-        )
-    """)
-
-    if tabla_existe(cursor, "manuales_modelo"):
-        columnas_manuales_modelo = {
-            "modelo_id": "INTEGER",
-            "titulo": "TEXT",
-            "tipo_documento": "TEXT",
-            "archivo": "TEXT",
-            "enlace": "TEXT",
-            "descripcion": "TEXT",
-            "subido_por": "INTEGER",
-            "creado_en": "TEXT",
-            "activo": "INTEGER DEFAULT 1"
-        }
-        for columna, definicion in columnas_manuales_modelo.items():
-            agregar_columna_si_falta(cursor, "manuales_modelo", columna, definicion)
-
-    if tabla_existe(cursor, "manuales_vehiculo") and tabla_existe(cursor, "manuales_modelo"):
-        cursor.execute("""
-            SELECT
-                manuales_vehiculo.*,
-                vehiculos.modelo_base_id
-            FROM manuales_vehiculo
-            INNER JOIN vehiculos ON vehiculos.id = manuales_vehiculo.vehiculo_id
-            WHERE vehiculos.modelo_base_id IS NOT NULL
-        """)
-        manuales_antiguos = cursor.fetchall()
-
-        for manual in manuales_antiguos:
-            cursor.execute("""
-                SELECT id
-                FROM manuales_modelo
-                WHERE modelo_id = ?
-                  AND LOWER(TRIM(titulo)) = LOWER(TRIM(?))
-                  AND COALESCE(archivo, '') = COALESCE(?, '')
-                  AND COALESCE(enlace, '') = COALESCE(?, '')
-                LIMIT 1
-            """, (manual["modelo_base_id"], manual["titulo"], manual["archivo"], manual["enlace"]))
-
-            if cursor.fetchone():
-                continue
-
-            cursor.execute("""
-                INSERT INTO manuales_modelo (
-                    modelo_id, titulo, tipo_documento, archivo, enlace, descripcion, subido_por, creado_en, activo
+                ejecutar_sql_seguro(
+                    cursor,
+                    """
+                    CREATE UNIQUE INDEX IF NOT EXISTS idx_vehiculos_codigo_catalogo_unico
+                    ON vehiculos(codigo_catalogo)
+                    WHERE codigo_catalogo IS NOT NULL AND TRIM(codigo_catalogo) != ''
+                    """,
+                    "índice único de código de catálogo"
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                manual["modelo_base_id"], manual["titulo"], manual["tipo_documento"], manual["archivo"],
-                manual["enlace"], manual["descripcion"], manual["subido_por"], manual["creado_en"], manual["activo"]
-            ))
 
-    ejecutar_sql_seguro(cursor, """
-        CREATE INDEX IF NOT EXISTS idx_manuales_modelo
-        ON manuales_modelo(modelo_id, activo)
-    """, "índice de manuales por modelo")
+            if tabla_existe(cursor, "codigos_vehiculo"):
+                ejecutar_sql_seguro(
+                    cursor,
+                    """
+                    CREATE UNIQUE INDEX IF NOT EXISTS idx_codigos_vehiculo_codigo_unico
+                    ON codigos_vehiculo(codigo)
+                    WHERE codigo IS NOT NULL AND TRIM(codigo) != ''
+                    """,
+                    "índice único de código de canje"
+                )
 
-    # Facturas generadas por VINOVA
-    if tabla_existe(cursor, "facturas_vehiculo"):
-        columnas_facturas_generadas = {
-            "mantenimiento_id": "INTEGER",
-            "tipo_factura": "TEXT DEFAULT 'Manual'",
-            "concepto": "TEXT",
-            "subtotal": "REAL DEFAULT 0",
-            "impuesto": "REAL DEFAULT 0",
-            "total": "REAL DEFAULT 0",
-            "hora_factura": "TEXT",
-            "generado_por": "INTEGER",
-            "archivo_pdf": "TEXT",
-            "estado": "TEXT DEFAULT 'Generada'",
-            "anulado": "INTEGER DEFAULT 0"
-        }
+                ejecutar_sql_seguro(
+                    cursor,
+                    """
+                    CREATE UNIQUE INDEX IF NOT EXISTS idx_codigos_vehiculo_un_codigo_por_vehiculo
+                    ON codigos_vehiculo(vehiculo_id)
+                    WHERE vehiculo_id IS NOT NULL
+                    """,
+                    "índice único de un código por vehículo"
+                )
 
-        for columna, definicion in columnas_facturas_generadas.items():
-            agregar_columna_si_falta(cursor, "facturas_vehiculo", columna, definicion)
+            if tabla_existe(cursor, "usuarios"):
+                columnas_usuarios = {
+                    "activo": "INTEGER DEFAULT 1",
+                    "creado_en": "TEXT",
+                    "actualizado_en": "TEXT",
+                    "establecimiento": "TEXT",
+                    "cedula": "TEXT",
+                    "reset_token_hash": "TEXT",
+                    "reset_token_expira": "TEXT",
+                    "notificar_correo": "INTEGER DEFAULT 1",
+                    "notificar_mantenimientos": "INTEGER DEFAULT 1",
+                    "notificar_alertas": "INTEGER DEFAULT 1",
+                    "notificar_facturas": "INTEGER DEFAULT 1",
+                    "notificar_recordatorios": "INTEGER DEFAULT 0"
+                }
 
-        cursor.execute("""
-            UPDATE facturas_vehiculo
-            SET
-                tipo_factura = COALESCE(NULLIF(TRIM(tipo_factura), ''), 'Manual'),
-                concepto = COALESCE(NULLIF(TRIM(concepto), ''), descripcion, 'Factura VINOVA'),
-                subtotal = COALESCE(NULLIF(subtotal, 0), monto, 0),
-                total = COALESCE(NULLIF(total, 0), monto, subtotal, 0),
-                generado_por = COALESCE(generado_por, subido_por),
-                archivo_pdf = COALESCE(NULLIF(TRIM(archivo_pdf), ''), archivo),
-                estado = COALESCE(NULLIF(TRIM(estado), ''), 'Generada'),
-                anulado = COALESCE(anulado, CASE WHEN COALESCE(activo, 1) = 1 THEN 0 ELSE 1 END)
-        """)
+                for columna, definicion in columnas_usuarios.items():
+                    agregar_columna_si_falta(cursor, "usuarios", columna, definicion)
 
-    conexion.commit()
-    conexion.close()
+                ejecutar_sql_seguro(
+                    cursor,
+                    """
+                    CREATE UNIQUE INDEX IF NOT EXISTS idx_usuarios_correo_unico
+                    ON usuarios(correo)
+                    WHERE correo IS NOT NULL AND TRIM(correo) != ''
+                    """,
+                    "índice único de correo de usuario"
+                )
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS mensajes_contacto (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    nombre TEXT NOT NULL,
+                    correo TEXT NOT NULL,
+                    telefono TEXT,
+                    asunto TEXT,
+                    mensaje TEXT NOT NULL,
+                    ip TEXT,
+                    user_agent TEXT,
+                    estado TEXT DEFAULT 'Nuevo',
+                    creado_en TEXT
+                )
+            """)
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS canjes_reversados (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    usuario_vehiculo_id INTEGER,
+                    usuario_id INTEGER,
+                    vehiculo_id INTEGER,
+                    codigo_vehiculo_id INTEGER,
+                    codigo_canje TEXT,
+                    usuario_nombre TEXT,
+                    usuario_correo TEXT,
+                    vehiculo_referencia TEXT,
+                    vehiculo_descripcion TEXT,
+                    kilometraje_inicial INTEGER,
+                    fecha_registro_original TEXT,
+                    reversado_por INTEGER,
+                    reversado_en TEXT,
+                    motivo TEXT
+                )
+            """)
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS mantenimientos (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    usuario_id INTEGER NOT NULL,
+                    vehiculo_id INTEGER NOT NULL,
+                    usuario_vehiculo_id INTEGER,
+                    registrado_por INTEGER,
+                    tipo_servicio TEXT NOT NULL,
+                    descripcion TEXT,
+                    kilometraje_actual INTEGER,
+                    fecha_servicio TEXT NOT NULL,
+                    intervalo_km INTEGER,
+                    intervalo_meses INTEGER,
+                    proximo_kilometraje INTEGER,
+                    proxima_fecha TEXT,
+                    observaciones TEXT,
+                    establecimiento TEXT,
+                    estado TEXT DEFAULT 'Realizado',
+                    costo REAL DEFAULT 0,
+                    taller TEXT,
+                    kilometraje INTEGER,
+                    proximo_servicio_fecha TEXT,
+                    proximo_servicio_km INTEGER,
+                    creado_en TEXT,
+                    actualizado_en TEXT,
+                    anulado INTEGER DEFAULT 0,
+                    anulado_por INTEGER,
+                    anulado_en TEXT,
+                    motivo_anulacion TEXT
+                )
+            """)
+
+            if tabla_existe(cursor, "mantenimientos"):
+                columnas_mantenimientos = {
+                    "registrado_por": "INTEGER",
+                    "kilometraje_actual": "INTEGER",
+                    "intervalo_km": "INTEGER",
+                    "intervalo_meses": "INTEGER",
+                    "proximo_kilometraje": "INTEGER",
+                    "proxima_fecha": "TEXT",
+                    "observaciones": "TEXT",
+                    "establecimiento": "TEXT",
+                    "estado": "TEXT DEFAULT 'Realizado'",
+                    "anulado": "INTEGER DEFAULT 0",
+                    "anulado_por": "INTEGER",
+                    "anulado_en": "TEXT",
+                    "motivo_anulacion": "TEXT"
+                }
+
+                for columna, definicion in columnas_mantenimientos.items():
+                    agregar_columna_si_falta(cursor, "mantenimientos", columna, definicion)
+
+                cursor.execute("""
+                    UPDATE mantenimientos
+                    SET
+                        kilometraje_actual = COALESCE(kilometraje_actual, kilometraje),
+                        proximo_kilometraje = COALESCE(proximo_kilometraje, proximo_servicio_km),
+                        proxima_fecha = COALESCE(proxima_fecha, proximo_servicio_fecha),
+                        establecimiento = COALESCE(establecimiento, taller),
+                        observaciones = COALESCE(observaciones, descripcion),
+                        estado = COALESCE(NULLIF(TRIM(estado), ''), 'Realizado'),
+                        anulado = COALESCE(anulado, 0)
+                """)
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS manuales_vehiculo (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    vehiculo_id INTEGER NOT NULL,
+                    titulo TEXT NOT NULL,
+                    tipo_documento TEXT,
+                    archivo TEXT,
+                    enlace TEXT,
+                    descripcion TEXT,
+                    subido_por INTEGER,
+                    creado_en TEXT,
+                    activo INTEGER DEFAULT 1
+                )
+            """)
+
+            if tabla_existe(cursor, "manuales_vehiculo"):
+                columnas_manuales = {
+                    "tipo_documento": "TEXT",
+                    "archivo": "TEXT",
+                    "enlace": "TEXT",
+                    "descripcion": "TEXT",
+                    "subido_por": "INTEGER",
+                    "creado_en": "TEXT",
+                    "activo": "INTEGER DEFAULT 1"
+                }
+
+                for columna, definicion in columnas_manuales.items():
+                    agregar_columna_si_falta(cursor, "manuales_vehiculo", columna, definicion)
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS facturas_vehiculo (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    usuario_id INTEGER NOT NULL,
+                    vehiculo_id INTEGER NOT NULL,
+                    usuario_vehiculo_id INTEGER,
+                    numero_factura TEXT,
+                    descripcion TEXT,
+                    archivo TEXT,
+                    enlace TEXT,
+                    fecha_factura TEXT,
+                    monto REAL DEFAULT 0,
+                    establecimiento TEXT,
+                    subido_por INTEGER,
+                    creado_en TEXT,
+                    actualizado_en TEXT,
+                    activo INTEGER DEFAULT 1,
+                    anulado_por INTEGER,
+                    anulado_en TEXT,
+                    motivo_anulacion TEXT
+                )
+            """)
+
+            if tabla_existe(cursor, "facturas_vehiculo"):
+                columnas_facturas = {
+                    "usuario_vehiculo_id": "INTEGER",
+                    "numero_factura": "TEXT",
+                    "descripcion": "TEXT",
+                    "archivo": "TEXT",
+                    "enlace": "TEXT",
+                    "fecha_factura": "TEXT",
+                    "monto": "REAL DEFAULT 0",
+                    "establecimiento": "TEXT",
+                    "subido_por": "INTEGER",
+                    "creado_en": "TEXT",
+                    "actualizado_en": "TEXT",
+                    "activo": "INTEGER DEFAULT 1",
+                    "anulado_por": "INTEGER",
+                    "anulado_en": "TEXT",
+                    "motivo_anulacion": "TEXT"
+                }
+
+                for columna, definicion in columnas_facturas.items():
+                    agregar_columna_si_falta(cursor, "facturas_vehiculo", columna, definicion)
+
+                cursor.execute("""
+                    UPDATE facturas_vehiculo
+                    SET activo = COALESCE(activo, 1),
+                        monto = COALESCE(monto, 0),
+                        creado_en = COALESCE(creado_en, CURRENT_TIMESTAMP)
+                """)
+
+            ejecutar_sql_seguro(
+                cursor,
+                """
+                CREATE INDEX IF NOT EXISTS idx_mantenimientos_usuario_fecha
+                ON mantenimientos(usuario_id, fecha_servicio)
+                """,
+                "índice de mantenimientos por usuario y fecha"
+            )
+
+            ejecutar_sql_seguro(
+                cursor,
+                """
+                CREATE INDEX IF NOT EXISTS idx_mantenimientos_vehiculo
+                ON mantenimientos(vehiculo_id)
+                """,
+                "índice de mantenimientos por vehículo"
+            )
+
+            ejecutar_sql_seguro(
+                cursor,
+                """
+                CREATE INDEX IF NOT EXISTS idx_mantenimientos_anulado
+                ON mantenimientos(anulado)
+                """,
+                "índice de mantenimientos anulados"
+            )
+
+            ejecutar_sql_seguro(
+                cursor,
+                """
+                CREATE INDEX IF NOT EXISTS idx_manuales_vehiculo
+                ON manuales_vehiculo(vehiculo_id, activo)
+                """,
+                "índice de manuales por vehículo"
+            )
+
+            ejecutar_sql_seguro(
+                cursor,
+                """
+                CREATE INDEX IF NOT EXISTS idx_facturas_usuario
+                ON facturas_vehiculo(usuario_id, activo)
+                """,
+                "índice de facturas por usuario"
+            )
+
+            ejecutar_sql_seguro(
+                cursor,
+                """
+                CREATE INDEX IF NOT EXISTS idx_facturas_vehiculo
+                ON facturas_vehiculo(vehiculo_id, activo)
+                """,
+                "índice de facturas por vehículo"
+            )
+
+
+
+            # ================= MODELOS BASE / RECURSOS COMPARTIDOS =================
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS vehiculo_modelos (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    marca TEXT NOT NULL,
+                    modelo TEXT NOT NULL,
+                    anio INTEGER NOT NULL,
+                    tipo_vehiculo TEXT,
+                    combustible TEXT,
+                    transmision TEXT,
+                    modelo_3d TEXT,
+                    modelo_3d_id TEXT,
+                    modelo_3d_tipo TEXT DEFAULT 'glb',
+                    preview_sistemas_json TEXT,
+                    creado_por INTEGER,
+                    creado_en TEXT,
+                    actualizado_en TEXT,
+                    activo INTEGER DEFAULT 1
+                )
+            """)
+
+            agregar_columna_si_falta(cursor, "vehiculo_modelos", "preview_sistemas_json", "TEXT")
+
+            if tabla_existe(cursor, "vehiculos"):
+                agregar_columna_si_falta(cursor, "vehiculos", "modelo_base_id", "INTEGER")
+                agregar_columna_si_falta(cursor, "vehiculos", "preview_sistemas_json", "TEXT")
+
+                cursor.execute("""
+                    SELECT DISTINCT
+                        TRIM(marca) AS marca,
+                        TRIM(modelo) AS modelo,
+                        anio,
+                        COALESCE(tipo_vehiculo, '') AS tipo_vehiculo,
+                        COALESCE(combustible, '') AS combustible,
+                        COALESCE(transmision, '') AS transmision,
+                        COALESCE(modelo_3d, '') AS modelo_3d,
+                        COALESCE(modelo_3d_id, '') AS modelo_3d_id,
+                        COALESCE(modelo_3d_tipo, 'glb') AS modelo_3d_tipo,
+                        COALESCE(preview_sistemas_json, '') AS preview_sistemas_json,
+                        COALESCE(creado_por, NULL) AS creado_por
+                    FROM vehiculos
+                    WHERE TRIM(COALESCE(marca, '')) != ''
+                      AND TRIM(COALESCE(modelo, '')) != ''
+                      AND anio IS NOT NULL
+                """)
+
+                modelos_existentes = cursor.fetchall()
+                ahora_modelo = fecha_actual()
+
+                for modelo_base in modelos_existentes:
+                    cursor.execute("""
+                        SELECT id, modelo_3d, modelo_3d_id, modelo_3d_tipo
+                        FROM vehiculo_modelos
+                        WHERE LOWER(TRIM(marca)) = LOWER(TRIM(?))
+                          AND LOWER(TRIM(modelo)) = LOWER(TRIM(?))
+                          AND anio = ?
+                        LIMIT 1
+                    """, (modelo_base[0], modelo_base[1], modelo_base[2]))
+                    fila_modelo = cursor.fetchone()
+
+                    if fila_modelo:
+                        modelo_id = fila_modelo[0]
+                        cursor.execute("""
+                            UPDATE vehiculo_modelos
+                            SET
+                                tipo_vehiculo = COALESCE(NULLIF(TRIM(tipo_vehiculo), ''), ?),
+                                combustible = COALESCE(NULLIF(TRIM(combustible), ''), ?),
+                                transmision = COALESCE(NULLIF(TRIM(transmision), ''), ?),
+                                modelo_3d = COALESCE(NULLIF(TRIM(modelo_3d), ''), ?),
+                                modelo_3d_id = COALESCE(NULLIF(TRIM(modelo_3d_id), ''), ?),
+                                modelo_3d_tipo = COALESCE(NULLIF(TRIM(modelo_3d_tipo), ''), ?),
+                                preview_sistemas_json = COALESCE(NULLIF(TRIM(preview_sistemas_json), ''), ?),
+                                actualizado_en = COALESCE(actualizado_en, ?)
+                            WHERE id = ?
+                        """, (modelo_base[3], modelo_base[4], modelo_base[5], modelo_base[6], modelo_base[7], modelo_base[8], modelo_base[9], ahora_modelo, modelo_id))
+                    else:
+                        cursor.execute("""
+                            INSERT INTO vehiculo_modelos (
+                                marca, modelo, anio, tipo_vehiculo, combustible, transmision,
+                                modelo_3d, modelo_3d_id, modelo_3d_tipo, preview_sistemas_json, creado_por, creado_en, actualizado_en, activo
+                            )
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+                        """, (*modelo_base, ahora_modelo, ahora_modelo))
+                        modelo_id = cursor.lastrowid
+
+                    cursor.execute("""
+                        UPDATE vehiculos
+                        SET
+                            modelo_base_id = ?,
+                            modelo_3d = COALESCE(NULLIF(TRIM(modelo_3d), ''), (SELECT modelo_3d FROM vehiculo_modelos WHERE id = ?)),
+                            modelo_3d_id = COALESCE(NULLIF(TRIM(modelo_3d_id), ''), (SELECT modelo_3d_id FROM vehiculo_modelos WHERE id = ?)),
+                            modelo_3d_tipo = COALESCE(NULLIF(TRIM(modelo_3d_tipo), ''), (SELECT modelo_3d_tipo FROM vehiculo_modelos WHERE id = ?)),
+                            preview_sistemas_json = COALESCE(NULLIF(TRIM(preview_sistemas_json), ''), (SELECT preview_sistemas_json FROM vehiculo_modelos WHERE id = ?))
+                        WHERE LOWER(TRIM(marca)) = LOWER(TRIM(?))
+                          AND LOWER(TRIM(modelo)) = LOWER(TRIM(?))
+                          AND anio = ?
+                          AND (modelo_base_id IS NULL OR modelo_base_id = 0)
+                    """, (modelo_id, modelo_id, modelo_id, modelo_id, modelo_id, modelo_base[0], modelo_base[1], modelo_base[2]))
+
+                ejecutar_sql_seguro(cursor, """
+                    CREATE INDEX IF NOT EXISTS idx_vehiculos_modelo_base
+                    ON vehiculos(modelo_base_id)
+                """, "índice de vehículos por modelo base")
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS manuales_modelo (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    modelo_id INTEGER NOT NULL,
+                    titulo TEXT NOT NULL,
+                    tipo_documento TEXT,
+                    archivo TEXT,
+                    enlace TEXT,
+                    descripcion TEXT,
+                    subido_por INTEGER,
+                    creado_en TEXT,
+                    activo INTEGER DEFAULT 1
+                )
+            """)
+
+            if tabla_existe(cursor, "manuales_modelo"):
+                columnas_manuales_modelo = {
+                    "modelo_id": "INTEGER",
+                    "titulo": "TEXT",
+                    "tipo_documento": "TEXT",
+                    "archivo": "TEXT",
+                    "enlace": "TEXT",
+                    "descripcion": "TEXT",
+                    "subido_por": "INTEGER",
+                    "creado_en": "TEXT",
+                    "activo": "INTEGER DEFAULT 1"
+                }
+                for columna, definicion in columnas_manuales_modelo.items():
+                    agregar_columna_si_falta(cursor, "manuales_modelo", columna, definicion)
+
+            if tabla_existe(cursor, "manuales_vehiculo") and tabla_existe(cursor, "manuales_modelo"):
+                cursor.execute("""
+                    SELECT
+                        manuales_vehiculo.*,
+                        vehiculos.modelo_base_id
+                    FROM manuales_vehiculo
+                    INNER JOIN vehiculos ON vehiculos.id = manuales_vehiculo.vehiculo_id
+                    WHERE vehiculos.modelo_base_id IS NOT NULL
+                """)
+                manuales_antiguos = cursor.fetchall()
+
+                for manual in manuales_antiguos:
+                    cursor.execute("""
+                        SELECT id
+                        FROM manuales_modelo
+                        WHERE modelo_id = ?
+                          AND LOWER(TRIM(titulo)) = LOWER(TRIM(?))
+                          AND COALESCE(archivo, '') = COALESCE(?, '')
+                          AND COALESCE(enlace, '') = COALESCE(?, '')
+                        LIMIT 1
+                    """, (manual["modelo_base_id"], manual["titulo"], manual["archivo"], manual["enlace"]))
+
+                    if cursor.fetchone():
+                        continue
+
+                    cursor.execute("""
+                        INSERT INTO manuales_modelo (
+                            modelo_id, titulo, tipo_documento, archivo, enlace, descripcion, subido_por, creado_en, activo
+                        )
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (
+                        manual["modelo_base_id"], manual["titulo"], manual["tipo_documento"], manual["archivo"],
+                        manual["enlace"], manual["descripcion"], manual["subido_por"], manual["creado_en"], manual["activo"]
+                    ))
+
+            ejecutar_sql_seguro(cursor, """
+                CREATE INDEX IF NOT EXISTS idx_manuales_modelo
+                ON manuales_modelo(modelo_id, activo)
+            """, "índice de manuales por modelo")
+
+            # Facturas generadas por VINOVA
+            if tabla_existe(cursor, "facturas_vehiculo"):
+                columnas_facturas_generadas = {
+                    "mantenimiento_id": "INTEGER",
+                    "tipo_factura": "TEXT DEFAULT 'Manual'",
+                    "concepto": "TEXT",
+                    "subtotal": "REAL DEFAULT 0",
+                    "impuesto": "REAL DEFAULT 0",
+                    "total": "REAL DEFAULT 0",
+                    "hora_factura": "TEXT",
+                    "generado_por": "INTEGER",
+                    "archivo_pdf": "TEXT",
+                    "estado": "TEXT DEFAULT 'Generada'",
+                    "anulado": "INTEGER DEFAULT 0"
+                }
+
+                for columna, definicion in columnas_facturas_generadas.items():
+                    agregar_columna_si_falta(cursor, "facturas_vehiculo", columna, definicion)
+
+                cursor.execute("""
+                    UPDATE facturas_vehiculo
+                    SET
+                        tipo_factura = COALESCE(NULLIF(TRIM(tipo_factura), ''), 'Manual'),
+                        concepto = COALESCE(NULLIF(TRIM(concepto), ''), descripcion, 'Factura VINOVA'),
+                        subtotal = COALESCE(NULLIF(subtotal, 0), monto, 0),
+                        total = COALESCE(NULLIF(total, 0), monto, subtotal, 0),
+                        generado_por = COALESCE(generado_por, subido_por),
+                        archivo_pdf = COALESCE(NULLIF(TRIM(archivo_pdf), ''), archivo),
+                        estado = COALESCE(NULLIF(TRIM(estado), ''), 'Generada'),
+                        anulado = COALESCE(anulado, CASE WHEN COALESCE(activo, 1) = 1 THEN 0 ELSE 1 END)
+                """)
+
+            conexion.commit()
+            MIGRACIONES_ADMIN_EJECUTADAS = True
+        finally:
+            conexion.close()
+
+@app.cli.command("migrar-db")
+def comando_migrar_db():
+    """Ejecuta las migraciones de estructura de VINOVA manualmente."""
+
+    asegurar_migraciones_admin()
+    print("Migraciones VINOVA aplicadas correctamente.")
+
 
 def fecha_actual():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -2061,6 +2188,8 @@ def guardar_imagen_vehiculo(archivo, codigo_catalogo):
     if not extension_permitida(archivo.filename, EXTENSIONES_IMAGEN_VEHICULO):
         raise ValueError("Formato de imagen no permitido. Usa JPG, PNG o WEBP.")
 
+    validar_archivo_imagen_real(archivo)
+
     extension = archivo.filename.rsplit(".", 1)[1].lower()
     slug_codigo = crear_slug(codigo_catalogo)
     nombre_archivo = secure_filename(f"{slug_codigo}.{extension}")
@@ -2070,6 +2199,84 @@ def guardar_imagen_vehiculo(archivo, codigo_catalogo):
 
     return f"img/vehicles/{nombre_archivo}"
 
+
+def guardar_modelo_3d_local(archivo, marca, modelo, anio):
+    """Guarda modelos 3D subidos desde admin/trabajador en static/models/vehicles/."""
+
+    if not archivo or not getattr(archivo, "filename", ""):
+        return None
+
+    if not extension_permitida(archivo.filename, EXTENSIONES_MODELO_3D):
+        raise ValueError("Formato de modelo 3D no permitido. Usa archivos GLB o GLTF.")
+
+    extension = archivo.filename.rsplit(".", 1)[1].lower()
+    slug_base = crear_slug(f"{marca}-{modelo}-{anio}")
+    nombre_archivo = secure_filename(
+        f"{slug_base}-{int(time.time())}-{secrets.token_hex(4)}.{extension}"
+    )
+
+    carpeta_destino = app.config["VEHICLE_3D_FOLDER"]
+    os.makedirs(carpeta_destino, exist_ok=True)
+
+    ruta_absoluta = os.path.join(carpeta_destino, nombre_archivo)
+    archivo.save(ruta_absoluta)
+
+    return f"models/vehicles/{nombre_archivo}"
+
+
+def normalizar_preview_sistemas_json(valor):
+    """Valida y compacta el JSON editable del preview 3D por sistemas."""
+
+    texto = str(valor or "").strip()
+
+    if not texto:
+        return ""
+
+    try:
+        datos = json.loads(texto)
+    except json.JSONDecodeError as error:
+        raise ValueError(f"El JSON de información técnica del preview no es válido: {error.msg}.")
+
+    if not isinstance(datos, (dict, list)):
+        raise ValueError("La información técnica del preview debe ser un objeto o una lista JSON.")
+
+    return json.dumps(datos, ensure_ascii=False, separators=(",", ":"))
+
+
+def generar_codigo_catalogo(cursor, marca, modelo, anio, vehiculo_id=None):
+    """Genera una referencia pública única tipo VIN-GMC-CANYON-AT4X-2023."""
+
+    texto = f"VIN-{marca}-{modelo}-{anio}".upper()
+    reemplazos = {
+        "Á": "A", "É": "E", "Í": "I", "Ó": "O", "Ú": "U", "Ñ": "N",
+        "Ü": "U"
+    }
+
+    for origen, destino in reemplazos.items():
+        texto = texto.replace(origen, destino)
+
+    base = re.sub(r"[^A-Z0-9]+", "-", texto).strip("-")
+    base = base[:46].strip("-") or "VIN-VEHICULO"
+    candidato = base
+    contador = 2
+
+    while True:
+        if vehiculo_id:
+            cursor.execute(
+                "SELECT COUNT(*) FROM vehiculos WHERE UPPER(TRIM(codigo_catalogo)) = UPPER(TRIM(?)) AND id != ?",
+                (candidato, vehiculo_id)
+            )
+        else:
+            cursor.execute(
+                "SELECT COUNT(*) FROM vehiculos WHERE UPPER(TRIM(codigo_catalogo)) = UPPER(TRIM(?))",
+                (candidato,)
+            )
+
+        if cursor.fetchone()[0] == 0:
+            return candidato
+
+        candidato = f"{base}-{contador:02d}"
+        contador += 1
 
 
 # ================= CSRF =================
@@ -2515,6 +2722,19 @@ def trabajador_panel():
     """)
     total_facturas = cursor.fetchone()[0]
 
+    cursor.execute("""
+        SELECT
+            manuales_modelo.*,
+            vehiculo_modelos.marca,
+            vehiculo_modelos.modelo,
+            vehiculo_modelos.anio
+        FROM manuales_modelo
+        INNER JOIN vehiculo_modelos
+            ON vehiculo_modelos.id = manuales_modelo.modelo_id
+        ORDER BY manuales_modelo.id DESC
+    """)
+    manuales_admin = cursor.fetchall()
+
     conexion.close()
 
     return render_template(
@@ -2533,6 +2753,7 @@ def trabajador_panel():
         total_mantenimientos=total_mantenimientos,
         facturas=facturas,
         total_facturas=total_facturas,
+        manuales_admin=manuales_admin,
         trabajador_establecimiento=trabajador_establecimiento,
         trabajador_generar_codigo_url="/trabajador/vehiculos/__ID__/codigo/generar",
         trabajador_archivar_vehiculo_url="/trabajador/vehiculos/__ID__/archivar",
@@ -4366,15 +4587,13 @@ def actualizar_foto_perfil():
         flash("No seleccionaste ninguna imagen.", "warning")
         return redirect("/perfil")
 
-    extensiones_permitidas = {"jpg", "jpeg", "png", "webp"}
-
-    extension = archivo.filename.rsplit(".", 1)[-1].lower()
-
-    if extension not in extensiones_permitidas:
+    if not extension_permitida(archivo.filename, EXTENSIONES_IMAGEN_VEHICULO):
         flash("Formato no permitido. Usa JPG, PNG o WEBP.", "warning")
         return redirect("/perfil")
 
     try:
+        validar_archivo_imagen_real(archivo)
+
         resultado = cloudinary.uploader.upload(
             archivo,
             folder="vinova/perfiles",
@@ -4839,6 +5058,99 @@ def catalog():
     )
 
 
+@app.route("/catalog/vehiculos/<int:vehiculo_id>/preview/guardar", methods=["POST"])
+@login_required
+@personal_required
+def catalog_guardar_preview_vehiculo(vehiculo_id):
+    """Permite a ADMIN/TRABAJADOR editar desde el catálogo la ficha del preview 3D."""
+
+    asegurar_migraciones_admin()
+
+    datos = request.get_json(silent=True) or {}
+    descripcion = str(datos.get("descripcion", "") or "").strip()
+    preview_sistemas_raw = datos.get("preview_sistemas_json", "")
+
+    if not isinstance(preview_sistemas_raw, str):
+        preview_sistemas_raw = json.dumps(preview_sistemas_raw, ensure_ascii=False)
+
+    try:
+        preview_sistemas_json = normalizar_preview_sistemas_json(preview_sistemas_raw)
+    except ValueError as error:
+        return jsonify({
+            "ok": False,
+            "message": str(error)
+        }), 400
+
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT id, modelo_base_id
+            FROM vehiculos
+            WHERE id = ?
+              AND COALESCE(archivado, 0) = 0
+        """, (vehiculo_id,))
+        vehiculo = cursor.fetchone()
+
+        if not vehiculo:
+            return jsonify({
+                "ok": False,
+                "message": "El vehículo no existe o fue archivado."
+            }), 404
+
+        ahora = fecha_actual()
+
+        cursor.execute("""
+            UPDATE vehiculos
+            SET
+                descripcion = ?,
+                preview_sistemas_json = ?,
+                actualizado_en = ?
+            WHERE id = ?
+        """, (
+            descripcion,
+            preview_sistemas_json,
+            ahora,
+            vehiculo_id,
+        ))
+
+        modelo_base_id = vehiculo["modelo_base_id"] if "modelo_base_id" in vehiculo.keys() else None
+
+        if modelo_base_id:
+            cursor.execute("""
+                UPDATE vehiculo_modelos
+                SET
+                    preview_sistemas_json = ?,
+                    actualizado_en = ?
+                WHERE id = ?
+            """, (
+                preview_sistemas_json,
+                ahora,
+                modelo_base_id,
+            ))
+
+        conexion.commit()
+
+        return jsonify({
+            "ok": True,
+            "message": "Información del preview actualizada.",
+            "descripcion": descripcion,
+            "preview_sistemas_json": preview_sistemas_json,
+        })
+
+    except Exception as error:
+        conexion.rollback()
+        print("Error al guardar preview 3D desde catálogo:", error)
+        return jsonify({
+            "ok": False,
+            "message": "No se pudo guardar la información del preview."
+        }), 500
+
+    finally:
+        conexion.close()
+
+
 # ================= ADMIN =================
 
 @app.route("/admin")
@@ -5179,8 +5491,9 @@ def admin_guardar_vehiculo():
     estado = request.form.get("estado", "Disponible").strip()
     descripcion = request.form.get("descripcion", "").strip()
     modelo_3d_id = request.form.get("modelo_3d_id", "").strip()
-    modelo_3d = request.form.get("modelo_3d", "").strip()
+    modelo_3d = normalizar_ruta_static_documento(request.form.get("modelo_3d", "")) or request.form.get("modelo_3d", "").strip()
     modelo_3d_tipo = request.form.get("modelo_3d_tipo", "glb").strip()
+    preview_sistemas_json_raw = request.form.get("preview_sistemas_json", "").strip()
 
     estados_permitidos = {
         "Disponible",
@@ -5200,8 +5513,8 @@ def admin_guardar_vehiculo():
     if estado == "Vendido":
         activo = 0
 
-    if not codigo_catalogo or not marca or not modelo or not anio:
-        flash("Código, marca, modelo y año son obligatorios.", "warning")
+    if not marca or not modelo or not anio:
+        flash("Marca, modelo y año son obligatorios. El código de catálogo puede generarse automáticamente.", "warning")
         return redirigir_operativo("vehiculos", origen)
 
     try:
@@ -5221,12 +5534,22 @@ def admin_guardar_vehiculo():
         return redirigir_operativo("vehiculos", origen)
 
     archivo_imagen = request.files.get("imagen")
+    archivo_modelo_3d = request.files.get("modelo_3d_file")
+
+    try:
+        preview_sistemas_json = normalizar_preview_sistemas_json(preview_sistemas_json_raw)
+    except ValueError as error:
+        flash(str(error), "warning")
+        return redirigir_operativo("vehiculos", origen)
 
     conexion = conectar_db()
     cursor = conexion.cursor()
 
     try:
         ahora = fecha_actual()
+
+        if not codigo_catalogo:
+            codigo_catalogo = generar_codigo_catalogo(cursor, marca, modelo, anio, vehiculo_id or None)
 
         vehiculo_actual = None
         vehiculo_tiene_codigo = False
@@ -5289,6 +5612,19 @@ def admin_guardar_vehiculo():
                 flash("No puedes cambiar el código de catálogo de un vehículo que ya tiene código, venta o registro.", "warning")
                 return redirigir_operativo("vehiculos", origen)
 
+        try:
+            modelo_3d_guardado = guardar_modelo_3d_local(archivo_modelo_3d, marca, modelo, anio)
+        except ValueError as error:
+            flash(str(error), "warning")
+            return redirigir_operativo("vehiculos", origen)
+
+        if modelo_3d_guardado:
+            modelo_3d = modelo_3d_guardado
+            modelo_3d_tipo = modelo_3d_guardado.rsplit(".", 1)[1].lower()
+
+        if modelo_3d and not modelo_3d_id:
+            modelo_3d_id = crear_slug(f"{marca}-{modelo}-{anio}")
+
         modelo_base = obtener_o_crear_modelo_base(
             cursor,
             marca,
@@ -5300,12 +5636,14 @@ def admin_guardar_vehiculo():
             modelo_3d,
             modelo_3d_id,
             modelo_3d_tipo,
+            preview_sistemas_json,
             session.get("usuario_id")
         )
         modelo_base_id = modelo_base["id"]
         modelo_3d = modelo_base.get("modelo_3d", "")
         modelo_3d_id = modelo_base.get("modelo_3d_id", "")
         modelo_3d_tipo = modelo_base.get("modelo_3d_tipo", modelo_3d_tipo)
+        preview_sistemas_json = modelo_base.get("preview_sistemas_json", preview_sistemas_json)
 
         try:
             imagen_guardada = guardar_imagen_vehiculo(archivo_imagen, codigo_catalogo)
@@ -5333,6 +5671,7 @@ def admin_guardar_vehiculo():
                         modelo_3d = ?,
                         modelo_3d_id = ?,
                         modelo_3d_tipo = ?,
+                        preview_sistemas_json = ?,
                         descripcion = ?,
                         estado = ?,
                         activo = ?,
@@ -5353,6 +5692,7 @@ def admin_guardar_vehiculo():
                     modelo_3d,
                     modelo_3d_id,
                     modelo_3d_tipo,
+                    preview_sistemas_json,
                     descripcion,
                     estado,
                     activo,
@@ -5377,6 +5717,7 @@ def admin_guardar_vehiculo():
                         modelo_3d = ?,
                         modelo_3d_id = ?,
                         modelo_3d_tipo = ?,
+                        preview_sistemas_json = ?,
                         descripcion = ?,
                         estado = ?,
                         activo = ?,
@@ -5396,6 +5737,7 @@ def admin_guardar_vehiculo():
                     modelo_3d,
                     modelo_3d_id,
                     modelo_3d_tipo,
+                    preview_sistemas_json,
                     descripcion,
                     estado,
                     activo,
@@ -5422,6 +5764,7 @@ def admin_guardar_vehiculo():
                     modelo_3d,
                     modelo_3d_id,
                     modelo_3d_tipo,
+                    preview_sistemas_json,
                     descripcion,
                     estado,
                     activo,
@@ -5429,7 +5772,7 @@ def admin_guardar_vehiculo():
                     creado_en,
                     archivado
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 codigo_catalogo,
                 marca,
@@ -5445,6 +5788,7 @@ def admin_guardar_vehiculo():
                 modelo_3d,
                 modelo_3d_id,
                 modelo_3d_tipo,
+                preview_sistemas_json,
                 descripcion,
                 estado,
                 activo,
