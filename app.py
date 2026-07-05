@@ -9,6 +9,7 @@ from vinova.routes import catalogo  # noqa: F401
 from vinova.routes import admin  # noqa: F401
 from vinova.routes import facturas  # noqa: F401
 from vinova.routes import errores  # noqa: F401
+from vinova.routes import instituciones  # noqa: F401
 
 
 if __name__ == "__main__":

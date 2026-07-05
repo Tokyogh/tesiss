@@ -60,6 +60,10 @@ document.addEventListener("DOMContentLoaded", () => {
         });
 
         renderIcons();
+
+        if (typeof window.vinovaAdminInvalidateMaps === "function") {
+            window.setTimeout(() => window.vinovaAdminInvalidateMaps(), 120);
+        }
     }
 
     allAdminLinks.forEach((link) => {
@@ -442,4 +446,267 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         });
     });
+
+    // =============================
+    // MAPA MAPTILER PARA ESTABLECIMIENTOS
+    // =============================
+
+    (function initAdminEstablishmentMap() {
+        const mapElement = document.getElementById("adminEstablishmentMap");
+        const latInput = document.querySelector("[data-map-lat-input]");
+        const lngInput = document.querySelector("[data-map-lng-input]");
+        const maptilerKey = window.VINOVA_MAPTILER_KEY || "";
+
+        if (!mapElement || !latInput || !lngInput) return;
+
+        if (!window.maplibregl || !maptilerKey) {
+            mapElement.innerHTML = `
+                <div class="admin-maptiler-fallback">
+                    <strong>Mapa no configurado</strong>
+                    <span>Agrega MAPTILER_KEY en el archivo .env para usar el selector de ubicación.</span>
+                </div>
+            `;
+            return;
+        }
+
+        const defaultLat = Number(mapElement.dataset.defaultLat || "-2.170998");
+        const defaultLng = Number(mapElement.dataset.defaultLng || "-79.922359");
+        const styleUrl = `https://api.maptiler.com/maps/streets-v2-dark/style.json?key=${encodeURIComponent(maptilerKey)}`;
+
+        let map = null;
+        let marker = null;
+        let popup = null;
+
+        function isMapSectionVisible() {
+            const section = mapElement.closest(".admin-section");
+            return !section || section.classList.contains("active");
+        }
+
+        function parseCoord(input, fallback) {
+            const value = Number(input.value);
+            return Number.isFinite(value) ? value : fallback;
+        }
+
+        function getCurrentPosition() {
+            const lat = parseCoord(latInput, defaultLat);
+            const lng = parseCoord(lngInput, defaultLng);
+            return [lng, lat];
+        }
+
+        function setInputs(lngLat) {
+            latInput.value = Number(lngLat.lat).toFixed(6);
+            lngInput.value = Number(lngLat.lng).toFixed(6);
+        }
+
+        function styleAdminMapLayers() {
+            if (!map || !map.getStyle() || !Array.isArray(map.getStyle().layers)) return;
+
+            map.getStyle().layers.forEach((layer) => {
+                const id = String(layer.id || "").toLowerCase();
+
+                try {
+                    if (layer.type === "background") {
+                        map.setPaintProperty(layer.id, "background-color", "#020817");
+                    }
+
+                    if (layer.type === "line") {
+                        const isRoad = (
+                            id.includes("road") ||
+                            id.includes("street") ||
+                            id.includes("transport") ||
+                            id.includes("highway") ||
+                            id.includes("bridge") ||
+                            id.includes("tunnel") ||
+                            id.includes("path")
+                        );
+
+                        const isMainRoad = (
+                            id.includes("motorway") ||
+                            id.includes("trunk") ||
+                            id.includes("primary") ||
+                            id.includes("major") ||
+                            id.includes("highway")
+                        );
+
+                        if (isRoad) {
+                            map.setPaintProperty(layer.id, "line-color", "#2f80ff");
+                            map.setPaintProperty(layer.id, "line-opacity", [
+                                "interpolate",
+                                ["linear"],
+                                ["zoom"],
+                                8, 0.24,
+                                11, 0.42,
+                                14, 0.72,
+                                17, 0.9
+                            ]);
+                            map.setPaintProperty(layer.id, "line-blur", 0.05);
+                        }
+
+                        if (isMainRoad) {
+                            map.setPaintProperty(layer.id, "line-color", "#38bdf8");
+                            map.setPaintProperty(layer.id, "line-opacity", 0.78);
+                        }
+                    }
+
+                    if (layer.type === "fill") {
+                        if (id.includes("water")) {
+                            map.setPaintProperty(layer.id, "fill-color", "#031b3d");
+                            map.setPaintProperty(layer.id, "fill-opacity", 0.78);
+                        }
+
+                        if (id.includes("building")) {
+                            map.setPaintProperty(layer.id, "fill-color", "#071a35");
+                            map.setPaintProperty(layer.id, "fill-opacity", 0.72);
+                        }
+                    }
+
+                    if (layer.type === "symbol") {
+                        if (id.includes("label") || id.includes("name")) {
+                            map.setPaintProperty(layer.id, "text-color", "#7aa7ef");
+                            map.setPaintProperty(layer.id, "text-halo-color", "#020817");
+                            map.setPaintProperty(layer.id, "text-halo-width", 1);
+                        }
+
+                        if (
+                            (id.includes("road") || id.includes("street") || id.includes("transport")) &&
+                            (id.includes("label") || id.includes("name"))
+                        ) {
+                            map.setPaintProperty(layer.id, "text-color", "#93c5fd");
+                        }
+                    }
+                } catch (error) {
+                    // Algunas capas de MapTiler no aceptan todas las propiedades.
+                }
+            });
+        }
+
+        function forceAdminMapResize() {
+            if (!map) {
+                createAdminMap();
+                return;
+            }
+
+            map.resize();
+
+            window.setTimeout(() => map.resize(), 120);
+            window.setTimeout(() => map.resize(), 350);
+            window.setTimeout(() => map.resize(), 700);
+        }
+
+        function moveMarkerToInputs() {
+            if (!map || !marker) return;
+
+            const nextPosition = getCurrentPosition();
+
+            marker.setLngLat(nextPosition);
+
+            map.easeTo({
+                center: nextPosition,
+                zoom: Math.max(map.getZoom(), 15),
+                duration: 400
+            });
+        }
+
+        function createAdminMap() {
+            if (map || !isMapSectionVisible()) return;
+
+            const initialPosition = getCurrentPosition();
+
+            map = new maplibregl.Map({
+                container: mapElement,
+                style: styleUrl,
+                center: initialPosition,
+                zoom: 15,
+                pitch: 0,
+                bearing: 0,
+                attributionControl: true
+            });
+
+            map.addControl(
+                new maplibregl.NavigationControl({
+                    showCompass: false,
+                    visualizePitch: false
+                }),
+                "bottom-right"
+            );
+
+            const markerElement = document.createElement("div");
+            markerElement.className = "vinova-admin-maptiler-marker";
+            markerElement.innerHTML = "<b>⌖</b>";
+
+            marker = new maplibregl.Marker({
+                element: markerElement,
+                draggable: true,
+                anchor: "bottom"
+            })
+                .setLngLat(initialPosition)
+                .addTo(map);
+
+            popup = new maplibregl.Popup({
+                offset: 30,
+                closeButton: false,
+                className: "vinova-admin-maptiler-popup"
+            }).setHTML(`
+                <strong>Ubicación del establecimiento</strong>
+                <span>Arrastra el marcador o haz clic en el mapa.</span>
+            `);
+
+            marker.setPopup(popup);
+
+            marker.on("dragend", () => {
+                setInputs(marker.getLngLat());
+            });
+
+            map.on("click", (event) => {
+                marker.setLngLat(event.lngLat);
+                setInputs(event.lngLat);
+            });
+
+            map.on("load", () => {
+                styleAdminMapLayers();
+                marker.togglePopup();
+                forceAdminMapResize();
+            });
+
+            map.on("styledata", () => {
+                styleAdminMapLayers();
+            });
+
+            map.on("error", (event) => {
+                console.warn("Error cargando mapa MapTiler:", event?.error || event);
+            });
+        }
+
+        latInput.addEventListener("change", moveMarkerToInputs);
+        lngInput.addEventListener("change", moveMarkerToInputs);
+
+        window.vinovaAdminInvalidateMaps = () => {
+            createAdminMap();
+            forceAdminMapResize();
+        };
+
+        document.querySelectorAll('[data-admin-section="establecimientos"]').forEach((link) => {
+            link.addEventListener("click", () => {
+                window.setTimeout(() => {
+                    createAdminMap();
+                    forceAdminMapResize();
+                }, 240);
+            });
+        });
+
+        window.addEventListener("hashchange", () => {
+            if (window.location.hash === "#admin-establecimientos") {
+                window.setTimeout(() => {
+                    createAdminMap();
+                    forceAdminMapResize();
+                }, 240);
+            }
+        });
+
+        window.setTimeout(() => {
+            createAdminMap();
+            forceAdminMapResize();
+        }, 400);
+    })();
+
 });

@@ -7,6 +7,7 @@
     <title>VINOVA | Administración</title>
 
     <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
 
 
@@ -84,6 +85,11 @@
             <a href="#admin-trabajadores" class="admin-nav-link" data-admin-section="trabajadores">
                 <i data-lucide="briefcase-business"></i>
                 <span>Trabajadores</span>
+            </a>
+
+            <a href="#admin-establecimientos" class="admin-nav-link" data-admin-section="establecimientos">
+                <i data-lucide="map-pinned"></i>
+                <span>Establecimientos</span>
             </a>
 
             <span class="admin-nav-label">DOCUMENTACIÓN</span>
@@ -1331,8 +1337,13 @@
 
                             <label class="admin-field admin-field-wide">
                                 <span>Establecimiento</span>
-                                <input type="text" name="establecimiento" placeholder="Ej. VINOVA Sur">
-                                <small>Si lo registra un trabajador con establecimiento asignado, se usará automáticamente su sede.</small>
+                                <select name="establecimiento">
+                                    <option value="">Usar sede del trabajador o VINOVA</option>
+                                    {% for establecimiento in establecimientos_activos|default([]) %}
+                                        <option value="{{ establecimiento.nombre }}">{{ establecimiento.nombre }} · {{ establecimiento.tipo_label }}</option>
+                                    {% endfor %}
+                                </select>
+                                <small>Los establecimientos vienen del mapa de instituciones. Si registra un trabajador, se usará automáticamente su sede asignada.</small>
                             </label>
 
                             <label class="admin-field admin-field-wide">
@@ -1754,7 +1765,13 @@
 
                             <label class="admin-field admin-field-wide">
                                 <span>Establecimiento asignado</span>
-                                <input type="text" name="establecimiento" placeholder="Ej. VINOVA Sur" required>
+                                <select name="establecimiento" required>
+                                    <option value="">Selecciona un establecimiento registrado</option>
+                                    {% for establecimiento in establecimientos_activos|default([]) %}
+                                        <option value="{{ establecimiento.nombre }}">{{ establecimiento.nombre }} · {{ establecimiento.tipo_label }}</option>
+                                    {% endfor %}
+                                </select>
+                                <small>Los trabajadores solo pueden asignarse a establecimientos activos del mapa.</small>
                             </label>
 
                         </div>
@@ -1813,7 +1830,14 @@
                                             <td>{{ trabajador['correo'] }}</td>
                                             <td>
                                                 <form action="{{ url_for('admin_actualizar_establecimiento_trabajador', trabajador_id=trabajador['id']) }}" method="POST" class="admin-inline-form admin-worker-location-form">
-                                                    <input type="text" name="establecimiento" value="{{ trabajador['establecimiento']|default('') }}" placeholder="VINOVA Sur" required>
+                                                    <select name="establecimiento" required>
+                                                        <option value="">Seleccionar</option>
+                                                        {% for establecimiento in establecimientos_activos|default([]) %}
+                                                            <option value="{{ establecimiento.nombre }}" {% if trabajador['establecimiento']|default('') == establecimiento.nombre %}selected{% endif %}>
+                                                                {{ establecimiento.nombre }}
+                                                            </option>
+                                                        {% endfor %}
+                                                    </select>
                                                     <button type="submit" class="admin-mini-btn admin-mini-btn-muted">Guardar</button>
                                                 </form>
                                             </td>
@@ -1866,6 +1890,210 @@
 
         </section>
 
+
+
+        <!-- SECCIÓN ESTABLECIMIENTOS -->
+
+        <section class="admin-section" id="admin-establecimientos" data-admin-content="establecimientos">
+
+            {% set establecimiento_form = establecimiento_editar|default(None) %}
+
+            <div class="admin-section-header">
+                <div>
+                    <span>MAPA INSTITUCIONAL</span>
+                    <h2>Establecimientos</h2>
+                    <p>Administra instituciones afiliadas, concesionarios y centros de atención que aparecen en el mapa público de VINOVA.</p>
+                </div>
+                <div class="admin-section-actions">
+                    <a href="{{ url_for('instituciones') }}" class="admin-secondary-link" target="_blank" rel="noopener">Ver página pública</a>
+                </div>
+            </div>
+
+            <section class="admin-layout admin-establishments-layout">
+
+                <section class="admin-panel admin-form-panel">
+                    <div class="admin-panel-title">
+                        <div>
+                            <span>{% if establecimiento_form %}EDITAR LUGAR{% else %}NUEVO LUGAR{% endif %}</span>
+                            <h2>{% if establecimiento_form %}Editar establecimiento{% else %}Agregar establecimiento{% endif %}</h2>
+                        </div>
+                        {% if establecimiento_form %}
+                            <a href="{{ url_for('admin_vehiculos') }}#admin-establecimientos" class="admin-secondary-link">Nuevo</a>
+                        {% endif %}
+                    </div>
+
+                    <form action="{{ url_for('admin_guardar_establecimiento') }}" method="POST" class="admin-form">
+                        <input type="hidden" name="establecimiento_id" value="{{ establecimiento_form.id if establecimiento_form else '' }}">
+
+                        <div class="admin-form-grid">
+                            <label class="admin-field">
+                                <span>Nombre</span>
+                                <input type="text" name="nombre" value="{{ establecimiento_form.nombre if establecimiento_form else '' }}" placeholder="Ej. Concesionario VINOVA Centro" required>
+                            </label>
+
+                            <label class="admin-field">
+                                <span>Tipo</span>
+                                <select name="tipo" required>
+                                    {% for tipo_key, tipo_label in tipos_establecimiento.items() %}
+                                        <option value="{{ tipo_key }}" {% if establecimiento_form and establecimiento_form.tipo == tipo_key %}selected{% endif %}>{{ tipo_label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </label>
+
+                            <label class="admin-field admin-field-wide">
+                                <span>Descripción</span>
+                                <textarea name="descripcion" rows="3" placeholder="Describe el lugar y su propósito dentro de VINOVA...">{{ establecimiento_form.descripcion if establecimiento_form else '' }}</textarea>
+                            </label>
+
+                            <label class="admin-field admin-field-wide">
+                                <span>Dirección</span>
+                                <input type="text" name="direccion" value="{{ establecimiento_form.direccion if establecimiento_form else '' }}" placeholder="Av. Principal 1234, sector..." required>
+                            </label>
+
+                            <label class="admin-field">
+                                <span>Ciudad</span>
+                                <input type="text" name="ciudad" value="{{ establecimiento_form.ciudad if establecimiento_form else '' }}" placeholder="Guayaquil">
+                            </label>
+
+                            <label class="admin-field">
+                                <span>Provincia</span>
+                                <input type="text" name="provincia" value="{{ establecimiento_form.provincia if establecimiento_form else '' }}" placeholder="Guayas">
+                            </label>
+
+                            <label class="admin-field">
+                                <span>Teléfono</span>
+                                <input type="text" name="telefono" value="{{ establecimiento_form.telefono if establecimiento_form else '' }}" placeholder="+593 2 395 8721">
+                            </label>
+
+                            <label class="admin-field">
+                                <span>Correo</span>
+                                <input type="email" name="correo" value="{{ establecimiento_form.correo if establecimiento_form else '' }}" placeholder="sede@vinova.ec">
+                            </label>
+
+                            <label class="admin-field">
+                                <span>Horario</span>
+                                <input type="text" name="horario" value="{{ establecimiento_form.horario if establecimiento_form else '' }}" placeholder="Lun - Vie: 08:00 - 18:00">
+                            </label>
+
+                            <label class="admin-field">
+                                <span>Sitio web / enlace</span>
+                                <input type="url" name="website" value="{{ establecimiento_form.website if establecimiento_form else '' }}" placeholder="https://...">
+                            </label>
+
+                            <label class="admin-field admin-field-wide">
+                                <span>Imagen o ruta visual</span>
+                                <input type="text" name="imagen" value="{{ establecimiento_form.imagen if establecimiento_form else '' }}" placeholder="img/establecimientos/concesionario.webp">
+                                <small>Más adelante podrás colocar aquí las imágenes finales de las tarjetas.</small>
+                            </label>
+
+                            <label class="admin-field admin-field-wide">
+                                <span>Servicios disponibles</span>
+                                <textarea name="servicios" rows="3" placeholder="Venta de vehículos, Financiamiento, Prueba de manejo, Atención al cliente...">{{ establecimiento_form.servicios_lista|default([])|join(', ') if establecimiento_form else '' }}</textarea>
+                                <small>Separa los servicios con comas.</small>
+                            </label>
+
+                            <label class="admin-field">
+                                <span>Distancia visible (km)</span>
+                                <input type="number" name="distancia_km" min="0" step="0.1" value="{{ establecimiento_form.distancia_km if establecimiento_form and establecimiento_form.distancia_km is not none else '' }}" placeholder="2.4">
+                            </label>
+
+                            <label class="admin-field">
+                                <span>Latitud</span>
+                                <input type="number" name="lat" step="0.000001" value="{{ establecimiento_form.lat if establecimiento_form and establecimiento_form.lat is not none else '' }}" placeholder="-2.170998" data-map-lat-input>
+                            </label>
+
+                            <label class="admin-field">
+                                <span>Longitud</span>
+                                <input type="number" name="lng" step="0.000001" value="{{ establecimiento_form.lng if establecimiento_form and establecimiento_form.lng is not none else '' }}" placeholder="-79.922359" data-map-lng-input>
+                            </label>
+
+                            <input type="hidden" name="pin_x" value="{{ establecimiento_form.pin_x if establecimiento_form else 50 }}">
+                            <input type="hidden" name="pin_y" value="{{ establecimiento_form.pin_y if establecimiento_form else 50 }}">
+
+                            <div class="admin-field admin-field-wide admin-establishment-map-picker">
+                                <span>Ubicación en mapa real</span>
+                                <div id="adminEstablishmentMap" class="admin-real-map-picker" data-default-lat="-2.170998" data-default-lng="-79.922359"></div>
+                                <small>Haz clic en el mapa o arrastra el marcador para guardar la ubicación exacta del establecimiento.</small>
+                            </div>
+
+                            <label class="admin-switch">
+                                <input type="checkbox" name="activo" {% if not establecimiento_form or establecimiento_form.activo|int == 1 %}checked{% endif %}>
+                                <span></span>
+                                Visible en el mapa público
+                            </label>
+                        </div>
+
+                        <div class="admin-actions">
+                            <button type="submit" class="admin-primary-btn">
+                                <i data-lucide="map-pinned"></i>
+                                {% if establecimiento_form %}Guardar cambios{% else %}Agregar al mapa{% endif %}
+                            </button>
+                        </div>
+                    </form>
+                </section>
+
+                <section class="admin-panel admin-list-panel">
+                    <div class="admin-panel-title">
+                        <div>
+                            <span>LUGARES REGISTRADOS</span>
+                            <h2>Mapa VINOVA</h2>
+                        </div>
+                        <div class="admin-list-tools">
+                            <input type="text" class="admin-search-input" data-admin-search="establishments" placeholder="Buscar establecimiento...">
+                        </div>
+                    </div>
+
+                    <div class="admin-establishment-list" data-admin-list="establishments">
+                        {% if establecimientos_admin|default([]) %}
+                            {% for establecimiento in establecimientos_admin %}
+                                <article class="admin-establishment-row {% if establecimiento.activo|int == 0 %}is-inactive{% endif %}" data-admin-item>
+                                    <div class="admin-establishment-pin">
+                                        {% if establecimiento.tipo == 'institucion' %}
+                                            <i data-lucide="landmark"></i>
+                                        {% elif establecimiento.tipo == 'centro_atencion' %}
+                                            <i data-lucide="headphones"></i>
+                                        {% else %}
+                                            <i data-lucide="building-2"></i>
+                                        {% endif %}
+                                    </div>
+                                    <div>
+                                        <div class="admin-establishment-heading">
+                                            <h3>{{ establecimiento.nombre }}</h3>
+                                            <span class="admin-status {% if establecimiento.activo|int == 1 %}active{% else %}inactive{% endif %}">
+                                                {% if establecimiento.activo|int == 1 %}Visible{% else %}Oculto{% endif %}
+                                            </span>
+                                        </div>
+                                        <p>{{ establecimiento.tipo_label }} · {{ establecimiento.direccion|default('Sin dirección') }}</p>
+                                        <div class="admin-vehicle-meta">
+                                            {% if establecimiento.ciudad %}<span>{{ establecimiento.ciudad }}</span>{% endif %}
+                                            {% if establecimiento.telefono %}<span>{{ establecimiento.telefono }}</span>{% endif %}
+                                            {% if establecimiento.horario %}<span>{{ establecimiento.horario }}</span>{% endif %}
+                                            {% if establecimiento.lat is not none and establecimiento.lng is not none %}<span>Coords: {{ '%.5f'|format(establecimiento.lat) }}, {{ '%.5f'|format(establecimiento.lng) }}</span>{% else %}<span>Sin coordenadas</span>{% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="admin-row-actions">
+                                        <a href="{{ url_for('admin_vehiculos') }}?editar_establecimiento={{ establecimiento.id }}#admin-establecimientos" class="admin-mini-btn admin-mini-btn-muted">Editar</a>
+                                        <form action="{{ url_for('admin_cambiar_estado_establecimiento', establecimiento_id=establecimiento.id) }}" method="POST">
+                                            <button type="submit" class="admin-mini-btn {% if establecimiento.activo|int == 1 %}admin-mini-btn-danger{% else %}admin-mini-btn-code{% endif %}">
+                                                {% if establecimiento.activo|int == 1 %}Ocultar{% else %}Mostrar{% endif %}
+                                            </button>
+                                        </form>
+                                    </div>
+                                </article>
+                            {% endfor %}
+                        {% else %}
+                            <div class="admin-empty-state">
+                                <i data-lucide="map-pinned"></i>
+                                <h3>No hay establecimientos registrados</h3>
+                                <p>Agrega instituciones, concesionarios o centros de atención para mostrarlos en la página pública.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </section>
+
+            </section>
+
+        </section>
 
         <!-- SECCIÓN MANUALES -->
 
@@ -2356,6 +2584,10 @@
 
 </div>
 
+<script>
+    window.VINOVA_MAPTILER_KEY = "{{ maptiler_key|default('', true) }}";
+</script>
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <script src="{{ url_for('static', filename='js/admin.js') }}"></script>
 
 <script>

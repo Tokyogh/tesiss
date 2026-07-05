@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VINOVA | Instituciones y establecimientos</title>
+
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/instituciones.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+</head>
+
+<body class="institutions-body">
+{% set es_admin = session.get("rol", "")|upper == "ADMIN" %}
+{% set es_trabajador = session.get("rol", "")|upper == "TRABAJADOR" %}
+
+<header class="navbar">
+    <div class="logo">
+        <a href="{{ url_for('inicio') }}" aria-label="Ir al inicio de VINOVA" class="vinova-navbar-brand">
+            <img src="{{ url_for('static', filename='img/vinova-logo.svg') }}" alt="VINOVA" class="vinova-navbar-logo">
+        </a>
+    </div>
+
+    <nav>
+        <ul class="nav-links">
+            <li><a href="{{ url_for('inicio') }}">Inicio</a></li>
+
+            <li class="dropdown">
+                <a href="{{ url_for('catalog') }}">Vehículos</a>
+                <div class="dropdown-menu">
+                    <a href="{{ url_for('catalog') }}">Catálogo</a>
+                    {% if es_admin %}
+                        <a href="{{ url_for('admin_vehiculos') }}">Administrar vehículos</a>
+                    {% endif %}
+                </div>
+            </li>
+
+            <li class="dropdown">
+                <a href="{{ url_for('perfil') }}">Mi cuenta</a>
+                <div class="dropdown-menu">
+                    <a href="{{ url_for('perfil') }}">Mi perfil</a>
+                    {% if es_admin %}
+                        <a href="{{ url_for('admin_vehiculos') }}">Panel admin</a>
+                    {% endif %}
+                    {% if es_admin or es_trabajador %}
+                        <a href="{{ url_for('trabajador_panel') }}">Panel trabajador</a>
+                    {% endif %}
+                </div>
+            </li>
+
+            <li><a href="{{ url_for('instituciones') }}">Instituciones</a></li>
+            <li><a href="{{ url_for('inicio') }}#contacto">Contacto</a></li>
+        </ul>
+    </nav>
+
+    <div class="navbar-actions">
+        {% if session.get("usuario_id") %}
+            <div class="user-session-box">
+                <a href="{{ url_for('perfil') }}" class="user-avatar-link" title="Ir a mi perfil">
+                    {% if session.get("foto_perfil") %}
+                        <img src="{{ session.get('foto_perfil') }}" alt="Foto de perfil de {{ session['usuario'] }}" class="user-avatar-img">
+                    {% else %}
+                        <span class="user-avatar-initial">{{ session["usuario"][:1]|upper }}</span>
+                    {% endif %}
+                    <span class="user-status-dot"></span>
+                </a>
+
+                <a href="{{ url_for('perfil') }}" class="user-name-pill">{{ session["usuario"] }}</a>
+
+                <form action="{{ url_for('logout') }}" method="POST" class="vinova-logout-form vinova-logout-inline">
+                    {{ csrf_input() }}
+                    <button type="submit" class="logout-icon-btn" title="Cerrar sesión" aria-label="Cerrar sesión">
+                        <i data-lucide="log-out"></i>
+                    </button>
+                </form>
+            </div>
+        {% else %}
+            <a href="{{ url_for('login') }}" class="login-btn">Iniciar sesión</a>
+        {% endif %}
+    </div>
+</header>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        <div class="site-messages">
+            {% for category, message in messages %}
+                <div class="site-message {{ category }}">
+                    <i data-lucide="info"></i>
+                    <span>{{ message }}</span>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+{% endwith %}
+
+<main class="institutions-page">
+
+    <section class="institution-selector" aria-label="Tipos de establecimientos VINOVA">
+
+        <a href="{{ url_for('instituciones', tipo='institucion') }}"
+           class="institution-type-card type-institution {% if tipo_activo == 'institucion' %}active{% endif %}"
+           data-institution-filter="institucion"
+           style="--card-bg-image: url('{{ url_for('static', filename='img/instituciones/card-instituciones.webp') }}');">
+            <div class="institution-type-icon">
+                <i data-lucide="landmark"></i>
+            </div>
+
+            <div class="institution-type-content">
+                <strong>Instituciones afiliadas</strong>
+                <p>Conoce nuestras alianzas estratégicas con instituciones educativas y organizaciones.</p>
+                <span>Ver instituciones <i data-lucide="arrow-right"></i></span>
+            </div>
+
+            <em>{{ conteos_establecimientos.institucion|default(0) }}</em>
+        </a>
+
+        <a href="{{ url_for('instituciones', tipo='concesionario') }}"
+           class="institution-type-card type-dealer {% if tipo_activo == 'concesionario' %}active{% endif %}"
+           data-institution-filter="concesionario"
+           style="--card-bg-image: url('{{ url_for('static', filename='img/instituciones/card-concesionarios.webp') }}');">
+            <div class="institution-type-icon">
+                <i data-lucide="building-2"></i>
+            </div>
+
+            <div class="institution-type-content">
+                <strong>Concesionarios</strong>
+                <p>Encuentra concesionarios oficiales cerca de ti con los mejores modelos y servicios.</p>
+                <span>Explorar concesionarios <i data-lucide="arrow-right"></i></span>
+            </div>
+
+            <em>{{ conteos_establecimientos.concesionario|default(0) }}</em>
+        </a>
+
+        <a href="{{ url_for('instituciones', tipo='centro_atencion') }}"
+           class="institution-type-card type-care {% if tipo_activo == 'centro_atencion' %}active{% endif %}"
+           data-institution-filter="centro_atencion"
+           style="--card-bg-image: url('{{ url_for('static', filename='img/instituciones/card-centros-atencion.webp') }}');">
+            <div class="institution-type-icon">
+                <i data-lucide="headphones"></i>
+            </div>
+
+            <div class="institution-type-content">
+                <strong>Centros de atención</strong>
+                <p>Ubica edificios enfocados en atención al cliente, información, soporte y postventa.</p>
+                <span>Buscar centros <i data-lucide="arrow-right"></i></span>
+            </div>
+
+            <em>{{ conteos_establecimientos.centro_atencion|default(0) }}</em>
+        </a>
+
+    </section>
+
+    <section class="institutions-workspace">
+        <div class="institutions-heading">
+            <span>RED VINOVA</span>
+
+            <h1>
+                {% if tipo_activo == 'institucion' %}
+                    Instituciones afiliadas
+                {% elif tipo_activo == 'concesionario' %}
+                    Concesionarios
+                {% elif tipo_activo == 'centro_atencion' %}
+                    Centros de atención
+                {% else %}
+                    Instituciones y establecimientos
+                {% endif %}
+            </h1>
+
+            <p>Encuentra puntos oficiales, aliados y sedes de atención registradas por VINOVA.</p>
+        </div>
+
+        <div class="institutions-tools">
+            <label class="institutions-search">
+                <i data-lucide="search"></i>
+                <input type="search" id="institutionSearch" placeholder="Buscar establecimiento...">
+            </label>
+
+            <select id="institutionTypeSelect" aria-label="Filtrar por tipo">
+                <option value="" {% if not tipo_activo %}selected{% endif %}>Todos los tipos</option>
+                <option value="institucion" {% if tipo_activo == 'institucion' %}selected{% endif %}>Instituciones afiliadas</option>
+                <option value="concesionario" {% if tipo_activo == 'concesionario' %}selected{% endif %}>Concesionarios</option>
+                <option value="centro_atencion" {% if tipo_activo == 'centro_atencion' %}selected{% endif %}>Centros de atención</option>
+            </select>
+        </div>
+
+        <section class="institutions-grid">
+
+            <aside class="institutions-list" id="institutionsList">
+                {% if establecimientos|default([]) %}
+                    {% for establecimiento in establecimientos %}
+                        <article class="institution-list-card {% if loop.first %}active{% endif %}"
+                                 tabindex="0"
+                                 data-establishment-card
+                                 data-id="{{ establecimiento.id }}"
+                                 data-type="{{ establecimiento.tipo }}"
+                                 data-name="{{ establecimiento.nombre|lower }}"
+                                 data-search="{{ (establecimiento.nombre ~ ' ' ~ establecimiento.tipo_label ~ ' ' ~ establecimiento.direccion ~ ' ' ~ establecimiento.ciudad ~ ' ' ~ establecimiento.provincia)|lower }}"
+                                 data-lat="{{ establecimiento.lat if establecimiento.lat is not none else '' }}"
+                                 data-lng="{{ establecimiento.lng if establecimiento.lng is not none else '' }}">
+
+                            <div class="institution-thumb {% if not establecimiento.imagen %}is-placeholder{% endif %}">
+                                {% if establecimiento.imagen %}
+                                    <img src="{{ url_for('static', filename=establecimiento.imagen) }}" alt="{{ establecimiento.nombre }}">
+                                {% else %}
+                                    {% if establecimiento.tipo == 'institucion' %}
+                                        <i data-lucide="landmark"></i>
+                                    {% elif establecimiento.tipo == 'centro_atencion' %}
+                                        <i data-lucide="headphones"></i>
+                                    {% else %}
+                                        <i data-lucide="building-2"></i>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+
+                            <div class="institution-list-info">
+                                <strong>{{ establecimiento.nombre }}</strong>
+                                <span>{{ establecimiento.tipo_label }}</span>
+
+                                <small>
+                                    <i data-lucide="map-pin"></i>
+                                    {{ establecimiento.direccion|default('Sin dirección') }}
+                                </small>
+
+                                <small>
+                                    <i data-lucide="clock-3"></i>
+                                    {{ establecimiento.horario|default('Horario no registrado') }}
+                                </small>
+
+                                {% if establecimiento.telefono %}
+                                    <small>
+                                        <i data-lucide="phone"></i>
+                                        {{ establecimiento.telefono }}
+                                    </small>
+                                {% endif %}
+                            </div>
+
+                            <em>
+                                {% if establecimiento.distancia_km %}
+                                    {{ establecimiento.distancia_km }} km
+                                {% else %}
+                                    VINOVA
+                                {% endif %}
+                            </em>
+                        </article>
+                    {% endfor %}
+                {% else %}
+                    <div class="institutions-empty">
+                        <i data-lucide="map-pinned"></i>
+                        <h3>No hay establecimientos registrados</h3>
+                        <p>Cuando el administrador agregue lugares, aparecerán aquí y en el mapa.</p>
+                    </div>
+                {% endif %}
+            </aside>
+
+            <section class="institutions-map" aria-label="Mapa real de establecimientos VINOVA">
+                <div id="vinovaInstitutionsMap" class="institutions-real-map" role="application" aria-label="Mapa interactivo de establecimientos VINOVA"></div>
+
+                <div class="institutions-map-fallback" id="vinovaInstitutionsMapFallback" hidden>
+                    <i data-lucide="map-pinned"></i>
+                    <strong>No se pudo cargar el mapa</strong>
+                    <span>Revisa tu conexión a internet o el token de Mapbox.</span>
+                </div>
+            </section>
+
+            <aside class="institution-detail-panel" id="institutionDetailPanel">
+                {% if establecimientos|default([]) %}
+                    {% for establecimiento in establecimientos %}
+                        <article class="institution-detail-card {% if not loop.first %}is-hidden{% endif %}" data-establishment-detail="{{ establecimiento.id }}">
+                            <button type="button" class="institution-detail-close" aria-label="Cerrar detalle">
+                                <i data-lucide="x"></i>
+                            </button>
+
+                            <div class="institution-detail-image {% if not establecimiento.imagen %}is-placeholder{% endif %}">
+                                {% if establecimiento.imagen %}
+                                    <img src="{{ url_for('static', filename=establecimiento.imagen) }}" alt="{{ establecimiento.nombre }}">
+                                {% else %}
+                                    {% if establecimiento.tipo == 'institucion' %}
+                                        <i data-lucide="landmark"></i>
+                                    {% elif establecimiento.tipo == 'centro_atencion' %}
+                                        <i data-lucide="headphones"></i>
+                                    {% else %}
+                                        <i data-lucide="building-2"></i>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+
+                            <span class="institution-badge">{{ establecimiento.tipo_label }}</span>
+                            <h2>{{ establecimiento.nombre }}</h2>
+                            <p>{{ establecimiento.descripcion|default('Establecimiento oficial registrado en la red VINOVA.', true) }}</p>
+
+                            <dl class="institution-detail-info">
+                                <div>
+                                    <dt>Dirección</dt>
+                                    <dd>{{ establecimiento.direccion|default('No registrada') }}</dd>
+                                </div>
+
+                                <div>
+                                    <dt>Horario</dt>
+                                    <dd>{{ establecimiento.horario|default('No registrado') }}</dd>
+                                </div>
+
+                                {% if establecimiento.telefono %}
+                                    <div>
+                                        <dt>Teléfono</dt>
+                                        <dd>{{ establecimiento.telefono }}</dd>
+                                    </div>
+                                {% endif %}
+
+                                {% if establecimiento.correo %}
+                                    <div>
+                                        <dt>Correo</dt>
+                                        <dd>{{ establecimiento.correo }}</dd>
+                                    </div>
+                                {% endif %}
+                            </dl>
+
+                            <h3>Servicios disponibles</h3>
+
+                            <div class="institution-services">
+                                {% if establecimiento.servicios_lista %}
+                                    {% for servicio in establecimiento.servicios_lista[:8] %}
+                                        <span>
+                                            <i data-lucide="check-circle-2"></i>
+                                            {{ servicio }}
+                                        </span>
+                                    {% endfor %}
+                                {% else %}
+                                    <span>
+                                        <i data-lucide="info"></i>
+                                        Información general
+                                    </span>
+
+                                    <span>
+                                        <i data-lucide="message-circle"></i>
+                                        Atención al cliente
+                                    </span>
+                                {% endif %}
+                            </div>
+
+                            <div class="institution-detail-actions">
+                                {% if establecimiento.telefono %}
+                                    <a href="tel:{{ establecimiento.telefono|replace(' ', '') }}" class="institution-primary-btn">
+                                        <i data-lucide="phone"></i>
+                                        Llamar
+                                    </a>
+                                {% endif %}
+
+                                {% if establecimiento.website %}
+                                    <a href="{{ establecimiento.website }}" target="_blank" rel="noopener" class="institution-secondary-btn">
+                                        <i data-lucide="external-link"></i>
+                                        Ver enlace
+                                    </a>
+                                {% endif %}
+
+                                <a href="https://www.google.com/maps/search/?api=1&query={{ establecimiento.direccion|urlencode }}" target="_blank" rel="noopener" class="institution-secondary-btn">
+                                    <i data-lucide="route"></i>
+                                    Cómo llegar
+                                </a>
+                            </div>
+                        </article>
+                    {% endfor %}
+                {% else %}
+                    <article class="institution-detail-card">
+                        <div class="institution-detail-image is-placeholder">
+                            <i data-lucide="map-pinned"></i>
+                        </div>
+
+                        <span class="institution-badge">VINOVA</span>
+                        <h2>Sin establecimientos</h2>
+                        <p>Agrega establecimientos desde el panel administrativo para llenar esta página.</p>
+                    </article>
+                {% endif %}
+            </aside>
+
+        </section>
+    </section>
+
+</main>
+
+<script>
+    window.VINOVA_INSTITUCIONES = {{ establecimientos|tojson }};
+    window.VINOVA_MAPTILER_KEY = "{{ maptiler_key|default('', true) }}";
+</script>
+
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="{{ url_for('static', filename='js/script.js') }}"></script>
+<script src="{{ url_for('static', filename='js/instituciones.js') }}"></script>
+</body>
+</html>

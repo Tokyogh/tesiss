@@ -9,6 +9,7 @@ def admin_inicio():
 def admin_vehiculos():
 
     editar_id = request.args.get("editar", type=int)
+    editar_establecimiento_id = request.args.get("editar_establecimiento", type=int)
 
     conexion = conectar_db()
     cursor = conexion.cursor()
@@ -279,10 +280,22 @@ def admin_vehiculos():
     """)
     canjes_reversados = cursor.fetchall()
 
+    establecimientos_admin = listar_establecimientos(cursor, incluir_inactivos=True)
+    establecimientos_activos = listar_establecimientos(cursor, incluir_inactivos=False)
+    establecimiento_editar = None
+
+    if editar_establecimiento_id:
+        establecimiento_editar = obtener_establecimiento_por_id(cursor, editar_establecimiento_id, incluir_inactivos=True)
+        if not establecimiento_editar:
+            flash("El establecimiento no existe o no está disponible.", "warning")
+
     cursor.execute("""
         SELECT
             auditoria_acciones.*
         FROM auditoria_acciones
+        WHERE UPPER(COALESCE(usuario_rol, '')) IN ('ADMIN', 'TRABAJADOR')
+          AND LOWER(COALESCE(accion, '')) NOT LIKE '%inicio de sesi%n%'
+          AND LOWER(COALESCE(accion, '')) NOT LIKE '%login%'
         ORDER BY datetime(creado_en) DESC, id DESC
         LIMIT 180
     """)
@@ -291,6 +304,9 @@ def admin_vehiculos():
     cursor.execute("""
         SELECT COUNT(*)
         FROM auditoria_acciones
+        WHERE UPPER(COALESCE(usuario_rol, '')) IN ('ADMIN', 'TRABAJADOR')
+          AND LOWER(COALESCE(accion, '')) NOT LIKE '%inicio de sesi%n%'
+          AND LOWER(COALESCE(accion, '')) NOT LIKE '%login%'
     """)
     total_auditoria = cursor.fetchone()[0]
 
@@ -321,8 +337,13 @@ def admin_vehiculos():
         manuales_admin=manuales_admin,
         facturas_admin=facturas_admin,
         total_facturas=total_facturas,
+        establecimientos_admin=establecimientos_admin,
+        establecimientos_activos=establecimientos_activos,
+        establecimiento_editar=establecimiento_editar,
+        tipos_establecimiento=TIPOS_ESTABLECIMIENTO,
         auditoria_admin=auditoria_admin,
-        total_auditoria=total_auditoria
+        total_auditoria=total_auditoria,
+        maptiler_key=os.getenv("MAPTILER_KEY", "")
     )
 
 
@@ -1230,6 +1251,14 @@ def admin_crear_usuario():
     conexion = conectar_db()
     cursor = conexion.cursor()
 
+    if rol == "TRABAJADOR":
+        establecimiento_registrado = establecimiento_activo_por_nombre(cursor, establecimiento)
+        if not establecimiento_registrado:
+            conexion.close()
+            flash("Selecciona un establecimiento activo para el trabajador.", "warning")
+            return redirigir_admin("trabajadores")
+        establecimiento = establecimiento_registrado["nombre"]
+
     try:
         ahora = fecha_actual()
         password_hash = generate_password_hash(password)
@@ -1467,6 +1496,13 @@ def admin_actualizar_establecimiento_trabajador(trabajador_id):
             flash("El establecimiento solo se asigna a cuentas de trabajador.", "warning")
             return redirigir_admin("trabajadores")
 
+        establecimiento_registrado = establecimiento_activo_por_nombre(cursor, establecimiento)
+        if not establecimiento_registrado:
+            flash("Selecciona un establecimiento activo para el trabajador.", "warning")
+            return redirigir_admin("trabajadores")
+
+        establecimiento = establecimiento_registrado["nombre"]
+
         cursor.execute("""
             UPDATE usuarios
             SET establecimiento = ?, actualizado_en = ?
@@ -1497,6 +1533,170 @@ def admin_actualizar_establecimiento_trabajador(trabajador_id):
 
     return redirigir_admin("trabajadores")
 
+
+
+@app.route("/admin/establecimientos/guardar", methods=["POST"])
+def admin_guardar_establecimiento():
+
+    establecimiento_id = request.form.get("establecimiento_id", type=int)
+    nombre = request.form.get("nombre", "").strip()
+    tipo = request.form.get("tipo", "concesionario").strip()
+    descripcion = request.form.get("descripcion", "").strip()
+    direccion = request.form.get("direccion", "").strip()
+    ciudad = request.form.get("ciudad", "").strip()
+    provincia = request.form.get("provincia", "").strip()
+    telefono = request.form.get("telefono", "").strip()
+    correo = request.form.get("correo", "").strip().lower()
+    horario = request.form.get("horario", "").strip()
+    website = request.form.get("website", "").strip()
+    imagen = request.form.get("imagen", "").strip()
+    servicios = request.form.get("servicios", "").strip()
+    distancia_km = normalizar_precio(request.form.get("distancia_km"))
+    lat = normalizar_precio(request.form.get("lat"))
+    lng = normalizar_precio(request.form.get("lng"))
+    pin_x = normalizar_precio(request.form.get("pin_x"))
+    pin_y = normalizar_precio(request.form.get("pin_y"))
+    activo = 1 if request.form.get("activo") == "on" else 0
+
+    if tipo not in TIPOS_ESTABLECIMIENTO:
+        flash("Tipo de establecimiento no permitido.", "warning")
+        return redirigir_admin("establecimientos")
+
+    if not nombre or not direccion:
+        flash("Nombre y dirección son obligatorios para registrar un establecimiento.", "warning")
+        return redirigir_admin("establecimientos")
+
+    if correo and "@" not in correo:
+        flash("Ingresa un correo válido para el establecimiento.", "warning")
+        return redirigir_admin("establecimientos")
+
+    if distancia_km is None:
+        distancia_km = 0
+    if pin_x is None:
+        pin_x = 50
+    if pin_y is None:
+        pin_y = 50
+
+    pin_x = max(4, min(96, pin_x))
+    pin_y = max(4, min(96, pin_y))
+    servicios_json = serializar_servicios_establecimiento(servicios)
+
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    try:
+        ahora = fecha_actual()
+
+        if establecimiento_id:
+            cursor.execute("SELECT id FROM establecimientos WHERE id = ?", (establecimiento_id,))
+            if not cursor.fetchone():
+                flash("El establecimiento que intentas editar no existe.", "warning")
+                return redirigir_admin("establecimientos")
+
+            cursor.execute("""
+                UPDATE establecimientos
+                SET nombre = ?, tipo = ?, descripcion = ?, direccion = ?, ciudad = ?, provincia = ?,
+                    telefono = ?, correo = ?, horario = ?, website = ?, imagen = ?, servicios = ?,
+                    distancia_km = ?, lat = ?, lng = ?, pin_x = ?, pin_y = ?, activo = ?,
+                    actualizado_por = ?, actualizado_en = ?
+                WHERE id = ?
+            """, (
+                nombre, tipo, descripcion, direccion, ciudad, provincia,
+                telefono, correo, horario, website, imagen, servicios_json,
+                distancia_km, lat, lng, pin_x, pin_y, activo,
+                session.get("usuario_id"), ahora, establecimiento_id
+            ))
+            accion = "Establecimiento actualizado"
+            entidad_id = establecimiento_id
+            flash("Establecimiento actualizado correctamente.", "success")
+        else:
+            cursor.execute("""
+                INSERT INTO establecimientos (
+                    nombre, tipo, descripcion, direccion, ciudad, provincia,
+                    telefono, correo, horario, website, imagen, servicios,
+                    distancia_km, lat, lng, pin_x, pin_y, activo,
+                    creado_por, actualizado_por, creado_en, actualizado_en
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                nombre, tipo, descripcion, direccion, ciudad, provincia,
+                telefono, correo, horario, website, imagen, servicios_json,
+                distancia_km, lat, lng, pin_x, pin_y, activo,
+                session.get("usuario_id"), session.get("usuario_id"), ahora, ahora
+            ))
+            entidad_id = cursor.lastrowid
+            accion = "Establecimiento creado"
+            flash("Establecimiento agregado correctamente al mapa.", "success")
+
+        registrar_auditoria(
+            conexion,
+            accion,
+            "establecimiento",
+            entidad_id,
+            {"nombre": nombre, "tipo": tipo, "activo": activo}
+        )
+        conexion.commit()
+
+    except sqlite3.IntegrityError:
+        conexion.rollback()
+        flash("Ya existe un establecimiento con ese nombre.", "warning")
+    except sqlite3.OperationalError as error:
+        conexion.rollback()
+        print("Error al guardar establecimiento:", error)
+        flash("No se pudo guardar. Verifica que ejecutaste la migración de establecimientos.", "error")
+    except Exception as error:
+        conexion.rollback()
+        print("Error al guardar establecimiento:", error)
+        flash("No se pudo guardar el establecimiento.", "error")
+    finally:
+        conexion.close()
+
+    return redirigir_admin("establecimientos")
+
+
+@app.route("/admin/establecimientos/<int:establecimiento_id>/estado", methods=["POST"])
+def admin_cambiar_estado_establecimiento(establecimiento_id):
+
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT id, nombre, COALESCE(activo, 1) AS activo
+            FROM establecimientos
+            WHERE id = ?
+        """, (establecimiento_id,))
+        establecimiento = cursor.fetchone()
+
+        if not establecimiento:
+            flash("Establecimiento no encontrado.", "warning")
+            return redirigir_admin("establecimientos")
+
+        nuevo_estado = 0 if int(establecimiento["activo"] or 0) == 1 else 1
+        cursor.execute("""
+            UPDATE establecimientos
+            SET activo = ?, actualizado_por = ?, actualizado_en = ?
+            WHERE id = ?
+        """, (nuevo_estado, session.get("usuario_id"), fecha_actual(), establecimiento_id))
+
+        registrar_auditoria(
+            conexion,
+            "Estado de establecimiento actualizado",
+            "establecimiento",
+            establecimiento_id,
+            {"nombre": establecimiento["nombre"], "activo": nuevo_estado}
+        )
+        conexion.commit()
+        flash("Establecimiento visible en el mapa." if nuevo_estado == 1 else "Establecimiento ocultado del mapa.", "success")
+
+    except Exception as error:
+        conexion.rollback()
+        print("Error al cambiar estado del establecimiento:", error)
+        flash("No se pudo cambiar el estado del establecimiento.", "error")
+    finally:
+        conexion.close()
+
+    return redirigir_admin("establecimientos")
 
 @app.route("/admin/manuales/guardar", methods=["POST"])
 def admin_guardar_manual_vehiculo():

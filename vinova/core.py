@@ -1468,6 +1468,165 @@ def obtener_establecimiento_usuario(cursor, usuario_id):
 
     return ""
 
+
+TIPOS_ESTABLECIMIENTO = {
+    "institucion": "Institución afiliada",
+    "concesionario": "Concesionario",
+    "centro_atencion": "Centro de atención",
+}
+
+
+def tipo_establecimiento_label(tipo):
+    return TIPOS_ESTABLECIMIENTO.get(str(tipo or "").strip(), "Establecimiento")
+
+
+def limpiar_servicios_establecimiento(servicios):
+    """Devuelve una lista limpia desde texto separado por comas o JSON."""
+
+    if not servicios:
+        return []
+
+    if isinstance(servicios, (list, tuple)):
+        valores = servicios
+    else:
+        texto = str(servicios or "").strip()
+        if not texto:
+            return []
+        try:
+            valores = json.loads(texto)
+            if not isinstance(valores, list):
+                valores = [texto]
+        except Exception:
+            valores = re.split(r"[,;\n]+", texto)
+
+    resultado = []
+    for valor in valores:
+        valor_limpio = str(valor or "").strip()
+        if valor_limpio and valor_limpio not in resultado:
+            resultado.append(valor_limpio[:80])
+    return resultado
+
+
+def serializar_servicios_establecimiento(servicios):
+    return json.dumps(limpiar_servicios_establecimiento(servicios), ensure_ascii=False)
+
+
+def enriquecer_establecimiento(fila):
+    """Convierte sqlite.Row de establecimiento en dict listo para templates/JSON."""
+
+    if not fila:
+        return None
+
+    item = dict(fila)
+    item["tipo_label"] = tipo_establecimiento_label(item.get("tipo"))
+    item["servicios_lista"] = limpiar_servicios_establecimiento(item.get("servicios"))
+    item["activo"] = int(item.get("activo") if item.get("activo") is not None else 1)
+
+    for campo in ("lat", "lng", "pin_x", "pin_y", "distancia_km"):
+        try:
+            item[campo] = float(item.get(campo)) if item.get(campo) not in (None, "") else None
+        except (TypeError, ValueError):
+            item[campo] = None
+
+    if item.get("pin_x") is None:
+        item["pin_x"] = 50.0
+    if item.get("pin_y") is None:
+        item["pin_y"] = 50.0
+
+    item["pin_x"] = max(4.0, min(96.0, item["pin_x"]))
+    item["pin_y"] = max(4.0, min(96.0, item["pin_y"]))
+    return item
+
+
+def listar_establecimientos(cursor, incluir_inactivos=False, solo_tipo=None):
+    """Lista establecimientos. Si falta la tabla, devuelve lista vacía para no romper la app."""
+
+    try:
+        condiciones = []
+        parametros = []
+
+        if not incluir_inactivos:
+            condiciones.append("COALESCE(activo, 1) = 1")
+
+        if solo_tipo:
+            condiciones.append("tipo = ?")
+            parametros.append(solo_tipo)
+
+        where = ""
+        if condiciones:
+            where = "WHERE " + " AND ".join(condiciones)
+
+        cursor.execute(f"""
+            SELECT *
+            FROM establecimientos
+            {where}
+            ORDER BY
+                COALESCE(activo, 1) DESC,
+                CASE tipo
+                    WHEN 'concesionario' THEN 1
+                    WHEN 'institucion' THEN 2
+                    WHEN 'centro_atencion' THEN 3
+                    ELSE 4
+                END,
+                nombre COLLATE NOCASE ASC
+        """, parametros)
+
+        return [enriquecer_establecimiento(fila) for fila in cursor.fetchall()]
+    except sqlite3.OperationalError as error:
+        if "establecimientos" in str(error).lower():
+            return []
+        raise
+
+
+def obtener_establecimiento_por_id(cursor, establecimiento_id, incluir_inactivos=True):
+    try:
+        if incluir_inactivos:
+            cursor.execute("SELECT * FROM establecimientos WHERE id = ?", (establecimiento_id,))
+        else:
+            cursor.execute("SELECT * FROM establecimientos WHERE id = ? AND COALESCE(activo, 1) = 1", (establecimiento_id,))
+        return enriquecer_establecimiento(cursor.fetchone())
+    except sqlite3.OperationalError as error:
+        if "establecimientos" in str(error).lower():
+            return None
+        raise
+
+
+def establecimiento_activo_por_nombre(cursor, nombre):
+    nombre = str(nombre or "").strip()
+    if not nombre:
+        return None
+
+    try:
+        cursor.execute("""
+            SELECT *
+            FROM establecimientos
+            WHERE LOWER(nombre) = LOWER(?)
+              AND COALESCE(activo, 1) = 1
+            LIMIT 1
+        """, (nombre,))
+        return enriquecer_establecimiento(cursor.fetchone())
+    except sqlite3.OperationalError as error:
+        if "establecimientos" in str(error).lower():
+            return None
+        raise
+
+
+def contar_establecimientos_por_tipo(establecimientos):
+    conteos = {
+        "total": 0,
+        "institucion": 0,
+        "concesionario": 0,
+        "centro_atencion": 0,
+    }
+    for item in establecimientos or []:
+        if int(item.get("activo", 1)) != 1:
+            continue
+        conteos["total"] += 1
+        tipo = item.get("tipo")
+        if tipo in conteos:
+            conteos[tipo] += 1
+    return conteos
+
 def obtener_nombre_imagen_vehiculo(ruta_imagen):
     """
     Normaliza la imagen del vehículo para profile.html.

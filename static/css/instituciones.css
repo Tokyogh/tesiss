@@ -1,0 +1,933 @@
+/* ============================= */
+/* VINOVA - INSTITUCIONES        */
+/* ============================= */
+
+.institutions-body {
+    min-height: 100vh;
+    background:
+        radial-gradient(circle at 15% 18%, rgba(59, 130, 246, 0.14), transparent 32%),
+        radial-gradient(circle at 88% 8%, rgba(34, 197, 94, 0.08), transparent 28%),
+        #040b17;
+}
+
+.institutions-page {
+    width: min(1520px, 100%);
+    margin: 0 auto;
+    padding: 24px 24px 44px;
+    position: relative;
+    z-index: 3;
+}
+
+.institution-selector {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.institution-type-card {
+    min-height: 172px;
+    position: relative;
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: 50px minmax(0, 1fr) auto;
+    gap: 14px;
+    align-items: start;
+    padding: 22px;
+    color: #ffffff;
+    text-decoration: none;
+    border-radius: 12px;
+    background:
+        linear-gradient(90deg, rgba(4, 11, 23, 0.98) 0%, rgba(5, 16, 36, 0.86) 45%, rgba(5, 16, 36, 0.35) 100%),
+        radial-gradient(circle at 80% 35%, rgba(var(--type-rgb), 0.32), transparent 46%),
+        linear-gradient(135deg, rgba(var(--type-rgb), 0.22), rgba(2, 8, 20, 0.98));
+    border: 1px solid rgba(var(--type-rgb), 0.58);
+    box-shadow:
+        0 16px 42px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+}
+
+.institution-type-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    opacity: 0.54;
+    background:
+        linear-gradient(110deg, transparent 0%, transparent 48%, rgba(255,255,255,0.08) 49%, transparent 52%),
+        repeating-linear-gradient(90deg, rgba(255,255,255,0.035) 0 1px, transparent 1px 20px);
+    pointer-events: none;
+}
+
+.institution-type-card:hover,
+.institution-type-card.active {
+    transform: translateY(-3px);
+    border-color: rgba(var(--type-rgb), 0.96);
+    box-shadow:
+        0 22px 52px rgba(0, 0, 0, 0.38),
+        0 0 22px rgba(var(--type-rgb), 0.28),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.type-institution { --type-rgb: 37, 99, 235; }
+.type-dealer { --type-rgb: 139, 92, 246; }
+.type-care { --type-rgb: 34, 197, 94; }
+
+.institution-type-icon {
+    width: 44px;
+    height: 44px;
+    display: grid;
+    place-items: center;
+    position: relative;
+    z-index: 1;
+    border-radius: 14px;
+    color: #ffffff;
+    background: rgba(var(--type-rgb), 0.22);
+    border: 1px solid rgba(var(--type-rgb), 0.36);
+    box-shadow: 0 0 18px rgba(var(--type-rgb), 0.28);
+}
+
+.institution-type-icon svg {
+    width: 23px;
+    height: 23px;
+}
+
+.institution-type-card strong,
+.institution-type-card p,
+.institution-type-card span,
+.institution-type-card em {
+    position: relative;
+    z-index: 1;
+}
+
+.institution-type-card strong {
+    display: block;
+    margin-bottom: 10px;
+    font-size: 0.92rem;
+    font-weight: 900;
+}
+
+.institution-type-card p {
+    max-width: 310px;
+    margin: 0 0 20px;
+    color: #c4cee1;
+    font-size: 0.78rem;
+    line-height: 1.55;
+}
+
+.institution-type-card span {
+    min-height: 34px;
+    padding: 0 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border-radius: 8px;
+    color: #bfdbfe;
+    background: rgba(2, 8, 20, 0.48);
+    border: 1px solid rgba(var(--type-rgb), 0.3);
+    font-size: 0.72rem;
+    font-weight: 800;
+}
+
+.institution-type-card span svg {
+    width: 14px;
+    height: 14px;
+}
+
+.institution-type-card em {
+    min-width: 34px;
+    height: 26px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    color: #ffffff;
+    background: rgba(var(--type-rgb), 0.22);
+    border: 1px solid rgba(var(--type-rgb), 0.36);
+    font-size: 0.72rem;
+    font-style: normal;
+    font-weight: 900;
+}
+
+.institutions-workspace {
+    padding: 0 2px;
+}
+
+.institutions-heading {
+    margin-bottom: 14px;
+}
+
+.institutions-heading span {
+    color: #60a5fa;
+    font-size: 0.74rem;
+    font-weight: 900;
+    letter-spacing: 0.14em;
+}
+
+.institutions-heading h1 {
+    margin: 6px 0 6px;
+    color: #ffffff;
+    font-size: 1.55rem;
+    letter-spacing: -0.03em;
+}
+
+.institutions-heading p {
+    margin: 0;
+    color: #a6b0c2;
+    font-size: 0.86rem;
+}
+
+.institutions-tools {
+    margin-bottom: 14px;
+    display: grid;
+    grid-template-columns: minmax(300px, 1fr) 240px;
+    gap: 12px;
+    align-items: center;
+}
+
+.institutions-search,
+.institutions-tools select {
+    min-height: 44px;
+    border-radius: 10px;
+    background: rgba(4, 11, 22, 0.78);
+    border: 1px solid rgba(148, 163, 184, 0.12);
+    color: #e5edf9;
+}
+
+.institutions-search {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 14px;
+}
+
+.institutions-search svg {
+    width: 17px;
+    height: 17px;
+    color: #60a5fa;
+}
+
+.institutions-search input {
+    width: 100%;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: #ffffff;
+    font: inherit;
+    font-size: 0.84rem;
+}
+
+.institutions-search input::placeholder {
+    color: #7f8ba0;
+}
+
+.institutions-tools select {
+    padding: 0 12px;
+    outline: 0;
+}
+
+.institutions-grid {
+    display: grid;
+    grid-template-columns: minmax(290px, 0.58fr) minmax(420px, 1.2fr) minmax(310px, 0.72fr);
+    gap: 14px;
+    align-items: stretch;
+}
+
+.institutions-list,
+.institution-detail-panel,
+.institutions-map {
+    min-height: 560px;
+    border-radius: 14px;
+    background: linear-gradient(180deg, rgba(8, 17, 34, 0.9), rgba(4, 11, 22, 0.92));
+    border: 1px solid rgba(148, 163, 184, 0.11);
+    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.institutions-list {
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 11px;
+    overflow: auto;
+}
+
+.institution-list-card {
+    position: relative;
+    display: grid;
+    grid-template-columns: 84px minmax(0, 1fr) auto;
+    gap: 12px;
+    padding: 10px;
+    border-radius: 12px;
+    border: 1px solid rgba(148, 163, 184, 0.1);
+    background: rgba(2, 8, 20, 0.55);
+    cursor: pointer;
+    transition: border-color 0.22s ease, transform 0.22s ease, background 0.22s ease;
+}
+
+.institution-list-card:hover,
+.institution-list-card.active {
+    transform: translateY(-2px);
+    border-color: rgba(59, 130, 246, 0.55);
+    background: rgba(7, 15, 30, 0.92);
+}
+
+.institution-thumb {
+    width: 84px;
+    height: 74px;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    border-radius: 10px;
+    background: radial-gradient(circle at center, rgba(59, 130, 246, 0.22), rgba(2, 8, 20, 0.84));
+    border: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.institution-thumb img,
+.institution-detail-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.institution-thumb svg {
+    width: 30px;
+    height: 30px;
+    color: #60a5fa;
+}
+
+.institution-list-card strong {
+    display: block;
+    margin-bottom: 4px;
+    color: #ffffff;
+    font-size: 0.82rem;
+    font-weight: 900;
+}
+
+.institution-list-card span {
+    display: inline-flex;
+    margin-bottom: 7px;
+    color: #93c5fd;
+    font-size: 0.68rem;
+    font-weight: 900;
+}
+
+.institution-list-card small {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+    margin-top: 4px;
+    color: #a6b0c2;
+    font-size: 0.68rem;
+    line-height: 1.3;
+}
+
+.institution-list-card small svg {
+    width: 12px;
+    height: 12px;
+    color: #8ea0b8;
+}
+
+.institution-list-card em {
+    color: #bfdbfe;
+    font-size: 0.68rem;
+    font-style: normal;
+    font-weight: 900;
+    white-space: nowrap;
+}
+
+
+/* Colores por tipo en la lista izquierda */
+.institution-list-card {
+    --item-rgb: 37, 99, 235;
+    --item-accent: #60a5fa;
+    isolation: isolate;
+    overflow: hidden;
+    border-color: rgba(var(--item-rgb), 0.18);
+    background:
+        radial-gradient(circle at 13% 18%, rgba(var(--item-rgb), 0.11), transparent 38%),
+        linear-gradient(180deg, rgba(5, 13, 27, 0.86), rgba(2, 8, 20, 0.76));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
+
+.institution-list-card[data-type="institucion"] {
+    --item-rgb: 37, 99, 235;
+    --item-accent: #60a5fa;
+}
+
+.institution-list-card[data-type="concesionario"] {
+    --item-rgb: 139, 92, 246;
+    --item-accent: #a78bfa;
+}
+
+.institution-list-card[data-type="centro_atencion"] {
+    --item-rgb: 34, 197, 94;
+    --item-accent: #86efac;
+}
+
+.institution-list-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    opacity: 0;
+    background:
+        linear-gradient(90deg, rgba(var(--item-rgb), 0.18), transparent 52%),
+        repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 18px);
+    transition: opacity 0.22s ease;
+}
+
+.institution-list-card:hover,
+.institution-list-card.active {
+    border-color: rgba(var(--item-rgb), 0.72);
+    background:
+        radial-gradient(circle at 16% 18%, rgba(var(--item-rgb), 0.2), transparent 42%),
+        linear-gradient(180deg, rgba(8, 17, 34, 0.96), rgba(3, 10, 23, 0.92));
+    box-shadow:
+        0 14px 28px rgba(0, 0, 0, 0.26),
+        0 0 18px rgba(var(--item-rgb), 0.18),
+        inset 0 1px 0 rgba(255, 255, 255, 0.055);
+}
+
+.institution-list-card:hover::before,
+.institution-list-card.active::before {
+    opacity: 1;
+}
+
+.institution-thumb {
+    background:
+        radial-gradient(circle at 50% 40%, rgba(var(--item-rgb), 0.28), transparent 58%),
+        rgba(3, 10, 23, 0.76);
+    border-color: rgba(var(--item-rgb), 0.22);
+    box-shadow: inset 0 0 20px rgba(var(--item-rgb), 0.08);
+}
+
+.institution-thumb svg,
+.institution-list-card span,
+.institution-list-card small svg,
+.institution-list-card em {
+    color: var(--item-accent);
+}
+
+
+/* ============================= */
+/* MAPA REAL - MAPTILER          */
+/* ============================= */
+
+.institutions-map {
+    position: relative;
+    overflow: hidden;
+    min-height: 560px;
+    border-color: rgba(59, 130, 246, 0.32);
+    background:
+        radial-gradient(circle at 28% 22%, rgba(37, 99, 235, 0.2), transparent 34%),
+        radial-gradient(circle at 76% 72%, rgba(14, 165, 233, 0.14), transparent 36%),
+        #020817;
+    box-shadow:
+        0 24px 70px rgba(0, 0, 0, 0.42),
+        0 0 34px rgba(37, 99, 235, 0.18),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06),
+        inset 0 0 0 1px rgba(96, 165, 250, 0.08);
+}
+
+.institutions-real-map {
+    width: 100%;
+    height: 100%;
+    min-height: 560px;
+    position: relative;
+    z-index: 1;
+    border-radius: 14px;
+    overflow: hidden;
+    background: #020817;
+    font-family: "Inter", Arial, sans-serif;
+}
+
+.institutions-map::before,
+.institutions-map::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+}
+
+.institutions-map::before {
+    z-index: 8;
+    background-image:
+        linear-gradient(rgba(96, 165, 250, 0.014) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(96, 165, 250, 0.014) 1px, transparent 1px);
+    background-size: 58px 58px;
+    opacity: 0.14;
+    mix-blend-mode: screen;
+}
+
+.institutions-map::after {
+    z-index: 9;
+    background:
+        radial-gradient(circle at 34% 30%, rgba(59, 130, 246, 0.05), transparent 32%),
+        radial-gradient(circle at 78% 72%, rgba(0, 184, 255, 0.04), transparent 34%),
+        linear-gradient(180deg, rgba(2, 8, 20, 0.01), rgba(2, 8, 20, 0.045));
+    box-shadow:
+        inset 0 0 34px rgba(1, 6, 16, 0.2),
+        inset 0 0 12px rgba(59, 130, 246, 0.035);
+    mix-blend-mode: screen;
+}
+
+.institutions-map .maplibregl-map {
+    width: 100%;
+    height: 100%;
+    border-radius: 14px;
+    overflow: hidden;
+}
+
+.institutions-map .maplibregl-canvas-container,
+.institutions-map .maplibregl-canvas {
+    border-radius: 14px;
+}
+
+.institutions-map .maplibregl-control-container {
+    position: relative;
+    z-index: 20;
+}
+
+.institutions-map .maplibregl-ctrl-group {
+    overflow: hidden;
+    border-radius: 10px;
+    border: 1px solid rgba(96, 165, 250, 0.28);
+    background: rgba(2, 8, 20, 0.76);
+    box-shadow:
+        0 14px 32px rgba(0, 0, 0, 0.38),
+        0 0 16px rgba(59, 130, 246, 0.16);
+    backdrop-filter: blur(10px);
+}
+
+.institutions-map .maplibregl-ctrl-group button {
+    width: 34px;
+    height: 34px;
+    background-color: rgba(2, 8, 20, 0.82);
+    border-color: rgba(96, 165, 250, 0.2);
+}
+
+.institutions-map .maplibregl-ctrl-group button:hover {
+    background-color: rgba(37, 99, 235, 0.46);
+}
+
+.institutions-map .maplibregl-ctrl-icon {
+    filter: invert(91%) sepia(14%) saturate(1068%) hue-rotate(184deg) brightness(101%) contrast(95%);
+}
+
+.institutions-map .maplibregl-ctrl-bottom-left,
+.institutions-map .maplibregl-ctrl-bottom-right {
+    z-index: 25;
+}
+
+.institutions-map .maplibregl-ctrl-attrib {
+    opacity: 0.42;
+    color: #93c5fd;
+    background: rgba(2, 8, 20, 0.72);
+}
+
+.vinova-maptiler-marker-wrapper {
+    width: 42px;
+    height: 52px;
+    display: grid;
+    place-items: start center;
+    cursor: pointer;
+}
+
+.vinova-maptiler-marker {
+    --marker-rgb: 37, 99, 235;
+    --marker-a: #1d4ed8;
+    --marker-b: #60a5fa;
+
+    width: 36px;
+    height: 36px;
+    position: relative;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    color: #ffffff;
+    background:
+        radial-gradient(circle at 32% 24%, rgba(255, 255, 255, 0.28), transparent 30%),
+        linear-gradient(135deg, var(--marker-a), var(--marker-b));
+    border: 2px solid rgba(219, 234, 254, 0.94);
+    box-shadow:
+        0 0 0 5px rgba(var(--marker-rgb), 0.13),
+        0 0 18px rgba(var(--marker-rgb), 0.76),
+        0 0 36px rgba(var(--marker-rgb), 0.28),
+        0 14px 24px rgba(0, 0, 0, 0.44);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+}
+
+.vinova-maptiler-marker::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: -7px;
+    width: 12px;
+    height: 12px;
+    transform: translateX(-50%) rotate(45deg);
+    border-right: 2px solid rgba(219, 234, 254, 0.94);
+    border-bottom: 2px solid rgba(219, 234, 254, 0.94);
+    border-radius: 0 0 4px 0;
+    background: linear-gradient(135deg, var(--marker-a), var(--marker-b));
+}
+
+.vinova-maptiler-marker::before {
+    content: "";
+    position: absolute;
+    inset: 6px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    pointer-events: none;
+}
+
+.vinova-maptiler-marker i {
+    position: relative;
+    z-index: 2;
+    width: 20px;
+    height: 20px;
+    display: grid;
+    place-items: center;
+    line-height: 0;
+}
+
+.vinova-maptiler-marker svg {
+    width: 19px;
+    height: 19px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.25;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.28));
+}
+
+.vinova-maptiler-marker-institucion {
+    --marker-rgb: 37, 99, 235;
+    --marker-a: #1d4ed8;
+    --marker-b: #60a5fa;
+}
+
+.vinova-maptiler-marker-concesionario {
+    --marker-rgb: 139, 92, 246;
+    --marker-a: #5b21b6;
+    --marker-b: #a78bfa;
+}
+
+.vinova-maptiler-marker-centro_atencion {
+    --marker-rgb: 34, 197, 94;
+    --marker-a: #047857;
+    --marker-b: #34d399;
+}
+
+.vinova-maptiler-marker.active {
+    transform: translateY(-3px) scale(1.12);
+    filter: brightness(1.08);
+    box-shadow:
+        0 0 0 7px rgba(var(--marker-rgb), 0.16),
+        0 0 26px rgba(var(--marker-rgb), 0.92),
+        0 0 54px rgba(var(--marker-rgb), 0.42),
+        0 18px 30px rgba(0, 0, 0, 0.5);
+}
+
+.institutions-map .maplibregl-popup-content {
+    padding: 12px 14px;
+    color: #e5edf9;
+    border-radius: 12px;
+    background:
+        radial-gradient(circle at 18% 8%, rgba(59, 130, 246, 0.18), transparent 34%),
+        rgba(3, 10, 23, 0.96);
+    border: 1px solid rgba(96, 165, 250, 0.34);
+    box-shadow:
+        0 20px 48px rgba(0, 0, 0, 0.52),
+        0 0 24px rgba(59, 130, 246, 0.18),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    backdrop-filter: blur(10px);
+}
+
+.institutions-map .maplibregl-popup-tip {
+    border-top-color: rgba(3, 10, 23, 0.96);
+}
+
+.vinova-map-popup {
+    min-width: 180px;
+    display: grid;
+    gap: 4px;
+}
+
+.vinova-map-popup strong {
+    color: #ffffff;
+    font-size: 0.86rem;
+}
+
+.vinova-map-popup span {
+    color: #60a5fa;
+    font-size: 0.72rem;
+    font-weight: 900;
+}
+
+.vinova-map-popup small {
+    color: #a6b0c2;
+    line-height: 1.35;
+}
+
+.institutions-map-fallback {
+    position: absolute;
+    inset: 16px;
+    z-index: 30;
+    display: grid;
+    place-items: center;
+    gap: 8px;
+    text-align: center;
+    color: #a6b0c2;
+    border-radius: 14px;
+    background: rgba(2, 8, 20, 0.88);
+    border: 1px dashed rgba(96, 165, 250, 0.3);
+}
+
+.institutions-map-fallback[hidden] {
+    display: none;
+}
+
+.institutions-map-fallback svg {
+    width: 42px;
+    height: 42px;
+    color: #60a5fa;
+}
+
+.institution-detail-panel {
+    padding: 0;
+    overflow: hidden;
+}
+
+.institution-detail-card {
+    height: 100%;
+    position: relative;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
+}
+
+.institution-detail-card.is-hidden {
+    display: none;
+}
+
+.institution-detail-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    z-index: 4;
+    color: #bfdbfe;
+    border-radius: 10px;
+    border: 1px solid rgba(148, 163, 184, 0.12);
+    background: rgba(2, 8, 20, 0.72);
+    cursor: pointer;
+}
+
+.institution-detail-image {
+    height: 150px;
+    margin: -18px -18px 16px;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    background: radial-gradient(circle at center, rgba(59, 130, 246, 0.28), rgba(2, 8, 20, 0.9));
+}
+
+.institution-detail-image svg {
+    width: 54px;
+    height: 54px;
+    color: #60a5fa;
+}
+
+.institution-badge {
+    width: fit-content;
+    margin-bottom: 10px;
+    padding: 5px 9px;
+    color: #93c5fd;
+    border-radius: 999px;
+    background: rgba(37, 99, 235, 0.16);
+    border: 1px solid rgba(59, 130, 246, 0.24);
+    font-size: 0.68rem;
+    font-weight: 900;
+}
+
+.institution-detail-card h2 {
+    margin: 0 0 8px;
+    color: #ffffff;
+    font-size: 1.16rem;
+    line-height: 1.18;
+}
+
+.institution-detail-card > p {
+    margin: 0 0 16px;
+    color: #a6b0c2;
+    font-size: 0.82rem;
+    line-height: 1.55;
+}
+
+.institution-detail-info {
+    margin: 0 0 16px;
+    display: grid;
+    gap: 8px;
+}
+
+.institution-detail-info div {
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.09);
+}
+
+.institution-detail-info dt {
+    margin-bottom: 4px;
+    color: #dbeafe;
+    font-size: 0.68rem;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+
+.institution-detail-info dd {
+    margin: 0;
+    color: #aebdd1;
+    font-size: 0.78rem;
+}
+
+.institution-detail-card h3 {
+    margin: 0 0 10px;
+    color: #ffffff;
+    font-size: 0.92rem;
+}
+
+.institution-services {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 18px;
+}
+
+.institution-services span {
+    min-height: 42px;
+    padding: 8px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    border-radius: 10px;
+    color: #cbd5e1;
+    background: rgba(2, 8, 20, 0.52);
+    border: 1px solid rgba(148, 163, 184, 0.09);
+    font-size: 0.69rem;
+    line-height: 1.25;
+}
+
+.institution-services svg {
+    width: 14px;
+    height: 14px;
+    color: #60a5fa;
+    flex-shrink: 0;
+}
+
+.institution-detail-actions {
+    margin-top: auto;
+    display: grid;
+    gap: 8px;
+}
+
+.institution-primary-btn,
+.institution-secondary-btn {
+    min-height: 38px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border-radius: 10px;
+    text-decoration: none;
+    font-size: 0.78rem;
+    font-weight: 900;
+}
+
+.institution-primary-btn {
+    color: #ffffff;
+    background: linear-gradient(135deg, #1d4ed8, #2563eb, #00b8ff);
+    box-shadow: 0 0 18px rgba(59, 130, 246, 0.3);
+}
+
+.institution-secondary-btn {
+    color: #bfdbfe;
+    background: rgba(2, 8, 20, 0.54);
+    border: 1px solid rgba(59, 130, 246, 0.24);
+}
+
+.institutions-empty {
+    min-height: 240px;
+    padding: 28px 18px;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    color: #a6b0c2;
+}
+
+.institutions-empty svg {
+    width: 42px;
+    height: 42px;
+    color: #60a5fa;
+    margin-bottom: 12px;
+}
+
+.institutions-empty h3 {
+    margin: 0 0 6px;
+    color: #ffffff;
+}
+
+@media (max-width: 1200px) {
+    .institution-selector,
+    .institutions-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .institutions-list,
+    .institution-detail-panel,
+    .institutions-map {
+        min-height: auto;
+    }
+
+    .institutions-map,
+    .institutions-real-map {
+        min-height: 420px;
+    }
+}
+
+@media (max-width: 760px) {
+    .institutions-page {
+        padding: 16px 12px 34px;
+    }
+
+    .institution-type-card {
+        grid-template-columns: 44px minmax(0, 1fr);
+    }
+
+    .institution-type-card em {
+        grid-column: 1 / -1;
+        width: fit-content;
+    }
+
+    .institutions-tools {
+        grid-template-columns: 1fr;
+    }
+
+    .institution-list-card {
+        grid-template-columns: 72px minmax(0, 1fr);
+    }
+
+    .institution-list-card em {
+        grid-column: 1 / -1;
+    }
+
+    .institution-services {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ============================= */

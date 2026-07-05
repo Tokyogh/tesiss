@@ -10,7 +10,6 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
 
 
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles3.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
@@ -67,7 +66,7 @@
             </li>
 
             <li class="dropdown">
-                <a href="#">Vehículos</a>
+                <a href="{{ url_for('catalog') }}">Vehículos</a>
 
                 <div class="dropdown-menu">
                     <a href="{{ url_for('catalog') }}">Catálogo</a>
@@ -79,7 +78,7 @@
             </li>
 
             <li class="dropdown">
-                <a href="#">Mi cuenta</a>
+                <a href="{{ url_for('perfil') }}">Mi cuenta</a>
 
                 <div class="dropdown-menu">
                     <a href="{{ url_for('perfil') }}">Mi perfil</a>
@@ -94,14 +93,8 @@
                 </div>
             </li>
 
-            <li class="dropdown">
-                <a href="#">Instituciones</a>
-
-                <div class="dropdown-menu">
-                    <a href="#">Instituciones Afiliadas</a>
-                    <a href="#">Concesionarios</a>
-                    <a href="#">Centros de servicio</a>
-                </div>
+            <li>
+                <a href="{{ url_for('instituciones') }}">Instituciones</a>
             </li>
 
             <li class="dropdown">
