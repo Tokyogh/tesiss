@@ -1379,3 +1379,71 @@ a {
     font-size: 0.78rem;
     line-height: 1.55;
 }
+
+/* ============================= */
+/* UX ARCHIVOS Y MANUALES */
+/* ============================= */
+
+.worker-field input[type="file"] {
+    min-height: 48px;
+    padding: 8px;
+    cursor: pointer;
+    background:
+        linear-gradient(180deg, rgba(4, 11, 22, 0.86), rgba(8, 17, 34, 0.86));
+    border: 1px dashed rgba(96, 165, 250, 0.34);
+}
+
+.worker-field input[type="file"]::file-selector-button {
+    min-height: 32px;
+    margin-right: 12px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: 9px;
+    background: linear-gradient(135deg, #1e40af, #2563eb, #00b8ff);
+    color: #ffffff;
+    font-family: inherit;
+    font-weight: 900;
+    cursor: pointer;
+    box-shadow: 0 0 14px rgba(59, 130, 246, 0.28);
+}
+
+.worker-field input[type="file"]:hover {
+    border-color: rgba(96, 165, 250, 0.72);
+    box-shadow: 0 0 16px rgba(59, 130, 246, 0.16);
+}
+
+.vinova-manual-source-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.vinova-subfield {
+    min-width: 0;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    border-radius: 14px;
+    background: rgba(4, 11, 22, 0.54);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.vinova-subfield strong {
+    color: #dbeafe;
+    font-size: 0.78rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.vinova-subfield small {
+    color: var(--worker-muted-2);
+    line-height: 1.35;
+}
+
+@media (max-width: 760px) {
+    .vinova-manual-source-grid {
+        grid-template-columns: 1fr;
+    }
+}

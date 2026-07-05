@@ -563,25 +563,48 @@
                                 </select>
                             </label>
 
-                            <label class="admin-field admin-field-wide">
+                            <label class="admin-field admin-field-wide vinova-file-field">
                                 <span>Imagen del vehículo</span>
-                                <input type="file" name="imagen" accept="image/png,image/jpeg,image/webp">
 
                                 {% if vehiculo_editar and vehiculo_editar['imagen'] %}
-                                    <small>Imagen actual: {{ vehiculo_editar['imagen'] }}</small>
-                                {% else %}
-                                    <small>Se guardará en static/img/vehicles/</small>
+                                    {% set imagen_actual = vehiculo_editar['imagen']|string %}
+                                    <div class="vinova-current-resource vinova-current-resource-image">
+                                        <div class="vinova-current-preview">
+                                            {% if imagen_actual.startswith('http') %}
+                                                <img src="{{ imagen_actual }}" alt="Imagen actual del vehículo">
+                                            {% else %}
+                                                <img src="{{ url_for('static', filename=imagen_actual) }}" alt="Imagen actual del vehículo">
+                                            {% endif %}
+                                        </div>
+                                        <div>
+                                            <strong>Imagen actual conservada</strong>
+                                            <small>{{ imagen_actual }}</small>
+                                            <em>Sube una nueva imagen solo si deseas reemplazarla.</em>
+                                        </div>
+                                    </div>
                                 {% endif %}
+
+                                <input type="file" name="imagen" accept="image/png,image/jpeg,image/webp">
+                                <small>{{ 'Selecciona un archivo nuevo para reemplazar la imagen actual.' if vehiculo_editar and vehiculo_editar['imagen'] else 'Se guardará en static/img/vehicles/.' }}</small>
                             </label>
 
-                            <label class="admin-field admin-field-wide">
-                                <span>Subir modelo 3D</span>
-                                <input type="file" name="modelo_3d_file" accept=".glb,.gltf,model/gltf-binary,model/gltf+json">
+                            <label class="admin-field admin-field-wide vinova-file-field">
+                                <span>Modelo 3D del modelo</span>
+
                                 {% if vehiculo_editar and vehiculo_editar['modelo_3d'] %}
-                                    <small>Modelo actual: {{ vehiculo_editar['modelo_3d'] }}. Si subes otro, reemplazará la ruta para este modelo.</small>
-                                {% else %}
-                                    <small>Opcional. Se guardará en static/models/vehicles/ y se compartirá por marca + modelo + año.</small>
+                                    {% set modelo_actual = vehiculo_editar['modelo_3d']|string %}
+                                    <div class="vinova-current-resource">
+                                        <div class="vinova-current-icon"><i data-lucide="box"></i></div>
+                                        <div>
+                                            <strong>Modelo 3D actual</strong>
+                                            <small>{{ modelo_actual }}</small>
+                                            <em>Si subes otro archivo GLB/GLTF, reemplazará el recurso compartido por marca + modelo + año.</em>
+                                        </div>
+                                    </div>
                                 {% endif %}
+
+                                <input type="file" name="modelo_3d_file" accept=".glb,.gltf,model/gltf-binary,model/gltf+json">
+                                <small>{{ 'Sube un nuevo GLB/GLTF solo si quieres reemplazar el actual.' if vehiculo_editar and vehiculo_editar['modelo_3d'] else 'Opcional. Se guardará en static/models/vehicles/ y se compartirá por marca + modelo + año.' }}</small>
                             </label>
 
                             <label class="admin-field">
@@ -619,41 +642,74 @@
                                 <small>Los datos 3D y manuales se comparten por marca + modelo + año. Si ya existe otro vehículo igual, VINOVA reutiliza esos recursos automáticamente.</small>
                             </div>
 
+                            {% set manual_actual = manual_editar if manual_editar else none %}
+                            {% if manuales_modelo_editar|default([]) %}
+                                <div class="admin-field admin-field-wide vinova-current-resource-list">
+                                    <span>Manuales actuales del modelo</span>
+                                    {% for manual in manuales_modelo_editar %}
+                                        <div class="vinova-current-resource">
+                                            <div class="vinova-current-icon"><i data-lucide="file-text"></i></div>
+                                            <div>
+                                                <strong>{{ manual['titulo'] }}</strong>
+                                                <small>{{ manual['tipo_documento']|default('Manual') }} · {{ manual['archivo'] or manual['enlace'] or 'Sin archivo/enlace' }}</small>
+                                                <em>Este manual se conserva si no subes ni seleccionas otro recurso.</em>
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+
                             <label class="admin-field">
                                 <span>Título del manual del modelo</span>
-                                <input type="text" name="manual_titulo" placeholder="Manual del propietario">
+                                <input type="text" name="manual_titulo" placeholder="Manual del propietario" value="{{ manual_actual['titulo'] if manual_actual else '' }}">
                             </label>
 
                             <label class="admin-field">
                                 <span>Tipo de manual</span>
-                                <input type="text" name="manual_tipo_documento" placeholder="Manual, garantía, guía técnica" value="Manual">
+                                <input type="text" name="manual_tipo_documento" placeholder="Manual, garantía, guía técnica" value="{{ manual_actual['tipo_documento'] if manual_actual else 'Manual' }}">
                             </label>
 
-                            <label class="admin-field admin-field-wide">
+                            <label class="admin-field admin-field-wide vinova-file-field">
                                 <span>Subir manual para este modelo</span>
                                 <input type="file" name="manual_file" accept=".pdf,image/jpeg,image/png,image/webp">
-                                <small>Opcional. Si subes un manual aquí, todos los vehículos iguales lo usarán.</small>
+                                <small>{{ 'Sube un nuevo PDF/imagen solo si quieres agregar o reemplazar el manual del modelo.' if manual_actual else 'Opcional. Si subes un manual aquí, todos los vehículos iguales lo usarán.' }}</small>
                             </label>
 
-                            <label class="admin-field admin-field-wide">
-                                <span>Enlace o archivo local del manual</span>
-                                <input type="url" name="manual_enlace" placeholder="https://..." list="adminManualLinks">
-                                <input type="text" name="manual_archivo" placeholder="Buscar o escribir ruta local..." list="adminManualFiles">
+                            <div class="admin-field admin-field-wide vinova-manual-source-field">
+                                <span>Manual existente o enlace externo</span>
+                                <div class="vinova-manual-source-grid">
+                                    <label class="vinova-subfield">
+                                        <strong>Enlace externo</strong>
+                                        <input type="url" name="manual_enlace" placeholder="https://..." list="adminManualLinks" value="{{ manual_actual['enlace'] if manual_actual and manual_actual['enlace'] else '' }}">
+                                        <small>Úsalo para manuales alojados fuera del proyecto.</small>
+                                    </label>
+
+                                    <label class="vinova-subfield">
+                                        <strong>Archivo local existente</strong>
+                                        <select name="manual_archivo">
+                                            <option value="">No usar archivo local</option>
+                                            {% if manual_actual and manual_actual['archivo'] %}
+                                                <option value="{{ manual_actual['archivo'] }}" selected>Actual: {{ manual_actual['archivo'] }}</option>
+                                            {% endif %}
+                                            {% for manual in manuales_admin|default([]) %}
+                                                {% if manual['archivo'] %}
+                                                    <option value="{{ manual['archivo'] }}">{{ manual['titulo'] }} · {{ manual['marca'] }} {{ manual['modelo'] }} {{ manual['anio'] }}</option>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </select>
+                                        <small>Selecciona un archivo que ya exista en static/docs/manuales.</small>
+                                    </label>
+                                </div>
                                 <datalist id="adminManualLinks">
                                     {% for manual in manuales_admin|default([]) %}
                                         {% if manual['enlace'] %}<option value="{{ manual['enlace'] }}">{{ manual['titulo'] }} · {{ manual['marca'] }} {{ manual['modelo'] }} {{ manual['anio'] }}</option>{% endif %}
                                     {% endfor %}
                                 </datalist>
-                                <datalist id="adminManualFiles">
-                                    {% for manual in manuales_admin|default([]) %}
-                                        {% if manual['archivo'] %}<option value="{{ manual['archivo'] }}">{{ manual['titulo'] }} · {{ manual['marca'] }} {{ manual['modelo'] }} {{ manual['anio'] }}</option>{% endif %}
-                                    {% endfor %}
-                                </datalist>
-                            </label>
+                            </div>
 
                             <label class="admin-field admin-field-wide">
                                 <span>Descripción del manual</span>
-                                <textarea name="manual_descripcion" rows="2" placeholder="Manual de propietario, guía de mantenimiento, garantía..."></textarea>
+                                <textarea name="manual_descripcion" rows="2" placeholder="Manual de propietario, guía de mantenimiento, garantía...">{{ manual_actual['descripcion'] if manual_actual else '' }}</textarea>
                             </label>
 
 
@@ -1437,9 +1493,14 @@
                                 </div>
 
                                 <div class="admin-row-actions">
-                                    <button type="button" class="admin-mini-btn admin-mini-btn-disabled" disabled>
-                                        Solo consulta
-                                    </button>
+                                    <form
+                                        action="{{ url_for('admin_desarchivar_vehiculo', vehiculo_id=vehiculo['id']) }}"
+                                        method="POST"
+                                        data-admin-confirm="¿Desarchivar esta unidad? Volverá al listado principal como oculta.">
+                                        <button type="submit" class="admin-mini-btn admin-mini-btn-code">
+                                            Desarchivar
+                                        </button>
+                                    </form>
                                 </div>
 
                             </article>

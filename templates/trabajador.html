@@ -30,6 +30,8 @@
 {% set clientes_lista = clientes|default([]) %}
 {% set generar_codigo_base_url = trabajador_generar_codigo_url|default('') %}
 {% set archivar_base_url = trabajador_archivar_vehiculo_url|default('') %}
+{% set desarchivar_base_url = trabajador_desarchivar_vehiculo_url|default('') %}
+{% set cambiar_visibilidad_base_url = trabajador_cambiar_estado_vehiculo_url|default('') %}
 {% set reactivar_codigo_base_url = trabajador_reactivar_codigo_url|default('') %}
 
 <div class="worker-shell">
@@ -241,8 +243,9 @@
                                         <strong>{{ vehiculo.marca }} {{ vehiculo.modelo }} {{ vehiculo.anio }}</strong>
                                         <span>{{ vehiculo.codigo_catalogo|default('Sin referencia') }}</span>
                                     </div>
-                                    <small class="worker-status {{ 'sold' if vehiculo.estado == 'Vendido' else 'active' if vehiculo.activo == 1 else 'inactive' }}">
-                                        {{ vehiculo.estado|default('Disponible') }}
+                                    {% set mini_archivado = vehiculo.archivado|default(0)|int %}
+                                    <small class="worker-status {{ 'inactive' if mini_archivado == 1 else 'sold' if vehiculo.estado == 'Vendido' else 'active' if vehiculo.activo == 1 else 'inactive' }}">
+                                        {% if mini_archivado == 1 %}Archivado{% else %}{{ vehiculo.estado|default('Disponible') }}{% endif %}
                                     </small>
                                 </div>
                             {% endfor %}
@@ -330,13 +333,13 @@
                         <label class="worker-field"><span>Kilometraje</span><input type="number" name="kilometraje" min="0" value="0"></label>
                         <label class="worker-field"><span>Precio USD</span><input type="number" name="precio" min="0" step="0.01" value="0"></label>
                         <label class="worker-field"><span>Estado</span><select name="estado"><option value="Disponible">Disponible</option><option value="Reservado">Reservado</option><option value="No disponible">No disponible</option></select></label>
-                        <label class="worker-field worker-field-wide"><span>Imagen</span><input type="file" name="imagen" accept="image/png,image/jpeg,image/webp"></label>
-                        <label class="worker-field worker-field-wide"><span>Subir modelo 3D</span><input type="file" name="modelo_3d_file" accept=".glb,.gltf,model/gltf-binary,model/gltf+json"><small>Opcional. Se guardará en static/models/vehicles/ y se compartirá por marca + modelo + año.</small></label>
+                        <label class="worker-field worker-field-wide vinova-file-field"><span>Imagen</span><input type="file" name="imagen" accept="image/png,image/jpeg,image/webp"><small>Se guardará en static/img/vehicles/.</small></label>
+                        <label class="worker-field worker-field-wide vinova-file-field"><span>Subir modelo 3D</span><input type="file" name="modelo_3d_file" accept=".glb,.gltf,model/gltf-binary,model/gltf+json"><small>Opcional. Se guardará en static/models/vehicles/ y se compartirá por marca + modelo + año.</small></label>
                         <label class="worker-field"><span>ID modelo 3D</span><input type="text" name="modelo_3d_id" placeholder="rav4_2024"></label>
                         <label class="worker-field"><span>Ruta modelo 3D</span><input type="text" name="modelo_3d" placeholder="models/vehicles/rav4_2024.glb"></label>
                         <label class="worker-field"><span>Tipo modelo 3D</span><select name="modelo_3d_tipo"><option value="glb">GLB</option><option value="gltf">GLTF</option><option value="pendiente">Pendiente</option></select></label>
-                        <label class="worker-field worker-field-wide"><span>Manual del modelo</span><input type="text" name="manual_titulo" placeholder="Manual del propietario"><input type="file" name="manual_file" accept=".pdf,image/jpeg,image/png,image/webp"><small>Opcional. Se aplica a todos los vehículos iguales.</small></label>
-                        <label class="worker-field worker-field-wide"><span>Enlace o archivo del manual</span><input type="url" name="manual_enlace" placeholder="https://..." list="workerManualLinks"><input type="text" name="manual_archivo" placeholder="Buscar o escribir ruta local..." list="workerManualFiles"><datalist id="workerManualLinks">{% for manual in manuales_admin|default([]) %}{% if manual['enlace'] %}<option value="{{ manual['enlace'] }}">{{ manual['titulo'] }} · {{ manual['marca'] }} {{ manual['modelo'] }} {{ manual['anio'] }}</option>{% endif %}{% endfor %}</datalist><datalist id="workerManualFiles">{% for manual in manuales_admin|default([]) %}{% if manual['archivo'] %}<option value="{{ manual['archivo'] }}">{{ manual['titulo'] }} · {{ manual['marca'] }} {{ manual['modelo'] }} {{ manual['anio'] }}</option>{% endif %}{% endfor %}</datalist></label>
+                        <label class="worker-field worker-field-wide vinova-file-field"><span>Manual del modelo</span><input type="text" name="manual_titulo" placeholder="Manual del propietario"><input type="file" name="manual_file" accept=".pdf,image/jpeg,image/png,image/webp"><small>Opcional. Se aplica a todos los vehículos iguales.</small></label>
+                        <div class="worker-field worker-field-wide vinova-manual-source-field"><span>Manual existente o enlace externo</span><div class="vinova-manual-source-grid"><label class="vinova-subfield"><strong>Enlace externo</strong><input type="url" name="manual_enlace" placeholder="https://..." list="workerManualLinks"><small>Úsalo para manuales alojados fuera del proyecto.</small></label><label class="vinova-subfield"><strong>Archivo local existente</strong><select name="manual_archivo"><option value="">No usar archivo local</option>{% for manual in manuales_admin|default([]) %}{% if manual['archivo'] %}<option value="{{ manual['archivo'] }}">{{ manual['titulo'] }} · {{ manual['marca'] }} {{ manual['modelo'] }} {{ manual['anio'] }}</option>{% endif %}{% endfor %}</select><small>Selecciona un archivo que ya exista en static/docs/manuales.</small></label></div><datalist id="workerManualLinks">{% for manual in manuales_admin|default([]) %}{% if manual['enlace'] %}<option value="{{ manual['enlace'] }}">{{ manual['titulo'] }} · {{ manual['marca'] }} {{ manual['modelo'] }} {{ manual['anio'] }}</option>{% endif %}{% endfor %}</datalist></div>
                         <label class="worker-field worker-field-wide"><span>Descripción</span><textarea name="descripcion" rows="3" placeholder="Descripción breve del vehículo..."></textarea></label>
                         <label class="worker-switch"><input type="checkbox" name="activo" checked><span></span>Mostrar en catálogo</label>
                     </div>
@@ -357,9 +360,12 @@
                     {% if vehiculos_lista %}
                         {% for vehiculo in vehiculos_lista %}
                             {% set codigo_actual = vehiculo.codigo_canje|default('') %}
-                            {% set puede_generar = vehiculo.estado == 'Disponible' and vehiculo.activo == 1 and not codigo_actual %}
+                            {% set vehiculo_archivado = vehiculo.archivado|default(0)|int %}
+                            {% set puede_generar = vehiculo.estado == 'Disponible' and vehiculo.activo == 1 and vehiculo_archivado != 1 and not codigo_actual %}
                             {% set generar_url = generar_codigo_base_url.replace('__ID__', vehiculo.id|string) if generar_codigo_base_url else '' %}
                             {% set archivar_url = archivar_base_url.replace('__ID__', vehiculo.id|string) if archivar_base_url else '' %}
+                            {% set desarchivar_url = desarchivar_base_url.replace('__ID__', vehiculo.id|string) if desarchivar_base_url else '' %}
+                            {% set cambiar_visibilidad_url = cambiar_visibilidad_base_url.replace('__ID__', vehiculo.id|string) if cambiar_visibilidad_base_url else '' %}
 
                             <article class="worker-vehicle-row" data-worker-item>
                                 <div class="worker-vehicle-img">
@@ -388,7 +394,9 @@
                                         </div>
 
                                         <div class="worker-status-group">
-                                            {% if vehiculo.estado == 'Vendido' %}
+                                            {% if vehiculo_archivado == 1 %}
+                                                <span class="worker-status inactive">Archivado</span>
+                                            {% elif vehiculo.estado == 'Vendido' %}
                                                 <span class="worker-status sold">Vendido</span>
                                             {% elif vehiculo.activo == 1 %}
                                                 <span class="worker-status active">Visible</span>
@@ -405,38 +413,64 @@
                                         {% if codigo_actual %}
                                             <span><i data-lucide="key-round"></i> Ya tiene código</span>
                                         {% endif %}
+                                        {% if vehiculo_archivado == 1 %}
+                                            <span><i data-lucide="archive"></i> Archivado</span>
+                                        {% endif %}
                                     </div>
 
                                     <div class="worker-actions">
-                                        {% if puede_generar and generar_url %}
-                                            <form method="POST" action="{{ generar_url }}" class="worker-inline-form" data-worker-confirm="¿Generar un código de canje para esta unidad?">
-                                                <button type="submit" class="worker-primary-btn">
-                                                    <i data-lucide="key-round"></i>
-                                                    Generar código
-                                                </button>
-                                            </form>
+                                        {% if vehiculo_archivado == 1 %}
+                                            {% if desarchivar_url %}
+                                                <form method="POST" action="{{ desarchivar_url }}" class="worker-inline-form" data-worker-confirm="¿Desarchivar esta unidad? Volverá al listado principal como oculta.">
+                                                    <button type="submit" class="worker-primary-btn">
+                                                        <i data-lucide="archive-restore"></i>
+                                                        Desarchivar
+                                                    </button>
+                                                </form>
+                                            {% endif %}
                                         {% else %}
-                                            <button type="button" class="worker-mini-btn" disabled>
-                                                {% if codigo_actual %}
-                                                    Código existente
-                                                {% elif vehiculo.estado == 'Vendido' %}
-                                                    Vendido
-                                                {% elif vehiculo.activo != 1 %}
-                                                    No visible
-                                                {% else %}
-                                                    No disponible
-                                                {% endif %}
-                                            </button>
-                                        {% endif %}
-
-                                        {% if archivar_url %}
-                                            <form method="POST" action="{{ archivar_url }}" class="worker-inline-form" data-worker-confirm="¿Seguro que deseas archivar esta unidad? Se ocultará del catálogo y quedará en el historial interno.">
-                                                <input type="hidden" name="motivo_archivado" value="Archivado desde panel trabajador">
-                                                <button type="submit" class="worker-danger-btn">
-                                                    <i data-lucide="archive"></i>
-                                                    Archivar
+                                            {% if puede_generar and generar_url %}
+                                                <form method="POST" action="{{ generar_url }}" class="worker-inline-form" data-worker-confirm="¿Generar un código de canje para esta unidad?">
+                                                    <button type="submit" class="worker-primary-btn">
+                                                        <i data-lucide="key-round"></i>
+                                                        Generar código
+                                                    </button>
+                                                </form>
+                                            {% else %}
+                                                <button type="button" class="worker-mini-btn" disabled>
+                                                    {% if codigo_actual %}
+                                                        Código existente
+                                                    {% elif vehiculo.estado == 'Vendido' %}
+                                                        Vendido
+                                                    {% elif vehiculo.activo != 1 %}
+                                                        No visible
+                                                    {% else %}
+                                                        No disponible
+                                                    {% endif %}
                                                 </button>
-                                            </form>
+                                            {% endif %}
+
+                                            {% if cambiar_visibilidad_url and vehiculo.estado != 'Vendido' %}
+                                                <form method="POST" action="{{ cambiar_visibilidad_url }}" class="worker-inline-form" data-worker-confirm="¿Cambiar la visibilidad de esta unidad en el catálogo?">
+                                                    <button type="submit" class="worker-mini-btn">
+                                                        {% if vehiculo.activo == 1 %}
+                                                            Ocultar
+                                                        {% else %}
+                                                            Activar
+                                                        {% endif %}
+                                                    </button>
+                                                </form>
+                                            {% endif %}
+
+                                            {% if archivar_url %}
+                                                <form method="POST" action="{{ archivar_url }}" class="worker-inline-form" data-worker-confirm="¿Seguro que deseas archivar esta unidad? Se ocultará del catálogo y quedará en el historial interno.">
+                                                    <input type="hidden" name="motivo_archivado" value="Archivado desde panel trabajador">
+                                                    <button type="submit" class="worker-danger-btn">
+                                                        <i data-lucide="archive"></i>
+                                                        Archivar
+                                                    </button>
+                                                </form>
+                                            {% endif %}
                                         {% endif %}
 
                                         <button type="button" class="worker-mini-btn worker-disabled-action">
