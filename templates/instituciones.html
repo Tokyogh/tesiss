@@ -121,6 +121,7 @@
             </div>
 
             <em>{{ conteos_establecimientos.institucion|default(0) }}</em>
+        
         </a>
 
         <a href="{{ url_for('instituciones', tipo='concesionario') }}"
@@ -138,6 +139,7 @@
             </div>
 
             <em>{{ conteos_establecimientos.concesionario|default(0) }}</em>
+            
         </a>
 
         <a href="{{ url_for('instituciones', tipo='centro_atencion') }}"
@@ -155,6 +157,7 @@
             </div>
 
             <em>{{ conteos_establecimientos.centro_atencion|default(0) }}</em>
+            
         </a>
 
     </section>
@@ -197,6 +200,16 @@
             <aside class="institutions-list" id="institutionsList">
                 {% if establecimientos|default([]) %}
                     {% for establecimiento in establecimientos %}
+                        {% set imagen_establecimiento = establecimiento.imagen %}
+                        {% if not imagen_establecimiento %}
+                            {% if establecimiento.tipo == 'institucion' %}
+                                {% set imagen_establecimiento = 'img/instituciones/card-instituciones.webp' %}
+                            {% elif establecimiento.tipo == 'centro_atencion' %}
+                                {% set imagen_establecimiento = 'img/instituciones/card-centros-atencion.webp' %}
+                            {% else %}
+                                {% set imagen_establecimiento = 'img/instituciones/card-concesionarios.webp' %}
+                            {% endif %}
+                        {% endif %}
                         <article class="institution-list-card {% if loop.first %}active{% endif %}"
                                  tabindex="0"
                                  data-establishment-card
@@ -207,18 +220,8 @@
                                  data-lat="{{ establecimiento.lat if establecimiento.lat is not none else '' }}"
                                  data-lng="{{ establecimiento.lng if establecimiento.lng is not none else '' }}">
 
-                            <div class="institution-thumb {% if not establecimiento.imagen %}is-placeholder{% endif %}">
-                                {% if establecimiento.imagen %}
-                                    <img src="{{ url_for('static', filename=establecimiento.imagen) }}" alt="{{ establecimiento.nombre }}">
-                                {% else %}
-                                    {% if establecimiento.tipo == 'institucion' %}
-                                        <i data-lucide="landmark"></i>
-                                    {% elif establecimiento.tipo == 'centro_atencion' %}
-                                        <i data-lucide="headphones"></i>
-                                    {% else %}
-                                        <i data-lucide="building-2"></i>
-                                    {% endif %}
-                                {% endif %}
+                            <div class="institution-thumb">
+                                <img src="{{ url_for('static', filename=imagen_establecimiento) }}" alt="{{ establecimiento.nombre }}">
                             </div>
 
                             <div class="institution-list-info">
@@ -274,30 +277,69 @@
             <aside class="institution-detail-panel" id="institutionDetailPanel">
                 {% if establecimientos|default([]) %}
                     {% for establecimiento in establecimientos %}
+                        {% set imagen_establecimiento = establecimiento.imagen %}
+                        {% if not imagen_establecimiento %}
+                            {% if establecimiento.tipo == 'institucion' %}
+                                {% set imagen_establecimiento = 'img/instituciones/card-instituciones.webp' %}
+                            {% elif establecimiento.tipo == 'centro_atencion' %}
+                                {% set imagen_establecimiento = 'img/instituciones/card-centros-atencion.webp' %}
+                            {% else %}
+                                {% set imagen_establecimiento = 'img/instituciones/card-concesionarios.webp' %}
+                            {% endif %}
+                        {% endif %}
                         <article class="institution-detail-card {% if not loop.first %}is-hidden{% endif %}" data-establishment-detail="{{ establecimiento.id }}">
                             <button type="button" class="institution-detail-close" aria-label="Cerrar detalle">
                                 <i data-lucide="x"></i>
                             </button>
 
-                            <div class="institution-detail-image {% if not establecimiento.imagen %}is-placeholder{% endif %}">
-                                {% if establecimiento.imagen %}
-                                    <img src="{{ url_for('static', filename=establecimiento.imagen) }}" alt="{{ establecimiento.nombre }}">
-                                {% else %}
-                                    {% if establecimiento.tipo == 'institucion' %}
-                                        <i data-lucide="landmark"></i>
-                                    {% elif establecimiento.tipo == 'centro_atencion' %}
-                                        <i data-lucide="headphones"></i>
-                                    {% else %}
-                                        <i data-lucide="building-2"></i>
-                                    {% endif %}
-                                {% endif %}
+                            <div class="institution-detail-image">
+                                <img src="{{ url_for('static', filename=imagen_establecimiento) }}" alt="{{ establecimiento.nombre }}">
                             </div>
 
                             <span class="institution-badge">{{ establecimiento.tipo_label }}</span>
                             <h2>{{ establecimiento.nombre }}</h2>
+                            <div class="institution-rating" aria-label="Calificación visual del establecimiento">
+                                <small>Sede oficial VINOVA</small>
+                            </div>
                             <p>{{ establecimiento.descripcion|default('Establecimiento oficial registrado en la red VINOVA.', true) }}</p>
 
-                            <dl class="institution-detail-info">
+                            <h3 class="institution-services-heading">Servicios disponibles</h3>
+
+                            <div class="institution-services institution-services-grid">
+                                {% if establecimiento.servicios_lista %}
+                                    {% for servicio in establecimiento.servicios_lista[:6] %}
+                                        {% set servicio_lower = servicio|lower %}
+                                        {% if 'venta' in servicio_lower or 'vehículo' in servicio_lower or 'vehiculo' in servicio_lower %}
+                                            {% set servicio_icon = 'car' %}
+                                        {% elif 'financia' in servicio_lower or 'crédito' in servicio_lower or 'credito' in servicio_lower %}
+                                            {% set servicio_icon = 'badge-dollar-sign' %}
+                                        {% elif 'prueba' in servicio_lower or 'manejo' in servicio_lower %}
+                                            {% set servicio_icon = 'gauge' %}
+                                        {% elif 'postventa' in servicio_lower or 'servicio' in servicio_lower or 'mantenimiento' in servicio_lower %}
+                                            {% set servicio_icon = 'wrench' %}
+                                        {% elif 'garant' in servicio_lower %}
+                                            {% set servicio_icon = 'shield-check' %}
+                                        {% elif 'repuesto' in servicio_lower %}
+                                            {% set servicio_icon = 'cog' %}
+                                        {% else %}
+                                            {% set servicio_icon = 'check-circle-2' %}
+                                        {% endif %}
+                                        <span>
+                                            <i data-lucide="{{ servicio_icon }}"></i>
+                                            {{ servicio }}
+                                        </span>
+                                    {% endfor %}
+                                {% else %}
+                                    <span><i data-lucide="car"></i>Venta de vehículos</span>
+                                    <span><i data-lucide="badge-dollar-sign"></i>Financiamiento</span>
+                                    <span><i data-lucide="gauge"></i>Prueba de manejo</span>
+                                    <span><i data-lucide="wrench"></i>Servicio postventa</span>
+                                    <span><i data-lucide="cog"></i>Repuestos</span>
+                                    <span><i data-lucide="shield-check"></i>Garantías</span>
+                                {% endif %}
+                            </div>
+
+                            <dl class="institution-detail-info institution-detail-info-compact">
                                 <div>
                                     <dt>Dirección</dt>
                                     <dd>{{ establecimiento.direccion|default('No registrada') }}</dd>
@@ -323,29 +365,6 @@
                                 {% endif %}
                             </dl>
 
-                            <h3>Servicios disponibles</h3>
-
-                            <div class="institution-services">
-                                {% if establecimiento.servicios_lista %}
-                                    {% for servicio in establecimiento.servicios_lista[:8] %}
-                                        <span>
-                                            <i data-lucide="check-circle-2"></i>
-                                            {{ servicio }}
-                                        </span>
-                                    {% endfor %}
-                                {% else %}
-                                    <span>
-                                        <i data-lucide="info"></i>
-                                        Información general
-                                    </span>
-
-                                    <span>
-                                        <i data-lucide="message-circle"></i>
-                                        Atención al cliente
-                                    </span>
-                                {% endif %}
-                            </div>
-
                             <div class="institution-detail-actions">
                                 {% if establecimiento.telefono %}
                                     <a href="tel:{{ establecimiento.telefono|replace(' ', '') }}" class="institution-primary-btn">
@@ -357,7 +376,7 @@
                                 {% if establecimiento.website %}
                                     <a href="{{ establecimiento.website }}" target="_blank" rel="noopener" class="institution-secondary-btn">
                                         <i data-lucide="external-link"></i>
-                                        Ver enlace
+                                        Ver detalles
                                     </a>
                                 {% endif %}
 

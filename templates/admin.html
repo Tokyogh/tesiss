@@ -18,7 +18,7 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <!-- El CSS del mini mapa queda únicamente en static/css/admin.css -->
+
 </head>
 
 <body>
@@ -1923,8 +1923,9 @@
                         {% endif %}
                     </div>
 
-                    <form action="{{ url_for('admin_guardar_establecimiento') }}" method="POST" class="admin-form">
+                    <form action="{{ url_for('admin_guardar_establecimiento') }}" method="POST" enctype="multipart/form-data" class="admin-form">
                         <input type="hidden" name="establecimiento_id" value="{{ establecimiento_form.id if establecimiento_form else '' }}">
+                        <input type="hidden" name="imagen_actual" value="{{ establecimiento_form.imagen if establecimiento_form else '' }}">
 
                         <div class="admin-form-grid">
                             <label class="admin-field">
@@ -1981,11 +1982,37 @@
                                 <input type="url" name="website" value="{{ establecimiento_form.website if establecimiento_form else '' }}" placeholder="https://...">
                             </label>
 
-                            <label class="admin-field admin-field-wide">
-                                <span>Imagen o ruta visual</span>
-                                <input type="text" name="imagen" value="{{ establecimiento_form.imagen if establecimiento_form else '' }}" placeholder="img/establecimientos/concesionario.webp">
-                                <small>Más adelante podrás colocar aquí las imágenes finales de las tarjetas.</small>
-                            </label>
+                            <div class="admin-field admin-field-wide admin-image-upload" data-admin-image-upload>
+                                <span>Imagen del establecimiento</span>
+
+                                <div class="admin-image-upload-box">
+                                    <div class="admin-image-preview {% if not establecimiento_form or not establecimiento_form.imagen %}is-empty{% endif %}" data-admin-image-preview>
+                                        {% if establecimiento_form and establecimiento_form.imagen %}
+                                            <img src="{{ url_for('static', filename=establecimiento_form.imagen) }}" alt="Imagen actual de {{ establecimiento_form.nombre }}">
+                                        {% else %}
+                                            <i data-lucide="image-plus"></i>
+                                            <strong>Sin imagen</strong>
+                                        {% endif %}
+                                    </div>
+
+                                    <div class="admin-image-upload-content">
+                                        <label class="admin-upload-btn">
+                                            <i data-lucide="upload-cloud"></i>
+                                            Seleccionar imagen
+                                            <input type="file" name="imagen_archivo" accept="image/png,image/jpeg,image/webp" data-admin-image-input>
+                                        </label>
+
+                                        <small>Sube JPG, PNG o WEBP. Se guardará automáticamente en <code>static/img/establecimientos/</code> y aparecerá en la página pública de instituciones.</small>
+
+                                        {% if establecimiento_form and establecimiento_form.imagen %}
+                                            <label class="admin-remove-image-check">
+                                                <input type="checkbox" name="eliminar_imagen" data-admin-remove-image>
+                                                Quitar imagen actual
+                                            </label>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
 
                             <label class="admin-field admin-field-wide">
                                 <span>Servicios disponibles</span>
@@ -2048,8 +2075,10 @@
                         {% if establecimientos_admin|default([]) %}
                             {% for establecimiento in establecimientos_admin %}
                                 <article class="admin-establishment-row {% if establecimiento.activo|int == 0 %}is-inactive{% endif %}" data-admin-item>
-                                    <div class="admin-establishment-pin">
-                                        {% if establecimiento.tipo == 'institucion' %}
+                                    <div class="admin-establishment-pin {% if establecimiento.imagen %}has-image{% endif %}">
+                                        {% if establecimiento.imagen %}
+                                            <img src="{{ url_for('static', filename=establecimiento.imagen) }}" alt="{{ establecimiento.nombre }}">
+                                        {% elif establecimiento.tipo == 'institucion' %}
                                             <i data-lucide="landmark"></i>
                                         {% elif establecimiento.tipo == 'centro_atencion' %}
                                             <i data-lucide="headphones"></i>

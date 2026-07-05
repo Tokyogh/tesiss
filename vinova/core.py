@@ -75,10 +75,18 @@ app.config["INVOICE_FOLDER"] = os.path.join(
     "facturas"
 )
 
+app.config["ESTABLISHMENT_IMAGE_FOLDER"] = os.path.join(
+    BASE_DIR,
+    "static",
+    "img",
+    "establecimientos"
+)
+
 os.makedirs(app.config["VEHICLE_IMAGE_FOLDER"], exist_ok=True)
 os.makedirs(app.config["VEHICLE_3D_FOLDER"], exist_ok=True)
 os.makedirs(app.config["MANUALS_FOLDER"], exist_ok=True)
 os.makedirs(app.config["INVOICE_FOLDER"], exist_ok=True)
+os.makedirs(app.config["ESTABLISHMENT_IMAGE_FOLDER"], exist_ok=True)
 
 EXTENSIONES_IMAGEN_VEHICULO = {"jpg", "jpeg", "png", "webp"}
 EXTENSIONES_DOCUMENTO = {"pdf", "jpg", "jpeg", "png", "webp"}
@@ -1810,6 +1818,64 @@ def guardar_imagen_vehiculo(archivo, codigo_catalogo):
     archivo.save(ruta_absoluta)
 
     return f"img/vehicles/{nombre_archivo}"
+
+
+def normalizar_ruta_imagen_establecimiento(ruta):
+    """Devuelve una ruta local segura para imágenes de establecimientos."""
+
+    texto = str(ruta or "").strip().replace("\\", "/")
+
+    if not texto:
+        return ""
+
+    texto_lower = texto.lower()
+
+    if texto_lower.startswith("http://") or texto_lower.startswith("https://") or texto_lower.startswith("data:"):
+        return ""
+
+    if texto.startswith("/static/"):
+        texto = texto[len("/static/"):]
+    elif texto.startswith("static/"):
+        texto = texto[len("static/"):]
+
+    texto = texto.lstrip("/")
+
+    if ".." in texto.split("/"):
+        return ""
+
+    return texto
+
+
+def guardar_imagen_establecimiento(archivo, nombre, tipo="establecimiento"):
+    """
+    Guarda una imagen de institución/concesionario/centro de atención en:
+    static/img/establecimientos/
+
+    En la base de datos se guarda la ruta relativa a static:
+    img/establecimientos/nombre-del-lugar-123456.webp
+    """
+
+    if not archivo or not getattr(archivo, "filename", ""):
+        return None
+
+    if not extension_permitida(archivo.filename, EXTENSIONES_IMAGEN_VEHICULO):
+        raise ValueError("Formato de imagen no permitido. Usa JPG, PNG o WEBP.")
+
+    validar_archivo_imagen_real(archivo)
+
+    extension = archivo.filename.rsplit(".", 1)[1].lower()
+    slug_base = crear_slug(f"{tipo}-{nombre}")
+    nombre_archivo = secure_filename(
+        f"{slug_base}-{int(time.time())}-{secrets.token_hex(4)}.{extension}"
+    )
+
+    carpeta_destino = app.config["ESTABLISHMENT_IMAGE_FOLDER"]
+    os.makedirs(carpeta_destino, exist_ok=True)
+
+    ruta_absoluta = os.path.join(carpeta_destino, nombre_archivo)
+    archivo.save(ruta_absoluta)
+
+    return f"img/establecimientos/{nombre_archivo}"
 
 
 def guardar_modelo_3d_local(archivo, marca, modelo, anio):

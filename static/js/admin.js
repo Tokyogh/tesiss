@@ -423,6 +423,62 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // =============================
+    // PREVIEW DE IMAGEN DE ESTABLECIMIENTOS
+    // =============================
+
+    document.querySelectorAll("[data-admin-image-upload]").forEach((uploadBox) => {
+        const input = uploadBox.querySelector("[data-admin-image-input]");
+        const preview = uploadBox.querySelector("[data-admin-image-preview]");
+        const removeCheck = uploadBox.querySelector("[data-admin-remove-image]");
+
+        if (!input || !preview) return;
+
+        const emptyHtml = '<i data-lucide="image-plus"></i><strong>Sin imagen</strong>';
+
+        function renderEmpty() {
+            preview.classList.add("is-empty");
+            preview.innerHTML = emptyHtml;
+            if (window.lucide) {
+                window.lucide.createIcons();
+            }
+        }
+
+        input.addEventListener("change", () => {
+            const file = input.files && input.files[0];
+
+            if (!file) {
+                if (removeCheck && removeCheck.checked) {
+                    renderEmpty();
+                }
+                return;
+            }
+
+            if (!file.type || !file.type.startsWith("image/")) {
+                alert("Selecciona una imagen válida en formato JPG, PNG o WEBP.");
+                input.value = "";
+                return;
+            }
+
+            const imageUrl = URL.createObjectURL(file);
+            preview.classList.remove("is-empty");
+            preview.innerHTML = `<img src="${imageUrl}" alt="Vista previa de la imagen seleccionada">`;
+
+            if (removeCheck) {
+                removeCheck.checked = false;
+            }
+        });
+
+        if (removeCheck) {
+            removeCheck.addEventListener("change", () => {
+                if (removeCheck.checked) {
+                    input.value = "";
+                    renderEmpty();
+                }
+            });
+        }
+    });
+
+    // =============================
     // PREVENIR DOBLE ENVÍO EN FORMULARIOS
     // =============================
 

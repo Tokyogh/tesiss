@@ -1549,7 +1549,9 @@ def admin_guardar_establecimiento():
     correo = request.form.get("correo", "").strip().lower()
     horario = request.form.get("horario", "").strip()
     website = request.form.get("website", "").strip()
-    imagen = request.form.get("imagen", "").strip()
+    imagen_actual = normalizar_ruta_imagen_establecimiento(request.form.get("imagen_actual", ""))
+    imagen_archivo = request.files.get("imagen_archivo")
+    eliminar_imagen = request.form.get("eliminar_imagen") == "on"
     servicios = request.form.get("servicios", "").strip()
     distancia_km = normalizar_precio(request.form.get("distancia_km"))
     lat = normalizar_precio(request.form.get("lat"))
@@ -1586,6 +1588,10 @@ def admin_guardar_establecimiento():
 
     try:
         ahora = fecha_actual()
+        imagen = "" if eliminar_imagen else imagen_actual
+
+        if imagen_archivo and getattr(imagen_archivo, "filename", ""):
+            imagen = guardar_imagen_establecimiento(imagen_archivo, nombre, tipo)
 
         if establecimiento_id:
             cursor.execute("SELECT id FROM establecimientos WHERE id = ?", (establecimiento_id,))
@@ -1637,6 +1643,9 @@ def admin_guardar_establecimiento():
         )
         conexion.commit()
 
+    except ValueError as error:
+        conexion.rollback()
+        flash(str(error), "warning")
     except sqlite3.IntegrityError:
         conexion.rollback()
         flash("Ya existe un establecimiento con ese nombre.", "warning")
