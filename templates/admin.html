@@ -18,6 +18,7 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <!-- El CSS del mini mapa queda únicamente en static/css/admin.css -->
 </head>
 
 <body>
@@ -2588,7 +2589,7 @@
     window.VINOVA_MAPTILER_KEY = "{{ maptiler_key|default('', true) }}";
 </script>
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-<script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+<script src="{{ url_for('static', filename='js/admin.js') }}?v=admin-map-v5"></script>
 
 <script>
     if (window.lucide) {

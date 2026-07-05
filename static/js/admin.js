@@ -1,4 +1,5 @@
 document.addEventListener("DOMContentLoaded", () => {
+    console.info("VINOVA admin.js mapa v5 cargado");
     const adminSections = document.querySelectorAll("[data-admin-content]");
     const allAdminLinks = document.querySelectorAll("[data-admin-section]");
     const sidebarLinks = document.querySelectorAll(".admin-sidebar [data-admin-section]");
@@ -459,37 +460,63 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (!mapElement || !latInput || !lngInput) return;
 
-        if (!window.maplibregl || !maptilerKey) {
+        function showFallback(message) {
             mapElement.innerHTML = `
                 <div class="admin-maptiler-fallback">
-                    <strong>Mapa no configurado</strong>
-                    <span>Agrega MAPTILER_KEY en el archivo .env para usar el selector de ubicación.</span>
+                    <strong>No se pudo cargar el mapa</strong>
+                    <span>${message}</span>
                 </div>
             `;
+        }
+
+        if (!window.maplibregl) {
+            showFallback("MapLibre no está cargado. Revisa el script maplibre-gl.js en admin.html.");
+            return;
+        }
+
+        if (!maptilerKey) {
+            showFallback("Agrega MAPTILER_KEY en el archivo .env para usar el selector de ubicación.");
             return;
         }
 
         const defaultLat = Number(mapElement.dataset.defaultLat || "-2.170998");
         const defaultLng = Number(mapElement.dataset.defaultLng || "-79.922359");
-        const styleUrl = `https://api.maptiler.com/maps/streets-v2-dark/style.json?key=${encodeURIComponent(maptilerKey)}`;
+        const styleUrl = `https://api.maptiler.com/maps/dataviz-dark/style.json?key=${encodeURIComponent(maptilerKey)}`;
 
         let map = null;
         let marker = null;
         let popup = null;
+        let styleApplied = false;
 
-        function isMapSectionVisible() {
+        function isEstablishmentsSectionVisible() {
             const section = mapElement.closest(".admin-section");
             return !section || section.classList.contains("active");
         }
 
         function parseCoord(input, fallback) {
-            const value = Number(input.value);
+            // IMPORTANTE: Number("") devuelve 0.
+            // Si el formulario está vacío, eso mandaba el mapa a 0,0
+            // en el océano Atlántico. Por eso se veía oscuro/vacío.
+            const rawValue = String(input.value || "").trim().replace(",", ".");
+
+            if (!rawValue) {
+                return fallback;
+            }
+
+            const value = Number(rawValue);
             return Number.isFinite(value) ? value : fallback;
         }
 
         function getCurrentPosition() {
-            const lat = parseCoord(latInput, defaultLat);
-            const lng = parseCoord(lngInput, defaultLng);
+            let lat = parseCoord(latInput, defaultLat);
+            let lng = parseCoord(lngInput, defaultLng);
+
+            // Seguridad extra: si llegan coordenadas inválidas, volvemos al centro por defecto.
+            if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+                lat = defaultLat;
+                lng = defaultLng;
+            }
+
             return [lng, lat];
         }
 
@@ -498,7 +525,19 @@ document.addEventListener("DOMContentLoaded", () => {
             lngInput.value = Number(lngLat.lng).toFixed(6);
         }
 
-        function styleAdminMapLayers() {
+        function resizeMapRepeated() {
+            if (!map) return;
+
+            map.resize();
+            window.setTimeout(() => map.resize(), 100);
+            window.setTimeout(() => map.resize(), 300);
+            window.setTimeout(() => map.resize(), 700);
+        }
+
+        // Esta función es la parte que le faltaba al admin: viene del mapa de instituciones.
+        // Sin esto, el estilo dataviz-dark carga, pero sus calles quedan demasiado oscuras
+        // y parece que el mapa está vacío aunque los controles y el marcador sí aparezcan.
+        function styleMapLayers() {
             if (!map || !map.getStyle() || !Array.isArray(map.getStyle().layers)) return;
 
             map.getStyle().layers.forEach((layer) => {
@@ -514,37 +553,41 @@ document.addEventListener("DOMContentLoaded", () => {
                             id.includes("road") ||
                             id.includes("street") ||
                             id.includes("transport") ||
-                            id.includes("highway") ||
                             id.includes("bridge") ||
                             id.includes("tunnel") ||
-                            id.includes("path")
-                        );
-
-                        const isMainRoad = (
-                            id.includes("motorway") ||
-                            id.includes("trunk") ||
-                            id.includes("primary") ||
+                            id.includes("path") ||
+                            id.includes("minor") ||
                             id.includes("major") ||
                             id.includes("highway")
                         );
 
                         if (isRoad) {
-                            map.setPaintProperty(layer.id, "line-color", "#2f80ff");
+                            map.setPaintProperty(layer.id, "line-color", "#1d5fe8");
                             map.setPaintProperty(layer.id, "line-opacity", [
                                 "interpolate",
                                 ["linear"],
                                 ["zoom"],
-                                8, 0.24,
-                                11, 0.42,
+                                8, 0.18,
+                                11, 0.34,
                                 14, 0.72,
                                 17, 0.9
                             ]);
-                            map.setPaintProperty(layer.id, "line-blur", 0.05);
+                            map.setPaintProperty(layer.id, "line-blur", 0.15);
                         }
 
-                        if (isMainRoad) {
-                            map.setPaintProperty(layer.id, "line-color", "#38bdf8");
-                            map.setPaintProperty(layer.id, "line-opacity", 0.78);
+                        if (
+                            id.includes("motorway") ||
+                            id.includes("trunk") ||
+                            id.includes("primary") ||
+                            id.includes("major")
+                        ) {
+                            map.setPaintProperty(layer.id, "line-color", "#22a7f2");
+                            map.setPaintProperty(layer.id, "line-opacity", 0.82);
+                        }
+
+                        if (id.includes("admin") || id.includes("boundary")) {
+                            map.setPaintProperty(layer.id, "line-color", "#2563eb");
+                            map.setPaintProperty(layer.id, "line-opacity", 0.32);
                         }
                     }
 
@@ -554,61 +597,38 @@ document.addEventListener("DOMContentLoaded", () => {
                             map.setPaintProperty(layer.id, "fill-opacity", 0.78);
                         }
 
+                        if (id.includes("land") || id.includes("earth") || id.includes("park")) {
+                            map.setPaintProperty(layer.id, "fill-color", "#020817");
+                            map.setPaintProperty(layer.id, "fill-opacity", 0.98);
+                        }
+
                         if (id.includes("building")) {
-                            map.setPaintProperty(layer.id, "fill-color", "#071a35");
-                            map.setPaintProperty(layer.id, "fill-opacity", 0.72);
+                            map.setPaintProperty(layer.id, "fill-color", "#071a38");
+                            map.setPaintProperty(layer.id, "fill-opacity", 0.82);
                         }
                     }
 
                     if (layer.type === "symbol") {
                         if (id.includes("label") || id.includes("name")) {
-                            map.setPaintProperty(layer.id, "text-color", "#7aa7ef");
+                            map.setPaintProperty(layer.id, "text-color", "#6f8fbf");
                             map.setPaintProperty(layer.id, "text-halo-color", "#020817");
-                            map.setPaintProperty(layer.id, "text-halo-width", 1);
+                            map.setPaintProperty(layer.id, "text-halo-width", 1.15);
                         }
 
-                        if (
-                            (id.includes("road") || id.includes("street") || id.includes("transport")) &&
-                            (id.includes("label") || id.includes("name"))
-                        ) {
-                            map.setPaintProperty(layer.id, "text-color", "#93c5fd");
+                        if ((id.includes("road") || id.includes("transport")) && (id.includes("label") || id.includes("name"))) {
+                            map.setPaintProperty(layer.id, "text-color", "#8bbdff");
                         }
                     }
                 } catch (error) {
-                    // Algunas capas de MapTiler no aceptan todas las propiedades.
+                    // Algunos estilos no aceptan todas las propiedades en todas sus capas.
                 }
             });
-        }
 
-        function forceAdminMapResize() {
-            if (!map) {
-                createAdminMap();
-                return;
-            }
-
-            map.resize();
-
-            window.setTimeout(() => map.resize(), 120);
-            window.setTimeout(() => map.resize(), 350);
-            window.setTimeout(() => map.resize(), 700);
-        }
-
-        function moveMarkerToInputs() {
-            if (!map || !marker) return;
-
-            const nextPosition = getCurrentPosition();
-
-            marker.setLngLat(nextPosition);
-
-            map.easeTo({
-                center: nextPosition,
-                zoom: Math.max(map.getZoom(), 15),
-                duration: 400
-            });
+            styleApplied = true;
         }
 
         function createAdminMap() {
-            if (map || !isMapSectionVisible()) return;
+            if (map || !isEstablishmentsSectionVisible()) return;
 
             const initialPosition = getCurrentPosition();
 
@@ -616,11 +636,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 container: mapElement,
                 style: styleUrl,
                 center: initialPosition,
-                zoom: 15,
+                zoom: 14,
                 pitch: 0,
                 bearing: 0,
                 attributionControl: true
             });
+
+            window.vinovaAdminEstablishmentMap = map;
 
             map.addControl(
                 new maplibregl.NavigationControl({
@@ -663,17 +685,39 @@ document.addEventListener("DOMContentLoaded", () => {
             });
 
             map.on("load", () => {
-                styleAdminMapLayers();
+                styleMapLayers();
                 marker.togglePopup();
-                forceAdminMapResize();
+                resizeMapRepeated();
             });
 
+            // Si MapLibre actualiza el estilo o termina de cargar capas luego del load,
+            // reintentamos aplicar el contraste de calles y etiquetas.
             map.on("styledata", () => {
-                styleAdminMapLayers();
+                if (!styleApplied) {
+                    window.setTimeout(styleMapLayers, 80);
+                }
+            });
+
+            map.on("idle", () => {
+                styleMapLayers();
+                resizeMapRepeated();
             });
 
             map.on("error", (event) => {
                 console.warn("Error cargando mapa MapTiler:", event?.error || event);
+            });
+        }
+
+        function moveMarkerToInputs() {
+            if (!map || !marker) return;
+
+            const nextPosition = getCurrentPosition();
+            marker.setLngLat(nextPosition);
+
+            map.easeTo({
+                center: nextPosition,
+                zoom: Math.max(map.getZoom(), 14),
+                duration: 400
             });
         }
 
@@ -682,15 +726,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
         window.vinovaAdminInvalidateMaps = () => {
             createAdminMap();
-            forceAdminMapResize();
+            styleMapLayers();
+            resizeMapRepeated();
         };
 
         document.querySelectorAll('[data-admin-section="establecimientos"]').forEach((link) => {
             link.addEventListener("click", () => {
                 window.setTimeout(() => {
                     createAdminMap();
-                    forceAdminMapResize();
-                }, 240);
+                    styleMapLayers();
+                    resizeMapRepeated();
+                }, 260);
             });
         });
 
@@ -698,15 +744,24 @@ document.addEventListener("DOMContentLoaded", () => {
             if (window.location.hash === "#admin-establecimientos") {
                 window.setTimeout(() => {
                     createAdminMap();
-                    forceAdminMapResize();
-                }, 240);
+                    styleMapLayers();
+                    resizeMapRepeated();
+                }, 260);
             }
+        });
+
+
+        window.addEventListener("resize", () => {
+            if (!map) return;
+            resizeMapRepeated();
+            styleMapLayers();
         });
 
         window.setTimeout(() => {
             createAdminMap();
-            forceAdminMapResize();
-        }, 400);
+            styleMapLayers();
+            resizeMapRepeated();
+        }, 500);
     })();
 
 });
