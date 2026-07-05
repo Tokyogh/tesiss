@@ -7,9 +7,14 @@
 
     <script src="https://unpkg.com/lucide@latest"></script>
     <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
 
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles3.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
+
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -131,9 +136,11 @@
                     {{ session["usuario"] }}
                 </a>
 
-                <a href="{{ url_for('logout') }}" class="logout-icon-btn" title="Cerrar sesión" aria-label="Cerrar sesión">
-                    <i data-lucide="log-out"></i>
-                </a>
+                <form action="{{ url_for('logout') }}" method="POST" class="vinova-logout-form vinova-logout-inline">
+                    <button type="submit" class="logout-icon-btn" title="Cerrar sesión" aria-label="Cerrar sesión">
+                        <i data-lucide="log-out"></i>
+                    </button>
+                </form>
             </div>
         {% else %}
             <a href="{{ url_for('login') }}" class="login-btn">
@@ -598,8 +605,11 @@
                 {% endif %}
             </div>
 
+            {% set filtro_rapido_activo = filtros.tipos or filtros.combustibles or filtros.estados %}
             <div class="catalog-stats-grid" aria-label="Resumen del catálogo">
-                <button type="button" class="catalog-stat-card tone-blue active">
+                <button type="button"
+                        class="catalog-stat-card tone-blue {{ '' if filtro_rapido_activo else 'active' }}"
+                        data-clear-filter-fields="tipo,combustible,estado">
                     <i data-lucide="car-front"></i>
                     <span>
                         <strong>{{ total_vehiculos|default(0) }}</strong>
@@ -607,7 +617,11 @@
                     </span>
                 </button>
 
-                <button type="button" class="catalog-stat-card tone-green" data-filter-field="tipo" data-filter-value="Camioneta">
+                <button type="button"
+                        class="catalog-stat-card tone-green {{ 'active' if 'Camioneta' in filtros.tipos or 'Pickup' in filtros.tipos else '' }}"
+                        data-filter-field="tipo"
+                        data-filter-values="Camioneta,Pickup"
+                        data-exclusive-fields="tipo,combustible,estado">
                     <svg class="custom-pickup-icon" viewBox="0 0 64 40" aria-hidden="true">
                         <path d="M5 25h5l4-11h24l7 8h8c3 0 6 3 6 6v3H5v-6Z"/>
                         <path d="M18 14v11"/>
@@ -622,7 +636,11 @@
                     </span>
                 </button>
 
-                <button type="button" class="catalog-stat-card tone-blue-soft" data-filter-field="tipo" data-filter-value="SUV">
+                <button type="button"
+                        class="catalog-stat-card tone-blue-soft {{ 'active' if 'SUV' in filtros.tipos else '' }}"
+                        data-filter-field="tipo"
+                        data-filter-value="SUV"
+                        data-exclusive-fields="tipo,combustible,estado">
                     <i data-lucide="car"></i>
                     <span>
                         <strong>{{ total_suv|default(0) }}</strong>
@@ -630,7 +648,11 @@
                     </span>
                 </button>
 
-                <button type="button" class="catalog-stat-card tone-green">
+                <button type="button"
+                        class="catalog-stat-card tone-green {{ 'active' if 'Híbrido' in filtros.combustibles or 'Hibrido' in filtros.combustibles or 'Eléctrico' in filtros.combustibles or 'Electrico' in filtros.combustibles else '' }}"
+                        data-filter-field="combustible"
+                        data-filter-values="Híbrido,Hibrido,Eléctrico,Electrico"
+                        data-exclusive-fields="tipo,combustible,estado">
                     <i data-lucide="leaf"></i>
                     <span>
                         <strong>{{ total_hibridos|default(0) }}</strong>
@@ -638,7 +660,11 @@
                     </span>
                 </button>
 
-                <button type="button" class="catalog-stat-card tone-yellow" data-filter-field="estado" data-filter-value="Disponible">
+                <button type="button"
+                        class="catalog-stat-card tone-yellow {{ 'active' if 'Disponible' in filtros.estados else '' }}"
+                        data-filter-field="estado"
+                        data-filter-value="Disponible"
+                        data-exclusive-fields="tipo,combustible,estado">
                     <i data-lucide="circle-check"></i>
                     <span>
                         <strong>{{ total_disponibles|default(0) }}</strong>

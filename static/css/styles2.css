@@ -17,14 +17,14 @@
    ========================= */
 
 :root {
-    --bg: #050b17;
-    --panel: #0d1424;
-    --panel2: #111b31;
-    --text: #fff;
-    --muted: #96a2bf;
-    --blue: #0d6efd;
-    --blue2: #2563ff;
-    --border: rgba(255, 255, 255, .08);
+    --bg: var(--vinova-bg, #050b17);
+    --panel: var(--vinova-panel, #0d1424);
+    --panel2: var(--vinova-panel-strong, #111b31);
+    --text: var(--vinova-text, #fff);
+    --muted: var(--vinova-muted, #96a2bf);
+    --blue: var(--vinova-blue, #0d6efd);
+    --blue2: var(--vinova-blue-strong, #2563ff);
+    --border: var(--vinova-border, rgba(255, 255, 255, .08));
 }
 
 /* =========================

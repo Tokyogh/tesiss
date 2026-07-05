@@ -26,7 +26,10 @@ from PIL import Image, UnidentifiedImageError
 load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = os.getenv("FLASK_SECRET_KEY", "vinova")
+FLASK_SECRET_KEY = os.getenv("FLASK_SECRET_KEY")
+if not FLASK_SECRET_KEY:
+    raise RuntimeError("Falta configurar FLASK_SECRET_KEY en el archivo .env")
+app.secret_key = FLASK_SECRET_KEY
 app.permanent_session_lifetime = timedelta(days=1)
 app.config["MAX_CONTENT_LENGTH"] = int(os.getenv("MAX_UPLOAD_MB", "80")) * 1024 * 1024
 app.config["SESSION_COOKIE_HTTPONLY"] = True
@@ -89,6 +92,7 @@ LOGIN_ATTEMPTS = {}
 LOGIN_MAX_ATTEMPTS = int(os.getenv("LOGIN_MAX_ATTEMPTS", "5"))
 LOGIN_WINDOW_SECONDS = int(os.getenv("LOGIN_WINDOW_SECONDS", "900"))
 LOGIN_LOCK_SECONDS = int(os.getenv("LOGIN_LOCK_SECONDS", "900"))
+TRUST_PROXY_HEADERS = os.getenv("TRUST_PROXY_HEADERS", "0") == "1"
 
 ROLES_CREABLES_DESDE_PANEL = {"USUARIO", "TRABAJADOR"}
 
@@ -136,6 +140,45 @@ def conectar_db():
     conexion.row_factory = sqlite3.Row
     conexion.execute("PRAGMA foreign_keys = ON")
     return conexion
+
+
+
+def registrar_auditoria(conexion, accion, entidad=None, entidad_id=None, detalle=None):
+    """Registra acciones importantes sin interrumpir la operación principal."""
+
+    if not conexion or not accion:
+        return
+
+    try:
+        cursor = conexion.cursor()
+
+        if isinstance(detalle, (dict, list, tuple)):
+            detalle_texto = json.dumps(detalle, ensure_ascii=False, default=str)
+        elif detalle is None:
+            detalle_texto = ""
+        else:
+            detalle_texto = str(detalle)
+
+        cursor.execute("""
+            INSERT INTO auditoria_acciones (
+                usuario_id, usuario_nombre, usuario_rol, accion, entidad, entidad_id,
+                detalle, ip, user_agent, creado_en
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            session.get("usuario_id"),
+            session.get("usuario"),
+            session.get("rol"),
+            str(accion)[:120],
+            str(entidad or "")[:80],
+            entidad_id,
+            detalle_texto[:4000],
+            obtener_ip_cliente(),
+            request.headers.get("User-Agent", "")[:500],
+            fecha_actual()
+        ))
+    except Exception as error:
+        print("Advertencia: no se pudo registrar auditoría:", error)
 
 
 def correo_en_modo_simulado():
@@ -1820,7 +1863,6 @@ def asegurar_migraciones_admin():
             )
 
 
-
             # ================= MODELOS BASE / RECURSOS COMPARTIDOS =================
 
             cursor.execute("""
@@ -2365,13 +2407,23 @@ def inyectar_csrf_en_formularios(response):
     return response
 
 
+@app.after_request
+def aplicar_cabeceras_seguridad(response):
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+    return response
+
+
 # ================= RATE LIMIT LOGIN =================
 
 def obtener_ip_cliente():
-    forwarded_for = request.headers.get("X-Forwarded-For", "")
+    if TRUST_PROXY_HEADERS:
+        forwarded_for = request.headers.get("X-Forwarded-For", "")
 
-    if forwarded_for:
-        return forwarded_for.split(",")[0].strip()
+        if forwarded_for:
+            return forwarded_for.split(",")[0].strip()
 
     return request.remote_addr or "desconocida"
 
@@ -2849,6 +2901,13 @@ def trabajador_generar_codigo_vehiculo(vehiculo_id):
                     1
                 ))
 
+                registrar_auditoria(
+                    conexion,
+                    "Código de canje generado",
+                    "vehiculo",
+                    vehiculo_id,
+                    {"codigo": codigo_generado, "origen": "trabajador"}
+                )
                 conexion.commit()
                 flash(f"Código de canje generado: {codigo_generado}", "success")
                 break
@@ -2925,6 +2984,13 @@ def trabajador_archivar_vehiculo(vehiculo_id):
 
         desactivar_codigos_pendientes_vehiculo(cursor, vehiculo_id)
 
+        registrar_auditoria(
+            conexion,
+            "Vehículo archivado",
+            "vehiculo",
+            vehiculo_id,
+            {"motivo": motivo or "Archivado desde panel trabajador", "origen": "trabajador"}
+        )
         conexion.commit()
         flash("Vehículo archivado correctamente. Sus códigos pendientes quedaron desactivados.", "success")
 
@@ -2957,6 +3023,13 @@ def trabajador_reactivar_codigo_vehiculo(codigo_id):
             flash(error, "warning")
             return redirect(url_for("trabajador_panel") + "#trabajador-codigos")
 
+        registrar_auditoria(
+            conexion,
+            "Código de canje reactivado",
+            "codigo_vehiculo",
+            codigo_id,
+            {"codigo": codigo["codigo"], "origen": "trabajador"}
+        )
         conexion.commit()
         flash(f"Código reactivado correctamente: {codigo['codigo']}", "success")
 
@@ -3038,7 +3111,15 @@ def trabajador_crear_usuario():
             ahora,
             cedula
         ))
+        nuevo_usuario_id = cursor.lastrowid
 
+        registrar_auditoria(
+            conexion,
+            "Cliente creado",
+            "usuario",
+            nuevo_usuario_id,
+            {"nombre": nombre, "correo": correo, "origen": "trabajador"}
+        )
         conexion.commit()
 
         usuario_correo = {
@@ -3152,6 +3233,13 @@ def trabajador_actualizar_cedula_usuario(usuario_id):
             usuario_id
         ))
 
+        registrar_auditoria(
+            conexion,
+            "Cédula de cliente actualizada",
+            "usuario",
+            usuario_id,
+            {"cliente": usuario["nombre"], "origen": "trabajador"}
+        )
         conexion.commit()
         flash(f"Cédula/RUC actualizada para {usuario['nombre']}.", "success")
 
@@ -3321,6 +3409,22 @@ def login():
     session["rol"] = usuario["rol"]
     session["foto_perfil"] = usuario["foto_perfil"]
 
+    conexion_auditoria = conectar_db()
+    try:
+        registrar_auditoria(
+            conexion_auditoria,
+            "Inicio de sesión",
+            "usuario",
+            usuario["id"],
+            {"correo": usuario["correo"], "rol": usuario["rol"]}
+        )
+        conexion_auditoria.commit()
+    except Exception as error:
+        conexion_auditoria.rollback()
+        print("Advertencia: no se pudo auditar inicio de sesión:", error)
+    finally:
+        conexion_auditoria.close()
+
     return redirect("/perfil")
 
 
@@ -3477,6 +3581,13 @@ def restablecer_password(token):
             fecha_actual(),
             usuario["id"]
         ))
+        registrar_auditoria(
+            conexion,
+            "Contraseña restablecida",
+            "usuario",
+            usuario["id"],
+            {"correo": usuario["correo"]}
+        )
         conexion.commit()
 
         contenido_html = plantilla_correo(
@@ -3555,7 +3666,15 @@ def register():
             1,
             ahora
         ))
+        nuevo_usuario_id = cursor.lastrowid
 
+        registrar_auditoria(
+            conexion,
+            "Cuenta pública registrada",
+            "usuario",
+            nuevo_usuario_id,
+            {"nombre": nombre, "correo": correo}
+        )
         conexion.commit()
 
         usuario_correo = {
@@ -3905,6 +4024,19 @@ def actualizar_preferencias_notificacion():
             fecha_actual(),
             session["usuario_id"]
         ))
+        registrar_auditoria(
+            conexion,
+            "Preferencias de notificación actualizadas",
+            "usuario",
+            session.get("usuario_id"),
+            {
+                "correo": notificar_correo,
+                "mantenimientos": notificar_mantenimientos,
+                "alertas": notificar_alertas,
+                "facturas": notificar_facturas,
+                "recordatorios": notificar_recordatorios
+            }
+        )
         conexion.commit()
         flash("Preferencias de notificación actualizadas correctamente.", "success")
 
@@ -4256,6 +4388,19 @@ def registrar_mantenimiento_empresarial():
         if not factura_id:
             raise RuntimeError("No se pudo crear la factura del mantenimiento.")
 
+        registrar_auditoria(
+            conexion,
+            "Mantenimiento registrado",
+            "mantenimiento",
+            mantenimiento_id,
+            {
+                "vehiculo_id": registro["vehiculo_id"],
+                "usuario_id": registro["usuario_id"],
+                "tipo_servicio": tipo_servicio,
+                "factura_id": factura_id,
+                "origen": origen
+            }
+        )
         conexion.commit()
 
         usuario_correo = {
@@ -4364,6 +4509,13 @@ def anular_mantenimiento_empresarial(mantenimiento_id):
             mantenimiento_id
         ))
 
+        registrar_auditoria(
+            conexion,
+            "Mantenimiento anulado",
+            "mantenimiento",
+            mantenimiento_id,
+            {"motivo": motivo or "Anulado desde panel VINOVA", "origen": origen}
+        )
         conexion.commit()
         flash("Mantenimiento anulado correctamente.", "success")
 
@@ -4521,6 +4673,13 @@ def canjear_codigo_vehiculo():
             vehiculo_id
         ))
 
+        registrar_auditoria(
+            conexion,
+            "Vehículo canjeado por cliente",
+            "vehiculo",
+            vehiculo_id,
+            {"codigo": codigo_ingresado, "codigo_id": codigo["id"], "usuario_id": session.get("usuario_id")}
+        )
         conexion.commit()
 
         usuario_correo = {
@@ -4627,6 +4786,13 @@ def actualizar_foto_perfil():
         (foto_url, session["usuario_id"])
     )
 
+    registrar_auditoria(
+        conexion,
+        "Foto de perfil actualizada",
+        "usuario",
+        session.get("usuario_id"),
+        {"proveedor": "Cloudinary"}
+    )
     conexion.commit()
     conexion.close()
 
@@ -4638,8 +4804,25 @@ def actualizar_foto_perfil():
 
 # ================= LOGOUT =================
 
-@app.route("/logout")
+@app.route("/logout", methods=["POST"])
+@login_required
 def logout():
+
+    conexion = conectar_db()
+    try:
+        registrar_auditoria(
+            conexion,
+            "Cierre de sesión",
+            "usuario",
+            session.get("usuario_id"),
+            {"usuario": session.get("usuario"), "rol": session.get("rol")}
+        )
+        conexion.commit()
+    except Exception as error:
+        conexion.rollback()
+        print("Advertencia: no se pudo auditar cierre de sesión:", error)
+    finally:
+        conexion.close()
 
     session.clear()
 
@@ -4996,8 +5179,8 @@ def catalog():
         )
         total_hibridos = obtener_total_catalogo(
             cursor,
-            "LOWER(TRIM(COALESCE(combustible, ''))) IN (?, ?)",
-            ("híbrido", "eléctrico")
+            "LOWER(TRIM(COALESCE(combustible, ''))) IN (?, ?, ?, ?)",
+            ("híbrido", "hibrido", "eléctrico", "electrico")
         )
         total_disponibles = obtener_total_catalogo(
             cursor,
@@ -5130,6 +5313,13 @@ def catalog_guardar_preview_vehiculo(vehiculo_id):
                 modelo_base_id,
             ))
 
+        registrar_auditoria(
+            conexion,
+            "Preview de catálogo actualizado",
+            "vehiculo",
+            vehiculo_id,
+            {"modelo_base_id": modelo_base_id}
+        )
         conexion.commit()
 
         return jsonify({
@@ -5438,6 +5628,21 @@ def admin_vehiculos():
     """)
     canjes_reversados = cursor.fetchall()
 
+    cursor.execute("""
+        SELECT
+            auditoria_acciones.*
+        FROM auditoria_acciones
+        ORDER BY datetime(creado_en) DESC, id DESC
+        LIMIT 180
+    """)
+    auditoria_admin = cursor.fetchall()
+
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM auditoria_acciones
+    """)
+    total_auditoria = cursor.fetchone()[0]
+
     total_usuarios = len(usuarios_admin)
     total_trabajadores = len(trabajadores_admin)
 
@@ -5464,7 +5669,9 @@ def admin_vehiculos():
         total_mantenimientos=total_mantenimientos,
         manuales_admin=manuales_admin,
         facturas_admin=facturas_admin,
-        total_facturas=total_facturas
+        total_facturas=total_facturas,
+        auditoria_admin=auditoria_admin,
+        total_auditoria=total_auditoria
     )
 
 
@@ -5797,10 +6004,18 @@ def admin_guardar_vehiculo():
                 0
             ))
 
+            vehiculo_id = cursor.lastrowid
             flash("Vehículo creado correctamente.", "success")
 
         guardar_manual_modelo_desde_form(cursor, modelo_base_id, session.get("usuario_id"))
 
+        registrar_auditoria(
+            conexion,
+            "Vehículo actualizado" if request.form.get("vehiculo_id", type=int) else "Vehículo creado",
+            "vehiculo",
+            vehiculo_id,
+            {"codigo_catalogo": codigo_catalogo, "marca": marca, "modelo": modelo, "anio": anio, "origen": origen}
+        )
         conexion.commit()
 
     except sqlite3.IntegrityError:
@@ -5870,6 +6085,13 @@ def admin_cambiar_estado_vehiculo(vehiculo_id):
             vehiculo_id
         ))
 
+        registrar_auditoria(
+            conexion,
+            "Venta manual corregida",
+            "vehiculo",
+            vehiculo_id,
+            {"nuevo_estado": "Disponible", "activo": 1}
+        )
         conexion.commit()
         conexion.close()
 
@@ -5888,6 +6110,13 @@ def admin_cambiar_estado_vehiculo(vehiculo_id):
         vehiculo_id
     ))
 
+    registrar_auditoria(
+        conexion,
+        "Visibilidad de vehículo actualizada",
+        "vehiculo",
+        vehiculo_id,
+        {"activo": nuevo_estado}
+    )
     conexion.commit()
     conexion.close()
 
@@ -5999,6 +6228,13 @@ def admin_generar_codigo_vehiculo(vehiculo_id):
                     1
                 ))
 
+                registrar_auditoria(
+                    conexion,
+                    "Código de canje generado",
+                    "vehiculo",
+                    vehiculo_id,
+                    {"codigo": codigo_generado, "origen": "admin"}
+                )
                 conexion.commit()
                 flash(f"Código de canje generado: {codigo_generado}", "success")
                 break
@@ -6075,6 +6311,13 @@ def admin_archivar_vehiculo(vehiculo_id):
 
         desactivar_codigos_pendientes_vehiculo(cursor, vehiculo_id)
 
+        registrar_auditoria(
+            conexion,
+            "Vehículo archivado",
+            "vehiculo",
+            vehiculo_id,
+            {"motivo": motivo or "Archivado manualmente desde administración", "origen": "admin"}
+        )
         conexion.commit()
         flash("Vehículo archivado correctamente. Se conservará en el historial interno y sus códigos pendientes quedaron desactivados.", "success")
 
@@ -6218,6 +6461,13 @@ def admin_reversar_canje(usuario_vehiculo_id):
             canje["vehiculo_id"]
         ))
 
+        registrar_auditoria(
+            conexion,
+            "Canje reversado",
+            "usuario_vehiculo",
+            usuario_vehiculo_id,
+            {"vehiculo_id": canje["vehiculo_id"], "codigo": canje["codigo_canje"], "motivo": motivo or "Reversa administrativa de canje"}
+        )
         conexion.commit()
 
         if nuevo_activo == 1:
@@ -6271,6 +6521,13 @@ def admin_desactivar_codigo_vehiculo(codigo_id):
         codigo_id,
     ))
 
+    registrar_auditoria(
+        conexion,
+        "Código de canje desactivado",
+        "codigo_vehiculo",
+        codigo_id,
+        {"codigo": codigo["codigo"]}
+    )
     conexion.commit()
     conexion.close()
 
@@ -6296,6 +6553,13 @@ def admin_reactivar_codigo_vehiculo(codigo_id):
             flash(error, "warning")
             return redirigir_admin("codigos")
 
+        registrar_auditoria(
+            conexion,
+            "Código de canje reactivado",
+            "codigo_vehiculo",
+            codigo_id,
+            {"codigo": codigo["codigo"], "origen": "admin"}
+        )
         conexion.commit()
         flash(f"Código de canje reactivado correctamente: {codigo['codigo']}", "success")
 
@@ -6375,7 +6639,15 @@ def admin_crear_usuario():
             establecimiento if rol == "TRABAJADOR" else "",
             cedula
         ))
+        nuevo_usuario_id = cursor.lastrowid
 
+        registrar_auditoria(
+            conexion,
+            "Usuario creado por administración",
+            "usuario",
+            nuevo_usuario_id,
+            {"nombre": nombre, "correo": correo, "rol": rol}
+        )
         conexion.commit()
 
         usuario_correo = {
@@ -6468,6 +6740,13 @@ def admin_actualizar_rol_usuario(usuario_id):
             usuario_id
         ))
 
+        registrar_auditoria(
+            conexion,
+            "Rol de usuario actualizado",
+            "usuario",
+            usuario_id,
+            {"rol_anterior": usuario["rol"], "rol_nuevo": nuevo_rol}
+        )
         conexion.commit()
         flash("Rol actualizado correctamente.", "success")
 
@@ -6527,6 +6806,13 @@ def admin_cambiar_estado_usuario(usuario_id):
             usuario_id
         ))
 
+        registrar_auditoria(
+            conexion,
+            "Estado de usuario actualizado",
+            "usuario",
+            usuario_id,
+            {"activo": nuevo_estado, "nombre": usuario["nombre"]}
+        )
         conexion.commit()
 
         if nuevo_estado == 1:
@@ -6587,6 +6873,13 @@ def admin_actualizar_establecimiento_trabajador(trabajador_id):
             trabajador_id
         ))
 
+        registrar_auditoria(
+            conexion,
+            "Establecimiento de trabajador actualizado",
+            "usuario",
+            trabajador_id,
+            {"establecimiento": establecimiento}
+        )
         conexion.commit()
         flash("Establecimiento del trabajador actualizado correctamente.", "success")
 
@@ -6628,6 +6921,13 @@ def admin_guardar_manual_vehiculo():
             modelo_id = modelo_base["id"]
 
         guardar_manual_modelo_desde_form(cursor, modelo_id, session.get("usuario_id"))
+        registrar_auditoria(
+            conexion,
+            "Manual de modelo guardado",
+            "vehiculo_modelo",
+            modelo_id,
+            {"origen": origen}
+        )
         conexion.commit()
         flash("Manual guardado para el modelo. Todas las unidades iguales lo usarán automáticamente.", "success")
 
@@ -6667,6 +6967,13 @@ def admin_cambiar_estado_manual(manual_id):
 
         nuevo_estado = 0 if manual["activo"] == 1 else 1
         cursor.execute("UPDATE manuales_modelo SET activo = ? WHERE id = ?", (nuevo_estado, manual_id))
+        registrar_auditoria(
+            conexion,
+            "Estado de manual actualizado",
+            "manual_modelo",
+            manual_id,
+            {"activo": nuevo_estado, "origen": origen}
+        )
         conexion.commit()
         flash("Manual activado." if nuevo_estado == 1 else "Manual ocultado.", "success")
 
@@ -6770,7 +7077,7 @@ def guardar_factura_vehiculo():
         registro_factura["usuario_cedula"] = cedula_factura
         registro_factura["cedula"] = cedula_factura
 
-        registrar_factura_generada(
+        factura_id = registrar_factura_generada(
             cursor,
             registro=registro_factura,
             tipo_factura=tipo_factura,
@@ -6785,6 +7092,13 @@ def guardar_factura_vehiculo():
             observaciones=observaciones
         )
 
+        registrar_auditoria(
+            conexion,
+            "Factura generada",
+            "factura",
+            factura_id,
+            {"usuario_vehiculo_id": usuario_vehiculo_id, "tipo_factura": tipo_factura, "origen": origen}
+        )
         conexion.commit()
 
         usuario_correo = {
@@ -6894,6 +7208,13 @@ def admin_cambiar_estado_factura(factura_id):
                 factura_id
             ))
 
+        registrar_auditoria(
+            conexion,
+            "Estado de factura actualizado",
+            "factura",
+            factura_id,
+            {"activo": nuevo_estado, "motivo": motivo or ""}
+        )
         conexion.commit()
         flash("Factura activada correctamente." if nuevo_estado == 1 else "Factura ocultada correctamente.", "success")
 
@@ -6956,7 +7277,7 @@ def ver_factura_vehiculo(factura_id):
 
 @app.errorhandler(413)
 def archivo_demasiado_grande(error):
-    flash("La imagen es demasiado pesada. Intenta con una imagen más pequeña.", "warning")
+    flash("El archivo es demasiado grande. Intenta con un archivo más pequeño.", "warning")
     return redirect(request.referrer or "/perfil")
 
 

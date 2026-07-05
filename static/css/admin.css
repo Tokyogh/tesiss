@@ -3,30 +3,30 @@
 /* ============================= */
 
 :root {
-    --admin-bg: #040b17;
-    --admin-bg-soft: #07101f;
+    --admin-bg: var(--vinova-bg, #040b17);
+    --admin-bg-soft: var(--vinova-bg-soft, #07101f);
     --admin-panel: rgba(11, 19, 36, 0.96);
     --admin-panel-2: rgba(6, 14, 28, 0.94);
     --admin-card: rgba(4, 11, 22, 0.72);
 
-    --admin-border: rgba(255, 255, 255, 0.075);
-    --admin-border-soft: rgba(255, 255, 255, 0.055);
+    --admin-border: var(--vinova-border, rgba(255, 255, 255, 0.075));
+    --admin-border-soft: var(--vinova-border-soft, rgba(255, 255, 255, 0.055));
 
-    --admin-text: #ffffff;
-    --admin-muted: #a6b0c2;
-    --admin-muted-2: #7f8ba0;
+    --admin-text: var(--vinova-text, #ffffff);
+    --admin-muted: var(--vinova-muted, #a6b0c2);
+    --admin-muted-2: var(--vinova-muted-2, #7f8ba0);
 
-    --admin-blue: #3b82f6;
+    --admin-blue: var(--vinova-blue, #3b82f6);
     --admin-blue-soft: rgba(59, 130, 246, 0.14);
-    --admin-cyan: #00b8ff;
+    --admin-cyan: var(--vinova-cyan, #00b8ff);
 
-    --admin-green: #22c55e;
+    --admin-green: var(--vinova-green, #22c55e);
     --admin-green-soft: rgba(34, 197, 94, 0.12);
 
-    --admin-yellow: #f59e0b;
+    --admin-yellow: var(--vinova-yellow, #f59e0b);
     --admin-yellow-soft: rgba(245, 158, 11, 0.12);
 
-    --admin-red: #ef4444;
+    --admin-red: var(--vinova-red, #ef4444);
     --admin-red-soft: rgba(239, 68, 68, 0.12);
 
     --admin-radius-sm: 10px;
@@ -35,7 +35,7 @@
     --admin-radius-xl: 24px;
 
     --admin-sidebar-width: 290px;
-    --admin-shadow: 0 22px 58px rgba(0, 0, 0, 0.32);
+    --admin-shadow: var(--vinova-shadow, 0 22px 58px rgba(0, 0, 0, 0.32));
 }
 
 /* ============================= */
@@ -1986,4 +1986,18 @@ a {
     font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
     font-size: 0.78rem;
     line-height: 1.55;
+}
+
+/* ============================= */
+/* AUDITORÍA */
+/* ============================= */
+
+.admin-audit-detail {
+    max-width: 340px;
+    color: var(--admin-muted);
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    font-size: 0.76rem;
+    line-height: 1.45;
+    white-space: normal;
+    overflow-wrap: anywhere;
 }

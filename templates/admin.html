@@ -7,9 +7,13 @@
     <title>VINOVA | Administración</title>
 
     <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+
 
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
+
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -96,6 +100,11 @@
 
             <span class="admin-nav-label">SISTEMA</span>
 
+            <a href="#admin-auditoria" class="admin-nav-link" data-admin-section="auditoria">
+                <i data-lucide="shield-check"></i>
+                <span>Auditoría</span>
+            </a>
+
             <a href="#admin-configuracion" class="admin-nav-link" data-admin-section="configuracion">
                 <i data-lucide="settings"></i>
                 <span>Configuración</span>
@@ -114,10 +123,12 @@
                 <span>Ver catálogo</span>
             </a>
 
-            <a href="{{ url_for('logout') }}" class="admin-sidebar-link danger">
-                <i data-lucide="log-out"></i>
-                <span>Cerrar sesión</span>
-            </a>
+            <form action="{{ url_for('logout') }}" method="POST" class="vinova-logout-form">
+                <button type="submit" class="admin-sidebar-link danger">
+                    <i data-lucide="log-out"></i>
+                    <span>Cerrar sesión</span>
+                </button>
+            </form>
         </div>
 
     </aside>
@@ -2142,6 +2153,71 @@
 
         </section>
 
+        <!-- SECCIÓN AUDITORÍA -->
+
+        <section class="admin-section" id="admin-auditoria" data-admin-content="auditoria">
+
+            <div class="admin-section-header">
+                <div>
+                    <span>SISTEMA</span>
+                    <h2>Auditoría de acciones</h2>
+                    <p>Registro interno de operaciones importantes realizadas por administradores, trabajadores y usuarios.</p>
+                </div>
+                <div class="admin-section-actions">
+                    <span class="admin-status active">{{ total_auditoria|default(0) }} eventos</span>
+                </div>
+            </div>
+
+            <section class="admin-panel">
+                <div class="admin-panel-title">
+                    <div>
+                        <span>TRAZABILIDAD</span>
+                        <h2>Últimos movimientos</h2>
+                    </div>
+                </div>
+
+                <div class="admin-table-wrap">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Usuario</th>
+                                <th>Acción</th>
+                                <th>Entidad</th>
+                                <th>Detalle</th>
+                                <th>IP</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for evento in auditoria_admin %}
+                                <tr>
+                                    <td>{{ evento.creado_en or 'N/D' }}</td>
+                                    <td>
+                                        <strong>{{ evento.usuario_nombre or 'Sistema' }}</strong>
+                                        <small>{{ evento.usuario_rol or 'N/D' }}</small>
+                                    </td>
+                                    <td>{{ evento.accion }}</td>
+                                    <td>
+                                        {{ evento.entidad or 'N/D' }}
+                                        {% if evento.entidad_id %}
+                                            <small>ID {{ evento.entidad_id }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td class="admin-audit-detail">{{ evento.detalle or 'Sin detalle' }}</td>
+                                    <td>{{ evento.ip or 'N/D' }}</td>
+                                </tr>
+                            {% else %}
+                                <tr>
+                                    <td colspan="6">Todavía no hay eventos registrados.</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+        </section>
+
         <!-- SECCIÓN CONFIGURACIÓN -->
 
         <section class="admin-section" id="admin-configuracion" data-admin-content="configuracion">
@@ -2203,10 +2279,12 @@
                         Estás usando una sesión con permisos administrativos. Cierra sesión al terminar.
                     </p>
 
-                    <a href="{{ url_for('logout') }}" class="admin-danger-link">
-                        <i data-lucide="log-out"></i>
-                        Cerrar sesión
-                    </a>
+                    <form action="{{ url_for('logout') }}" method="POST" class="vinova-logout-form vinova-logout-inline">
+                        <button type="submit" class="admin-danger-link">
+                            <i data-lucide="log-out"></i>
+                            Cerrar sesión
+                        </button>
+                    </form>
                 </article>
 
             </section>

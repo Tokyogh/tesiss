@@ -1,0 +1,115 @@
+/* =========================================================
+   VINOVA - BASE COMÚN
+   Variables generales, utilidades y componentes compartidos.
+   Cambia colores principales desde aquí para afectar la app.
+   ========================================================= */
+
+:root {
+    --vinova-bg: #040b17;
+    --vinova-bg-soft: #07101f;
+    --vinova-panel: #0b1324;
+    --vinova-panel-strong: #101827;
+    --vinova-card: rgba(4, 11, 22, 0.72);
+    --vinova-border: rgba(255, 255, 255, 0.075);
+    --vinova-border-soft: rgba(255, 255, 255, 0.055);
+    --vinova-text: #ffffff;
+    --vinova-muted: #a6b0c2;
+    --vinova-muted-2: #7f8ba0;
+    --vinova-blue: #3b82f6;
+    --vinova-blue-strong: #2563eb;
+    --vinova-blue-dark: #1e40af;
+    --vinova-cyan: #00b8ff;
+    --vinova-green: #22c55e;
+    --vinova-yellow: #f59e0b;
+    --vinova-red: #ef4444;
+    --vinova-radius-sm: 10px;
+    --vinova-radius-md: 14px;
+    --vinova-radius-lg: 18px;
+    --vinova-radius-xl: 24px;
+    --vinova-shadow: 0 22px 58px rgba(0, 0, 0, 0.32);
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    color: var(--vinova-text);
+}
+
+button,
+input,
+select,
+textarea {
+    font-family: inherit;
+}
+
+img,
+svg,
+video,
+model-viewer {
+    max-width: 100%;
+}
+
+.vinova-logout-form {
+    margin: 0;
+    padding: 0;
+    display: block;
+}
+
+.vinova-logout-inline {
+    display: inline-flex;
+    align-items: center;
+}
+
+.vinova-logout-form button {
+    width: 100%;
+    border: 0;
+    font: inherit;
+    cursor: pointer;
+    text-align: left;
+    appearance: none;
+    -webkit-appearance: none;
+}
+
+.vinova-logout-inline button {
+    width: auto;
+}
+
+button.logout-icon-btn,
+button.admin-sidebar-link,
+button.worker-sidebar-link,
+button.logout-link,
+button.profile-logout-btn,
+button.admin-danger-link {
+    border: 0;
+    font: inherit;
+    cursor: pointer;
+}
+
+button.logout-icon-btn {
+    padding: 0;
+}
+
+button.admin-sidebar-link,
+button.worker-sidebar-link,
+button.logout-link {
+    background: transparent;
+}
+
+.admin-danger-link,
+.profile-logout-btn {
+    border: 1px solid transparent;
+}
+
+.vinova-sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}

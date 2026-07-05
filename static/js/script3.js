@@ -321,29 +321,52 @@ function initVehicleTypeButtons() {
 /* TARJETAS DE RESUMEN */
 /* ============================= */
 
+function getCsvValues(value) {
+    return String(value || "")
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+}
+
 function initStatCards() {
-    const statCards = document.querySelectorAll(".catalog-stat-card[data-filter-field]");
+    const statCards = document.querySelectorAll(".catalog-stat-card[data-filter-field], .catalog-stat-card[data-clear-filter-fields]");
 
     statCards.forEach((card) => {
         card.addEventListener("click", () => {
-            const field = card.dataset.filterField;
-            const value = card.dataset.filterValue || "";
             const url = new URL(window.location.href);
-
             url.searchParams.delete("page");
 
-            if (!field) {
+            const clearFields = getCsvValues(card.dataset.clearFilterFields);
+
+            if (clearFields.length) {
+                clearFields.forEach((fieldName) => url.searchParams.delete(fieldName));
                 window.location.href = url.toString();
                 return;
             }
 
-            const values = url.searchParams.getAll(field);
-            url.searchParams.delete(field);
+            const field = card.dataset.filterField;
+            const valuesToToggle = getCsvValues(card.dataset.filterValues || card.dataset.filterValue);
 
-            const alreadyActive = values.includes(value);
+            if (!field || !valuesToToggle.length) {
+                window.location.href = url.toString();
+                return;
+            }
 
-            if (!alreadyActive && value) {
-                url.searchParams.append(field, value);
+            const exclusiveFields = getCsvValues(card.dataset.exclusiveFields);
+            const currentValues = url.searchParams.getAll(field);
+            const alreadyActive = valuesToToggle.every((value) => currentValues.includes(value));
+
+            if (exclusiveFields.length) {
+                exclusiveFields.forEach((fieldName) => url.searchParams.delete(fieldName));
+            } else {
+                url.searchParams.delete(field);
+                currentValues
+                    .filter((value) => !valuesToToggle.includes(value))
+                    .forEach((value) => url.searchParams.append(field, value));
+            }
+
+            if (!alreadyActive) {
+                valuesToToggle.forEach((value) => url.searchParams.append(field, value));
             }
 
             window.location.href = url.toString();

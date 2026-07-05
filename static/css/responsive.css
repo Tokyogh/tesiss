@@ -1,0 +1,261 @@
+/* =========================================================
+   VINOVA - RESPONSIVE GLOBAL
+   Ajustes transversales para catálogo, paneles, perfil y auth.
+   ========================================================= */
+
+@media (max-width: 1280px) {
+    .catalog-header {
+        grid-template-columns: 1fr;
+        align-items: start;
+    }
+
+    .catalog-stats-grid,
+    .admin-summary-grid,
+    .worker-summary-grid {
+        grid-template-columns: repeat(3, minmax(160px, 1fr));
+    }
+
+    .catalog-vehicle-grid {
+        grid-template-columns: repeat(3, minmax(220px, 1fr));
+    }
+
+    .admin-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 1100px) {
+    .admin-shell,
+    .worker-shell,
+    .catalog-page,
+    .container {
+        grid-template-columns: 1fr !important;
+    }
+
+    .admin-sidebar,
+    .worker-sidebar,
+    .sidebar {
+        position: relative !important;
+        width: 100% !important;
+        height: auto !important;
+        min-height: auto !important;
+    }
+
+    .admin-nav,
+    .worker-nav,
+    .sidebar nav {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+    }
+
+    .admin-nav-label,
+    .worker-nav-label,
+    .sidebar h4 {
+        grid-column: 1 / -1;
+    }
+
+    .catalog-sidebar {
+        position: relative;
+        width: 100%;
+    }
+
+    .catalog-vehicle-grid {
+        grid-template-columns: repeat(2, minmax(220px, 1fr));
+    }
+
+    .profile-settings-grid,
+    .admin-config-grid,
+    .worker-dashboard-grid,
+    .worker-permission-grid,
+    .admin-dashboard-grid,
+    .document-grid,
+    .service-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    .vehicle-grid,
+    .cards {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 820px) {
+    .navbar {
+        padding: 16px 4%;
+    }
+
+    .nav-links {
+        width: 100%;
+        order: 3;
+        overflow-x: auto;
+        gap: 14px;
+        padding-bottom: 4px;
+    }
+
+    .admin-main,
+    .worker-main,
+    .content,
+    .catalog-page {
+        padding-left: 16px !important;
+        padding-right: 16px !important;
+    }
+
+    .admin-topbar,
+    .worker-topbar,
+    .header,
+    .admin-section-header,
+    .worker-section-header,
+    .catalog-toolbar,
+    .catalog-footer {
+        flex-direction: column;
+        align-items: stretch !important;
+        gap: 16px;
+    }
+
+    .catalog-footer {
+        display: flex !important;
+    }
+
+    .catalog-pagination,
+    .catalog-items-per-page {
+        justify-content: center;
+        justify-self: center;
+        flex-wrap: wrap;
+    }
+
+    .catalog-stats-grid,
+    .admin-summary-grid,
+    .worker-summary-grid,
+    .catalog-vehicle-grid,
+    .vehicle-grid,
+    .cards,
+    .feature-grid,
+    .stats {
+        grid-template-columns: 1fr !important;
+    }
+
+    .catalog-modal-grid,
+    .vehicle-general-panel,
+    .vehicle-model-workspace {
+        grid-template-columns: 1fr !important;
+    }
+
+    .catalog-modal {
+        padding: 10px !important;
+    }
+
+    .catalog-modal-grid {
+        padding: 18px !important;
+    }
+
+    .catalog-modal-image-box,
+    .catalog-modal-3d-box {
+        min-height: 220px !important;
+    }
+
+    .admin-form-grid,
+    .form-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    .admin-vehicle-row,
+    .admin-code-row,
+    .worker-vehicle-row,
+    .history-item,
+    .invoice-item,
+    .redeem-box {
+        grid-template-columns: 1fr !important;
+        display: grid;
+    }
+
+    .admin-row-actions,
+    .worker-actions,
+    .vehicle-actions-row,
+    .admin-section-actions,
+    .worker-section-actions {
+        width: 100%;
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .admin-mini-btn,
+    .worker-mini-btn,
+    .admin-primary-btn,
+    .worker-primary-btn,
+    .profile-save-btn,
+    .profile-upload-btn {
+        width: 100%;
+    }
+
+    .header-right,
+    .admin-session-card,
+    .worker-session-card,
+    .catalog-main-search {
+        width: 100%;
+    }
+
+    .header-right input {
+        width: 100% !important;
+    }
+
+    .left-panel,
+    .right-panel,
+    .tarjeta-login,
+    .login-card {
+        padding: 28px !important;
+    }
+
+    .left-panel h1,
+    .tarjeta-login h2,
+    .login-card h2,
+    .hero-content h1 {
+        font-size: clamp(2rem, 10vw, 3rem) !important;
+    }
+}
+
+@media (max-width: 560px) {
+    .admin-nav,
+    .worker-nav,
+    .sidebar nav {
+        grid-template-columns: 1fr;
+    }
+
+    .catalog-stat-card,
+    .admin-summary-card,
+    .worker-summary-card {
+        min-height: auto;
+    }
+
+    .catalog-vehicle-main-info,
+    .admin-vehicle-heading,
+    .worker-vehicle-heading,
+    .vehicle-card-header,
+    .profile-info-row {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .catalog-modal-spec-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    .catalog-modal-price {
+        font-size: 1.35rem !important;
+    }
+
+    .vehicle-preview-window {
+        border-radius: 14px !important;
+    }
+
+    .vehicle-model-controls,
+    .vehicle-preview-tabs,
+    .user-session-box {
+        overflow-x: auto;
+        flex-wrap: nowrap;
+    }
+
+    .user-name-pill {
+        max-width: 130px;
+    }
+}

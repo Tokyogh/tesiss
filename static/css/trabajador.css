@@ -3,27 +3,27 @@
 /* ============================= */
 
 :root {
-    --worker-bg: #040b17;
-    --worker-bg-soft: #07101f;
+    --worker-bg: var(--vinova-bg, #040b17);
+    --worker-bg-soft: var(--vinova-bg-soft, #07101f);
     --worker-panel: rgba(11, 19, 36, 0.96);
     --worker-panel-2: rgba(6, 14, 28, 0.94);
     --worker-card: rgba(4, 11, 22, 0.72);
-    --worker-border: rgba(255, 255, 255, 0.075);
-    --worker-border-soft: rgba(255, 255, 255, 0.055);
-    --worker-text: #ffffff;
-    --worker-muted: #a6b0c2;
-    --worker-muted-2: #7f8ba0;
-    --worker-blue: #3b82f6;
+    --worker-border: var(--vinova-border, rgba(255, 255, 255, 0.075));
+    --worker-border-soft: var(--vinova-border-soft, rgba(255, 255, 255, 0.055));
+    --worker-text: var(--vinova-text, #ffffff);
+    --worker-muted: var(--vinova-muted, #a6b0c2);
+    --worker-muted-2: var(--vinova-muted-2, #7f8ba0);
+    --worker-blue: var(--vinova-blue, #3b82f6);
     --worker-blue-soft: rgba(59, 130, 246, 0.14);
-    --worker-cyan: #00b8ff;
-    --worker-green: #22c55e;
+    --worker-cyan: var(--vinova-cyan, #00b8ff);
+    --worker-green: var(--vinova-green, #22c55e);
     --worker-green-soft: rgba(34, 197, 94, 0.12);
-    --worker-yellow: #f59e0b;
+    --worker-yellow: var(--vinova-yellow, #f59e0b);
     --worker-yellow-soft: rgba(245, 158, 11, 0.12);
-    --worker-red: #ef4444;
+    --worker-red: var(--vinova-red, #ef4444);
     --worker-red-soft: rgba(239, 68, 68, 0.12);
     --worker-sidebar-width: 290px;
-    --worker-shadow: 0 22px 58px rgba(0, 0, 0, 0.32);
+    --worker-shadow: var(--vinova-shadow, 0 22px 58px rgba(0, 0, 0, 0.32));
 }
 
 * {

@@ -7,8 +7,12 @@
 
     <script src="https://unpkg.com/lucide@latest"></script>
     <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+
 
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
+
 
     <link 
         rel="stylesheet"
@@ -106,9 +110,11 @@
                     {{ session["usuario"] }}
                 </a>
 
-                <a href="{{ url_for('logout') }}" class="logout-icon-btn" title="Cerrar sesión" aria-label="Cerrar sesión">
-                    <i data-lucide="log-out"></i>
-                </a>
+                <form action="{{ url_for('logout') }}" method="POST" class="vinova-logout-form vinova-logout-inline">
+                    <button type="submit" class="logout-icon-btn" title="Cerrar sesión" aria-label="Cerrar sesión">
+                        <i data-lucide="log-out"></i>
+                    </button>
+                </form>
             </div>
         {% else %}
             <a href="{{ url_for('login') }}" class="login-btn">

@@ -3,19 +3,19 @@
 /* ============================= */
 
 :root {
-    --catalog-bg: #040b17;
+    --catalog-bg: var(--vinova-bg, #040b17);
     --catalog-panel: rgba(7, 15, 30, 0.92);
     --catalog-panel-strong: rgba(10, 19, 36, 0.96);
-    --catalog-border: rgba(255, 255, 255, 0.075);
-    --catalog-border-soft: rgba(255, 255, 255, 0.05);
-    --catalog-text: #ffffff;
-    --catalog-muted: #a6b0c2;
-    --catalog-muted-2: #7f8ba0;
-    --blue: #3b82f6;
-    --blue-soft: #60a5fa;
-    --green: #22c55e;
-    --yellow: #f59e0b;
-    --red: #ef4444;
+    --catalog-border: var(--vinova-border, rgba(255, 255, 255, 0.075));
+    --catalog-border-soft: var(--vinova-border-soft, rgba(255, 255, 255, 0.05));
+    --catalog-text: var(--vinova-text, #ffffff);
+    --catalog-muted: var(--vinova-muted, #a6b0c2);
+    --catalog-muted-2: var(--vinova-muted-2, #7f8ba0);
+    --blue: var(--vinova-blue, #3b82f6);
+    --blue-soft: var(--vinova-blue-soft, #60a5fa);
+    --green: var(--vinova-green, #22c55e);
+    --yellow: var(--vinova-yellow, #f59e0b);
+    --red: var(--vinova-red, #ef4444);
 }
 
 /* Evita que el catálogo rompa la navbar global del index */

@@ -5,8 +5,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Vinova Perfil</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+
 
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles1.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
+
 
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
 </head>
@@ -91,10 +95,12 @@
                 <br>
                 <br>
 
-                <a href="{{ url_for('logout') }}" class="logout-link">
-                    <i class="fa-solid fa-arrow-right-from-bracket"></i>
-                    Cerrar sesión
-                </a>
+                <form action="{{ url_for('logout') }}" method="POST" class="vinova-logout-form">
+                    <button type="submit" class="logout-link">
+                        <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                        Cerrar sesión
+                    </button>
+                </form>
 
             </nav>
 
@@ -806,10 +812,12 @@
                                     Desde aquí puedes revisar los datos visibles de tu cuenta y cerrar sesión de forma segura.
                                 </p>
 
-                                <a href="{{ url_for('logout') }}" class="profile-logout-btn">
-                                    <i class="fa-solid fa-arrow-right-from-bracket"></i>
-                                    Cerrar sesión
-                                </a>
+                                <form action="{{ url_for('logout') }}" method="POST" class="vinova-logout-form vinova-logout-inline">
+                                    <button type="submit" class="profile-logout-btn">
+                                        <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                                        Cerrar sesión
+                                    </button>
+                                </form>
 
                             </div>
 
@@ -956,10 +964,12 @@
                         <h3>Zona de sesión</h3>
                         <p>Cierra tu sesión actual de VINOVA de forma segura.</p>
 
-                        <a href="{{ url_for('logout') }}" class="profile-logout-btn">
-                            <i class="fa-solid fa-arrow-right-from-bracket"></i>
-                            Cerrar sesión
-                        </a>
+                        <form action="{{ url_for('logout') }}" method="POST" class="vinova-logout-form vinova-logout-inline">
+                            <button type="submit" class="profile-logout-btn">
+                                <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                                Cerrar sesión
+                            </button>
+                        </form>
 
                     </div>
 
