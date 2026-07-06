@@ -1447,3 +1447,151 @@ a {
         grid-template-columns: 1fr;
     }
 }
+
+/* ============================= */
+/* SWITCH MOSTRAR EN CATÁLOGO */
+/* ============================= */
+
+.worker-form .worker-switch {
+    grid-column: 1 / -1;
+    width: fit-content;
+    min-height: 46px;
+    padding: 10px 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    border-radius: 14px;
+    color: #dbeafe;
+    background: rgba(15, 23, 42, 0.72);
+    border: 1px solid rgba(96, 165, 250, 0.18);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    font-size: 0.86rem;
+    font-weight: 800;
+    cursor: pointer;
+    user-select: none;
+}
+
+.worker-form .worker-switch input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.worker-form .worker-switch span {
+    position: relative;
+    width: 46px;
+    height: 26px;
+    flex: 0 0 46px;
+    border-radius: 999px;
+    background: rgba(51, 65, 85, 0.96);
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    transition: 0.22s ease;
+}
+
+.worker-form .worker-switch span::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 4px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #cbd5e1;
+    transform: translateY(-50%);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+    transition: 0.22s ease;
+}
+
+.worker-form .worker-switch input:checked + span {
+    background: linear-gradient(135deg, #2563eb, #22c55e);
+    border-color: rgba(34, 197, 94, 0.42);
+    box-shadow: 0 0 18px rgba(34, 197, 94, 0.14);
+}
+
+.worker-form .worker-switch input:checked + span::before {
+    left: 22px;
+    background: #ffffff;
+}
+
+.worker-form .worker-switch:hover {
+    border-color: rgba(96, 165, 250, 0.36);
+    background: rgba(15, 23, 42, 0.88);
+}
+
+/* =========================================================
+   FIX VINOVA ARCHIVOS Y MATRÍCULA
+   ========================================================= */
+.worker-field input[type="file"] {
+    min-height: 50px;
+    padding: 8px;
+    cursor: pointer;
+    background: linear-gradient(180deg, rgba(4, 11, 22, 0.90), rgba(8, 17, 34, 0.90));
+    border: 1px dashed rgba(96, 165, 250, 0.36);
+}
+.worker-field input[type="file"]::file-selector-button {
+    min-height: 32px;
+    margin-right: 12px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: 9px;
+    background: linear-gradient(135deg, #1e40af, #2563eb, #00b8ff);
+    color: #ffffff;
+    font-family: inherit;
+    font-weight: 900;
+    cursor: pointer;
+    box-shadow: 0 0 14px rgba(59, 130, 246, 0.24);
+}
+.worker-field input[type="file"]:hover,
+.vinova-file-field.has-selected-file input[type="file"],
+.articulo-file-field.has-selected-file input[type="file"] {
+    border-color: rgba(96, 165, 250, 0.72);
+    box-shadow: 0 0 16px rgba(59, 130, 246, 0.16);
+}
+.vinova-current-resource,
+.vinova-current-resource-list .vinova-current-resource {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 56px minmax(0, 1fr);
+    gap: 12px;
+    align-items: center;
+    padding: 12px;
+    border-radius: 14px;
+    background: rgba(4, 11, 22, 0.72);
+    border: 1px solid rgba(96, 165, 250, 0.16);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
+.vinova-current-resource + .vinova-current-resource { margin-top: 10px; }
+.vinova-current-resource-image { grid-template-columns: 86px minmax(0, 1fr); }
+.vinova-current-preview,
+.vinova-current-icon {
+    width: 56px;
+    height: 56px;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    border-radius: 12px;
+    background: radial-gradient(circle at center, rgba(96, 165, 250, 0.18), rgba(2, 8, 20, 0.86));
+    color: #93c5fd;
+    border: 1px solid rgba(96, 165, 250, 0.16);
+}
+.vinova-current-resource-image .vinova-current-preview { width: 86px; height: 64px; }
+.vinova-current-preview img { width: 100%; height: 100%; object-fit: contain; display: block; padding: 4px; }
+.vinova-current-resource strong { display: block; color: #ffffff; font-size: 0.84rem; font-weight: 900; }
+.vinova-current-resource small,
+.vinova-current-resource em {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #94a3b8;
+    font-size: 0.72rem;
+    line-height: 1.35;
+}
+.vinova-current-resource em { color: #60a5fa; font-style: normal; }
+.vinova-current-resource-list > span { display: block; margin-bottom: 8px; color: #dbe7fb; font-size: 0.82rem; font-weight: 800; }
+.vinova-file-field.has-selected-file > small,
+.articulo-file-field.has-selected-file > small { color: #86efac; font-weight: 800; }
+
+.worker-edit-btn { text-decoration: none; }
+

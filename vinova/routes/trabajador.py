@@ -6,6 +6,42 @@ def trabajador_panel():
     conexion = conectar_db()
     cursor = conexion.cursor()
 
+    editar_id = request.args.get("editar", type=int)
+    vehiculo_editar = None
+    vehiculo_editar_codigo_existente = False
+    manuales_modelo_editar = []
+
+    if editar_id:
+        cursor.execute("""
+            SELECT *
+            FROM vehiculos
+            WHERE id = ?
+              AND COALESCE(archivado, 0) = 0
+        """, (editar_id,))
+        vehiculo_editar = cursor.fetchone()
+
+        if not vehiculo_editar:
+            conexion.close()
+            flash("El vehículo no existe o fue archivado.", "warning")
+            return redirect(url_for("trabajador_panel") + "#trabajador-vehiculos")
+
+        cursor.execute("""
+            SELECT COUNT(*)
+            FROM codigos_vehiculo
+            WHERE vehiculo_id = ?
+        """, (editar_id,))
+        vehiculo_editar_codigo_existente = cursor.fetchone()[0] > 0
+
+        modelo_base_id_editar = vehiculo_editar["modelo_base_id"] if "modelo_base_id" in vehiculo_editar.keys() else None
+        if modelo_base_id_editar:
+            cursor.execute("""
+                SELECT *
+                FROM manuales_modelo
+                WHERE modelo_id = ?
+                ORDER BY id DESC
+            """, (modelo_base_id_editar,))
+            manuales_modelo_editar = cursor.fetchall()
+
     cursor.execute("""
         SELECT
             vehiculos.*,
@@ -243,11 +279,134 @@ def trabajador_panel():
         facturas=facturas,
         total_facturas=total_facturas,
         manuales_admin=manuales_admin,
+        vehiculo_editar=vehiculo_editar,
+        vehiculo_editar_codigo_existente=vehiculo_editar_codigo_existente,
+        manuales_modelo_editar=manuales_modelo_editar,
+        manual_editar=manuales_modelo_editar[0] if manuales_modelo_editar else None,
         trabajador_establecimiento=trabajador_establecimiento,
         trabajador_generar_codigo_url="/trabajador/vehiculos/__ID__/codigo/generar",
         trabajador_archivar_vehiculo_url="/trabajador/vehiculos/__ID__/archivar",
+        trabajador_desarchivar_vehiculo_url="/trabajador/vehiculos/__ID__/desarchivar",
+        trabajador_cambiar_estado_vehiculo_url="/trabajador/vehiculos/__ID__/estado",
         trabajador_reactivar_codigo_url="/trabajador/codigos/__ID__/reactivar"
     )
+
+
+@app.route("/trabajador/vehiculos/<int:vehiculo_id>/estado", methods=["POST"])
+def trabajador_cambiar_estado_vehiculo(vehiculo_id):
+
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT activo, estado, COALESCE(archivado, 0) AS archivado
+            FROM vehiculos
+            WHERE id = ?
+        """, (vehiculo_id,))
+        vehiculo = cursor.fetchone()
+
+        if not vehiculo:
+            flash("Vehículo no encontrado.", "warning")
+            return redirect(url_for("trabajador_panel") + "#trabajador-vehiculos")
+
+        if vehiculo["archivado"] == 1:
+            flash("No puedes cambiar la visibilidad de un vehículo archivado.", "warning")
+            return redirect(url_for("trabajador_panel") + "#trabajador-vehiculos")
+
+        if vehiculo["estado"] == "Vendido":
+            if tiene_canje_real(cursor, vehiculo_id):
+                flash("Este vehículo fue vendido por canje. Para corregirlo debe reversarse el canje desde administración.", "warning")
+                return redirect(url_for("trabajador_panel") + "#trabajador-canjes")
+
+            cursor.execute("""
+                UPDATE vehiculos
+                SET activo = 1, estado = 'Disponible', actualizado_en = ?
+                WHERE id = ?
+            """, (fecha_actual(), vehiculo_id))
+            nuevo_estado = 1
+        else:
+            nuevo_estado = 0 if vehiculo["activo"] == 1 else 1
+            cursor.execute("""
+                UPDATE vehiculos
+                SET activo = ?, actualizado_en = ?
+                WHERE id = ?
+            """, (nuevo_estado, fecha_actual(), vehiculo_id))
+
+        registrar_auditoria(
+            conexion,
+            "Visibilidad de vehículo actualizada",
+            "vehiculo",
+            vehiculo_id,
+            {"activo": nuevo_estado, "origen": "trabajador"}
+        )
+        conexion.commit()
+        flash("Vehículo activado en el catálogo." if nuevo_estado == 1 else "Vehículo ocultado del catálogo.", "success")
+
+    except Exception as error:
+        conexion.rollback()
+        print("Error al cambiar visibilidad desde panel trabajador:", error)
+        flash("No se pudo actualizar la visibilidad del vehículo.", "error")
+
+    finally:
+        conexion.close()
+
+    return redirect(url_for("trabajador_panel") + "#trabajador-vehiculos")
+
+
+@app.route("/trabajador/vehiculos/<int:vehiculo_id>/desarchivar", methods=["POST"])
+def trabajador_desarchivar_vehiculo(vehiculo_id):
+
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+    ahora = fecha_actual()
+
+    try:
+        cursor.execute("""
+            SELECT *, COALESCE(archivado, 0) AS archivado_normalizado
+            FROM vehiculos
+            WHERE id = ?
+        """, (vehiculo_id,))
+        vehiculo = cursor.fetchone()
+
+        if not vehiculo:
+            flash("Vehículo no encontrado.", "warning")
+            return redirect(url_for("trabajador_panel") + "#trabajador-ocultos")
+
+        if vehiculo["archivado_normalizado"] == 0:
+            flash("Este vehículo no está archivado.", "info")
+            return redirect(url_for("trabajador_panel") + "#trabajador-vehiculos")
+
+        cursor.execute("""
+            UPDATE vehiculos
+            SET archivado = 0,
+                archivado_en = NULL,
+                archivado_por = NULL,
+                motivo_archivado = NULL,
+                activo = 0,
+                actualizado_en = ?
+            WHERE id = ?
+        """, (ahora, vehiculo_id))
+
+        registrar_auditoria(
+            conexion,
+            "Vehículo desarchivado",
+            "vehiculo",
+            vehiculo_id,
+            {"codigo_catalogo": vehiculo["codigo_catalogo"], "origen": "trabajador", "activo": 0}
+        )
+        conexion.commit()
+        flash("Vehículo desarchivado correctamente. Volvió al listado principal como oculto.", "success")
+
+    except Exception as error:
+        conexion.rollback()
+        print("Error al desarchivar vehículo desde panel trabajador:", error)
+        flash("No se pudo desarchivar el vehículo.", "error")
+
+    finally:
+        conexion.close()
+
+    return redirect(url_for("trabajador_panel") + "#trabajador-vehiculos")
 
 
 @app.route("/trabajador/vehiculos/<int:vehiculo_id>/codigo/generar", methods=["POST"])

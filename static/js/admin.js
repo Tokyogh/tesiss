@@ -478,6 +478,44 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
+
+
+    // =============================
+    // UX ARCHIVOS: NOMBRE SELECCIONADO
+    // =============================
+
+    function initVinovaFileFields() {
+        const inputs = document.querySelectorAll('.vinova-file-field input[type="file"], .articulo-file-field input[type="file"], .admin-field input[type="file"]');
+
+        inputs.forEach((input) => {
+            if (input.dataset.vinovaFileReady === "1") return;
+            input.dataset.vinovaFileReady = "1";
+
+            const field = input.closest('.vinova-file-field, .articulo-file-field, .admin-field');
+            const help = field?.querySelector('small[data-articulo-file-name], small:last-of-type');
+
+            if (help && !help.dataset.vinovaOriginalHelp) {
+                help.dataset.vinovaOriginalHelp = help.textContent.trim();
+            }
+
+            input.addEventListener('change', () => {
+                const file = input.files && input.files[0];
+                if (!help) return;
+
+                if (!file) {
+                    help.textContent = help.dataset.vinovaOriginalHelp || 'Selecciona un archivo.';
+                    field?.classList.remove('has-selected-file');
+                    return;
+                }
+
+                help.textContent = `Archivo seleccionado: ${file.name}`;
+                field?.classList.add('has-selected-file');
+            });
+        });
+    }
+
+    initVinovaFileFields();
+
     // =============================
     // PREVENIR DOBLE ENVÍO EN FORMULARIOS
     // =============================

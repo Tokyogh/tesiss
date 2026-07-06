@@ -254,6 +254,76 @@ def perfil():
     proximo_mantenimiento = servicios_proximos[0] if servicios_proximos else None
     total_alertas = sum(1 for servicio in servicios_proximos if servicio.get("estado") == "vencido")
 
+    def formato_km_resumen(valor):
+        if valor is None:
+            return ""
+        return f"{int(valor):,}".replace(",", ".") + " km"
+
+    proximo_resumen_valor = "Sin programar"
+    proximo_resumen_detalle = "Registra un servicio"
+
+    if proximo_mantenimiento:
+        km_actual = normalizar_kilometraje(proximo_mantenimiento.get("kilometraje_actual"))
+        km_proximo = normalizar_kilometraje(proximo_mantenimiento.get("proximo_kilometraje"))
+        fecha_proxima = proximo_mantenimiento.get("proxima_fecha")
+
+        if km_actual is not None and km_proximo is not None:
+            km_restante = km_proximo - km_actual
+
+            if km_restante <= 0:
+                proximo_resumen_valor = "Vencido"
+                proximo_resumen_detalle = f"Referencia: {formato_km_resumen(km_actual)}"
+            else:
+                proximo_resumen_valor = formato_km_resumen(km_restante)
+                proximo_resumen_detalle = "Restantes"
+        elif km_proximo is not None:
+            proximo_resumen_valor = formato_km_resumen(km_proximo)
+            proximo_resumen_detalle = "Kilometraje sugerido"
+        elif fecha_proxima:
+            proximo_resumen_valor = formatear_fecha_visible(fecha_proxima)
+            proximo_resumen_detalle = "Fecha sugerida"
+        else:
+            proximo_resumen_valor = proximo_mantenimiento.get("estado_texto") or "Programado"
+            proximo_resumen_detalle = "Próximo servicio"
+
+    ultimo_resumen_valor = "Sin registros"
+    ultimo_resumen_detalle = "Aún no disponible"
+
+    if ultimo_mantenimiento:
+        ultimo_resumen_valor = ultimo_mantenimiento.get("fecha_visible") or "Registrado"
+        ultimo_resumen_detalle = f"{ultimo_mantenimiento.get('marca', '')} {ultimo_mantenimiento.get('modelo', '')} • {ultimo_mantenimiento.get('tipo_servicio', '')}".strip(" •")
+
+    meses_abreviados = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+    ahora_grafica = datetime.now()
+    meses_grafica = []
+
+    for desplazamiento in range(5, -1, -1):
+        mes = ahora_grafica.month - desplazamiento
+        anio = ahora_grafica.year
+
+        while mes <= 0:
+            mes += 12
+            anio -= 1
+
+        clave_mes = f"{anio:04d}-{mes:02d}"
+        meses_grafica.append({
+            "clave": clave_mes,
+            "label": meses_abreviados[mes - 1]
+        })
+
+    conteo_grafica = {mes["clave"]: 0 for mes in meses_grafica}
+
+    for mantenimiento in historial_mantenimientos:
+        fecha_servicio_grafica = str(mantenimiento.get("fecha_servicio") or "")[:7]
+
+        if fecha_servicio_grafica in conteo_grafica:
+            conteo_grafica[fecha_servicio_grafica] += 1
+
+    grafica_mantenimientos = {
+        "labels": [mes["label"] for mes in meses_grafica],
+        "values": [conteo_grafica[mes["clave"]] for mes in meses_grafica]
+    }
+
     return render_template(
         "profile.html",
         nombre=session["usuario"],
@@ -264,7 +334,12 @@ def perfil():
         servicios_proximos=servicios_proximos,
         ultimo_mantenimiento=ultimo_mantenimiento,
         proximo_mantenimiento=proximo_mantenimiento,
+        proximo_resumen_valor=proximo_resumen_valor,
+        proximo_resumen_detalle=proximo_resumen_detalle,
+        ultimo_resumen_valor=ultimo_resumen_valor,
+        ultimo_resumen_detalle=ultimo_resumen_detalle,
         total_alertas_mantenimiento=total_alertas,
+        grafica_mantenimientos=grafica_mantenimientos,
         manuales_usuario=manuales_usuario,
         facturas_usuario=facturas_usuario,
         preferencias_notificacion=preferencias_notificacion

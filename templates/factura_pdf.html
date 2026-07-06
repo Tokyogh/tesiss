@@ -85,14 +85,6 @@
                     <p><strong>Placa:</strong> {{ vehiculo.placa|default('N/D', true) }}</p>
                     <p><strong>Kilometraje:</strong> {{ vehiculo.kilometraje|default('N/D', true) }}{% if vehiculo.kilometraje %} km{% endif %}</p>
                 </article>
-
-                <article class="data-card">
-                    <h3><span>A</span>Atendido por</h3>
-
-                    <p><strong>Atendido:</strong> {{ responsable.nombre|default('Equipo VINOVA', true) }}</p>
-                    <p><strong>Cargo:</strong> {{ responsable.rol|default('Personal VINOVA', true) }}</p>
-                    <p><strong>Servicio:</strong> {{ factura.tipo_factura|default('Servicio', true) }}</p>
-                </article>
             </section>
 
             <section class="service-strip">

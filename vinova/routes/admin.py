@@ -24,6 +24,7 @@ def admin_vehiculos():
     vehiculos = cursor.fetchall()
 
     vehiculo_editar = None
+    manuales_modelo_editar = []
 
     if editar_id:
         cursor.execute("""
@@ -40,6 +41,16 @@ def admin_vehiculos():
             flash("El vehículo no existe o fue archivado.", "warning")
             conexion.close()
             return redirigir_admin("vehiculos")
+
+        modelo_base_id_editar = vehiculo_editar["modelo_base_id"] if "modelo_base_id" in vehiculo_editar.keys() else None
+        if modelo_base_id_editar:
+            cursor.execute("""
+                SELECT *
+                FROM manuales_modelo
+                WHERE modelo_id = ?
+                ORDER BY id DESC
+            """, (modelo_base_id_editar,))
+            manuales_modelo_editar = cursor.fetchall()
 
     cursor.execute("""
         SELECT
@@ -319,6 +330,8 @@ def admin_vehiculos():
         "admin.html",
         vehiculos=vehiculos,
         vehiculo_editar=vehiculo_editar,
+        manuales_modelo_editar=manuales_modelo_editar,
+        manual_editar=manuales_modelo_editar[0] if manuales_modelo_editar else None,
         total_vehiculos=total_vehiculos,
         vehiculos_activos=vehiculos_activos,
         vehiculos_inactivos=vehiculos_inactivos,
@@ -355,6 +368,7 @@ def admin_guardar_vehiculo():
     vehiculo_id = request.form.get("vehiculo_id", "").strip()
 
     codigo_catalogo = request.form.get("codigo_catalogo", "").strip().upper()
+    placa = normalizar_placa_vehiculo(request.form.get("placa", ""))
     marca = request.form.get("marca", "").strip()
     modelo = request.form.get("modelo", "").strip()
     anio = request.form.get("anio", "").strip()
@@ -533,6 +547,7 @@ def admin_guardar_vehiculo():
                     UPDATE vehiculos
                     SET
                         codigo_catalogo = ?,
+                        placa = ?,
                         marca = ?,
                         modelo = ?,
                         anio = ?,
@@ -554,6 +569,7 @@ def admin_guardar_vehiculo():
                     WHERE id = ?
                 """, (
                     codigo_catalogo,
+                    placa,
                     marca,
                     modelo,
                     anio,
@@ -580,6 +596,7 @@ def admin_guardar_vehiculo():
                     UPDATE vehiculos
                     SET
                         codigo_catalogo = ?,
+                        placa = ?,
                         marca = ?,
                         modelo = ?,
                         anio = ?,
@@ -600,6 +617,7 @@ def admin_guardar_vehiculo():
                     WHERE id = ?
                 """, (
                     codigo_catalogo,
+                    placa,
                     marca,
                     modelo,
                     anio,
@@ -626,6 +644,7 @@ def admin_guardar_vehiculo():
             cursor.execute("""
                 INSERT INTO vehiculos (
                     codigo_catalogo,
+                    placa,
                     marca,
                     modelo,
                     anio,
@@ -647,9 +666,10 @@ def admin_guardar_vehiculo():
                     creado_en,
                     archivado
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 codigo_catalogo,
+                placa,
                 marca,
                 modelo,
                 anio,
@@ -682,7 +702,7 @@ def admin_guardar_vehiculo():
             "Vehículo actualizado" if request.form.get("vehiculo_id", type=int) else "Vehículo creado",
             "vehiculo",
             vehiculo_id,
-            {"codigo_catalogo": codigo_catalogo, "marca": marca, "modelo": modelo, "anio": anio, "origen": origen}
+            {"codigo_catalogo": codigo_catalogo, "placa": placa or "N/D", "marca": marca, "modelo": modelo, "anio": anio, "origen": origen}
         )
         conexion.commit()
 
@@ -1549,9 +1569,7 @@ def admin_guardar_establecimiento():
     correo = request.form.get("correo", "").strip().lower()
     horario = request.form.get("horario", "").strip()
     website = request.form.get("website", "").strip()
-    imagen_actual = normalizar_ruta_imagen_establecimiento(request.form.get("imagen_actual", ""))
-    imagen_archivo = request.files.get("imagen_archivo")
-    eliminar_imagen = request.form.get("eliminar_imagen") == "on"
+    imagen = request.form.get("imagen", "").strip()
     servicios = request.form.get("servicios", "").strip()
     distancia_km = normalizar_precio(request.form.get("distancia_km"))
     lat = normalizar_precio(request.form.get("lat"))
@@ -1588,10 +1606,6 @@ def admin_guardar_establecimiento():
 
     try:
         ahora = fecha_actual()
-        imagen = "" if eliminar_imagen else imagen_actual
-
-        if imagen_archivo and getattr(imagen_archivo, "filename", ""):
-            imagen = guardar_imagen_establecimiento(imagen_archivo, nombre, tipo)
 
         if establecimiento_id:
             cursor.execute("SELECT id FROM establecimientos WHERE id = ?", (establecimiento_id,))
@@ -1643,9 +1657,6 @@ def admin_guardar_establecimiento():
         )
         conexion.commit()
 
-    except ValueError as error:
-        conexion.rollback()
-        flash(str(error), "warning")
     except sqlite3.IntegrityError:
         conexion.rollback()
         flash("Ya existe un establecimiento con ese nombre.", "warning")

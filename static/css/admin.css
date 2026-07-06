@@ -2302,143 +2302,79 @@ a {
     color: #ffffff;
 }
 
-/* ============================= */
-/* SUBIDA DE IMAGEN - ESTABLECIMIENTOS */
-/* ============================= */
 
-.admin-image-upload-box {
-    display: grid;
-    grid-template-columns: 170px minmax(0, 1fr);
-    gap: 16px;
-    align-items: stretch;
-    padding: 14px;
-    border-radius: 16px;
-    background: rgba(4, 11, 22, 0.58);
-    border: 1px solid var(--admin-border-soft);
+
+/* =========================================================
+   FIX VINOVA ARCHIVOS Y MATRÍCULA
+   ========================================================= */
+.admin-field input[type="file"] {
+    min-height: 50px;
+    padding: 8px;
+    cursor: pointer;
+    background: linear-gradient(180deg, rgba(4, 11, 22, 0.90), rgba(8, 17, 34, 0.90));
+    border: 1px dashed rgba(96, 165, 250, 0.36);
 }
-
-.admin-image-preview {
-    min-height: 128px;
+.admin-field input[type="file"]::file-selector-button {
+    min-height: 32px;
+    margin-right: 12px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: 9px;
+    background: linear-gradient(135deg, #1e40af, #2563eb, #00b8ff);
+    color: #ffffff;
+    font-family: inherit;
+    font-weight: 900;
+    cursor: pointer;
+    box-shadow: 0 0 14px rgba(59, 130, 246, 0.24);
+}
+.admin-field input[type="file"]:hover,
+.vinova-file-field.has-selected-file input[type="file"],
+.articulo-file-field.has-selected-file input[type="file"] {
+    border-color: rgba(96, 165, 250, 0.72);
+    box-shadow: 0 0 16px rgba(59, 130, 246, 0.16);
+}
+.vinova-current-resource,
+.vinova-current-resource-list .vinova-current-resource {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 56px minmax(0, 1fr);
+    gap: 12px;
+    align-items: center;
+    padding: 12px;
     border-radius: 14px;
+    background: rgba(4, 11, 22, 0.72);
+    border: 1px solid rgba(96, 165, 250, 0.16);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
+.vinova-current-resource + .vinova-current-resource { margin-top: 10px; }
+.vinova-current-resource-image { grid-template-columns: 86px minmax(0, 1fr); }
+.vinova-current-preview,
+.vinova-current-icon {
+    width: 56px;
+    height: 56px;
     display: grid;
     place-items: center;
     overflow: hidden;
-    text-align: center;
-    background:
-        radial-gradient(circle at center, rgba(59, 130, 246, 0.16), transparent 62%),
-        rgba(2, 8, 20, 0.76);
-    border: 1px dashed rgba(96, 165, 250, 0.32);
-}
-
-.admin-image-preview img {
-    width: 100%;
-    height: 100%;
-    min-height: 128px;
-    object-fit: cover;
-    display: block;
-}
-
-.admin-image-preview.is-empty {
-    color: var(--admin-muted);
-    gap: 8px;
-    padding: 18px;
-}
-
-.admin-image-preview.is-empty svg {
-    width: 32px;
-    height: 32px;
+    border-radius: 12px;
+    background: radial-gradient(circle at center, rgba(96, 165, 250, 0.18), rgba(2, 8, 20, 0.86));
     color: #93c5fd;
-    filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.55));
+    border: 1px solid rgba(96, 165, 250, 0.16);
 }
-
-.admin-image-preview.is-empty strong {
-    color: #dbe7fb;
-    font-size: 0.82rem;
-}
-
-.admin-image-upload-content {
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 10px;
-}
-
-.admin-upload-btn {
-    width: fit-content;
-    min-height: 42px;
-    padding: 0 14px;
-    border-radius: 11px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 9px;
-    color: #ffffff;
-    background: linear-gradient(135deg, #1e40af, #2563eb, #00b8ff);
-    box-shadow: 0 0 16px rgba(59, 130, 246, 0.28);
-    font-size: 0.84rem;
-    font-weight: 850;
-    cursor: pointer;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.admin-upload-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 0 24px rgba(59, 130, 246, 0.48);
-}
-
-.admin-upload-btn svg {
-    width: 17px;
-    height: 17px;
-}
-
-.admin-upload-btn input {
-    display: none;
-}
-
-.admin-image-upload-content code {
-    color: #dbeafe;
-    background: rgba(37, 99, 235, 0.16);
-    border-radius: 7px;
-    padding: 2px 6px;
-}
-
-.admin-remove-image-check {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    color: #fca5a5;
-    font-size: 0.8rem;
-    font-weight: 800;
-    cursor: pointer;
-}
-
-.admin-remove-image-check input {
-    width: 16px;
-    height: 16px;
-    accent-color: var(--admin-red);
-}
-
-.admin-establishment-pin.has-image {
-    overflow: hidden;
-    padding: 0;
-    background: rgba(2, 8, 20, 0.7);
-}
-
-.admin-establishment-pin.has-image img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
+.vinova-current-resource-image .vinova-current-preview { width: 86px; height: 64px; }
+.vinova-current-preview img { width: 100%; height: 100%; object-fit: contain; display: block; padding: 4px; }
+.vinova-current-resource strong { display: block; color: #ffffff; font-size: 0.84rem; font-weight: 900; }
+.vinova-current-resource small,
+.vinova-current-resource em {
     display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #94a3b8;
+    font-size: 0.72rem;
+    line-height: 1.35;
 }
-
-@media (max-width: 820px) {
-    .admin-image-upload-box {
-        grid-template-columns: 1fr;
-    }
-
-    .admin-upload-btn {
-        width: 100%;
-    }
-}
-
+.vinova-current-resource em { color: #60a5fa; font-style: normal; }
+.vinova-current-resource-list > span { display: block; margin-bottom: 8px; color: #dbe7fb; font-size: 0.82rem; font-weight: 800; }
+.vinova-file-field.has-selected-file > small,
+.articulo-file-field.has-selected-file > small { color: #86efac; font-weight: 800; }

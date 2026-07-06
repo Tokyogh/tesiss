@@ -301,7 +301,7 @@
 
                                     <div>
                                         <strong>{{ vehiculo['marca'] }} {{ vehiculo['modelo'] }} {{ vehiculo['anio'] }}</strong>
-                                        <span>{{ vehiculo['codigo_catalogo'] }}</span>
+                                        <span>{{ vehiculo['codigo_catalogo'] }}{% if vehiculo['placa'] %} · {{ vehiculo['placa'] }}{% endif %}</span>
                                     </div>
 
                                     {% if vehiculo['estado'] == 'Vendido' %}
@@ -471,6 +471,18 @@
                                 {% else %}
                                     <small>Referencia pública opcional. Si lo dejas vacío, VINOVA la genera automáticamente.</small>
                                 {% endif %}
+                            </label>
+
+                            <label class="admin-field">
+                                <span>Placa / matrícula</span>
+                                <input
+                                    type="text"
+                                    name="placa"
+                                    placeholder="ABC-1234 o N/D si aún no tiene"
+                                    value="{{ vehiculo_editar['placa'] if vehiculo_editar and vehiculo_editar['placa'] else '' }}"
+                                    maxlength="16"
+                                    autocomplete="off">
+                                <small>Opcional. Los vehículos nuevos pueden registrarse sin placa y editarse después.</small>
                             </label>
 
                             <label class="admin-field">
@@ -806,6 +818,7 @@
                                                 <h3>{{ vehiculo['marca'] }} {{ vehiculo['modelo'] }} {{ vehiculo['anio'] }}</h3>
                                                 <p>
                                                     {{ vehiculo['codigo_catalogo'] }}
+                                                    · Placa: {{ vehiculo['placa'] if vehiculo['placa'] else 'N/D' }}
                                                     · {{ vehiculo['tipo_vehiculo'] }}
                                                     · {{ vehiculo['combustible'] }}
                                                     · {{ vehiculo['transmision'] }}
@@ -1047,6 +1060,7 @@
                             <label class="admin-field articulo-file-field"><span>Imagen</span><input type="file" name="imagen" accept="image/png,image/jpeg,image/webp"><small data-articulo-file-name>Selecciona PNG, JPG o WEBP. Se guarda en static/img/articulos/.</small></label>
                             <label class="admin-field"><span>Precio venta</span><input type="number" name="precio" min="0" step="0.01" required></label>
                             <label class="admin-field"><span>Costo interno</span><input type="number" name="costo" min="0" step="0.01" placeholder="Opcional"></label>
+                            <label class="admin-field articulo-establecimiento-field"><span>Sucursal del stock</span><select name="establecimiento_id"><option value="">Sucursal automática</option>{% for establecimiento in establecimientos_activos|default([]) %}<option value="{{ establecimiento.id }}">{{ establecimiento.nombre }}</option>{% endfor %}</select><small>Admin puede elegir la sucursal. Si lo dejas vacío se usa la primera activa.</small></label>
                             <label class="admin-field"><span>Stock actual</span><input type="number" name="stock" min="0" step="0.01" value="0"></label>
                             <label class="admin-field"><span>Stock mínimo</span><input type="number" name="stock_minimo" min="0" step="0.01" value="0"></label>
                             <label class="admin-field"><span>Unidad</span><select name="unidad"><option>Unidad</option><option>Litro</option><option>Galón</option><option>Pieza</option><option>Par</option><option>Kit</option><option>Servicio</option></select></label>
@@ -1463,6 +1477,21 @@
                                 <input type="number" name="costo" min="0" step="0.01" placeholder="0.00">
                             </label>
 
+                            <div class="admin-field admin-field-wide articulos-invoice-builder" data-articulo-factura-builder data-articulo-search-url="{{ url_for('buscar_articulos_factura') }}">
+                                <span>Artículos usados o vendidos en este mantenimiento</span>
+                                <div class="article-invoice-search-row">
+                                    <input type="search" data-articulo-search-input placeholder="Buscar aceite, filtro, repuesto o accesorio..." autocomplete="off">
+                                    <button type="button" data-articulo-clear>Limpiar</button>
+                                </div>
+                                <small>Opcional. Si agregas artículos, se incluyen en la misma factura del mantenimiento y VINOVA descuenta stock automáticamente.</small>
+                                <div class="article-invoice-results" data-articulo-results hidden></div>
+                                <div class="article-invoice-selected" data-articulo-selected></div>
+                                <div class="article-invoice-total">
+                                    Subtotal artículos: <strong data-articulo-subtotal>$0.00</strong>
+                                    <small>El total final será: costo del mantenimiento + artículos seleccionados.</small>
+                                </div>
+                            </div>
+
                             <label class="admin-field admin-field-wide">
                                 <span>Establecimiento</span>
                                 <select name="establecimiento">
@@ -1616,6 +1645,7 @@
 
                                     <p>
                                         {{ vehiculo['codigo_catalogo'] }}
+                                        · Placa: {{ vehiculo['placa'] if vehiculo['placa'] else 'N/D' }}
                                         · Estado: {{ vehiculo['estado'] }}
                                     </p>
 

@@ -152,131 +152,213 @@
 
             <section class="dashboard-section active-section" id="seccion-inicio" data-content="inicio">
 
-                <div class="section-title">
+                <div class="section-title profile-hero-title">
                     <span>RESUMEN GENERAL</span>
                     <h2>Panel principal</h2>
-                    <p>Consulta un resumen rápido del estado de tus vehículos y servicios.</p>
+                    <p>Bienvenido a tu panel de control. Consulta tus vehículos, próximos servicios, historial y actividad reciente sin perder el resumen superior.</p>
                 </div>
 
-                <section class="cards">
+                <section class="cards profile-summary-cards">
 
-                    <div class="card">
-                        <div>
-                            <i class="fa-solid fa-car blue"></i>
+                    <article class="card profile-summary-card summary-purple">
+                        <div class="profile-summary-icon">
+                            <i class="fa-solid fa-car-side"></i>
                         </div>
                         <p>Vehículos</p>
-                        <br>
                         <h2>{{ mis_vehiculos|length }}</h2>
-                        <p>
-                            {% if mis_vehiculos|length == 1 %}
-                                Registrado
-                            {% else %}
-                                Registrados
-                            {% endif %}
-                        </p>
-                    </div>
+                        <span>{% if mis_vehiculos|length == 1 %}Registrado{% else %}Registrados{% endif %}</span>
+                    </article>
 
-                    <div class="card">
-                        <i class="fa-solid fa-road"></i>
+                    <article class="card profile-summary-card summary-blue">
+                        <div class="profile-summary-icon">
+                            <i class="fa-solid fa-screwdriver-wrench"></i>
+                        </div>
                         <p>Próximo mantenimiento</p>
-                        <br>
-                        {% if proximo_mantenimiento %}
-                            <h2>{{ proximo_mantenimiento.estado_texto }}</h2>
-                            <p>{{ proximo_mantenimiento.tipo_servicio }}</p>
-                        {% else %}
-                            <h2>Sin programar</h2>
-                            <p>Registra un servicio</p>
-                        {% endif %}
-                    </div>
+                        <h2>{{ proximo_resumen_valor|default('Sin programar') }}</h2>
+                        <span>
+                            {{ proximo_resumen_detalle|default('Registra un servicio') }}
+                            {% if proximo_mantenimiento %}
+                                · {{ proximo_mantenimiento.marca }} {{ proximo_mantenimiento.modelo }} {{ proximo_mantenimiento.anio }}
+                            {% endif %}
+                        </span>
+                    </article>
 
-                    <div class="card">
-                        <i class="fa-solid fa-calendar"></i>
+                    <article class="card profile-summary-card summary-green">
+                        <div class="profile-summary-icon">
+                            <i class="fa-solid fa-calendar-check"></i>
+                        </div>
                         <p>Último servicio</p>
-                        <br>
-                        {% if ultimo_mantenimiento %}
-                            <h2>{{ ultimo_mantenimiento.fecha_visible }}</h2>
-                            <p>{{ ultimo_mantenimiento.tipo_servicio }}</p>
-                        {% else %}
-                            <h2>Sin registros</h2>
-                            <p>Aún no disponible</p>
-                        {% endif %}
-                    </div>
+                        <h2>{{ ultimo_resumen_valor|default('Sin registros') }}</h2>
+                        <span>{{ ultimo_resumen_detalle|default('Aún no disponible') }}</span>
+                    </article>
 
-                    <div class="card">
-                        <i class="fa-solid fa-triangle-exclamation"></i>
+                    <article class="card profile-summary-card summary-yellow">
+                        <div class="profile-summary-icon">
+                            <i class="fa-solid fa-triangle-exclamation"></i>
+                        </div>
                         <p>Alertas</p>
-                        <br>
                         <h2>{{ total_alertas_mantenimiento|default(0) }}</h2>
-                        <p>Vencidas</p>
-                    </div>
+                        <span>Pendientes</span>
+                    </article>
 
                 </section>
 
-                <section class="vehicles">
+                <section class="profile-home-grid profile-dashboard-reference">
 
-                    <h2>Mis vehículos recientes</h2>
-
-                    {% if mis_vehiculos %}
-
-                        <div class="vehicle-grid">
-
-                            {% for vehiculo in mis_vehiculos[:2] %}
-
-                                <article class="vehicle-card">
-
-                                    <div class="vehicle-image">
-                                        {% if vehiculo.imagen %}
-                                            <img
-                                                src="{{ url_for('static', filename='img/vehicles/' ~ vehiculo.imagen) }}"
-                                                alt="{{ vehiculo.marca }} {{ vehiculo.modelo }}">
-                                        {% else %}
-                                            <img
-                                                src="{{ url_for('static', filename='img/vehicles/default-car.png') }}"
-                                                alt="Vehículo VINOVA">
-                                        {% endif %}
-                                    </div>
-
-                                    <h3>{{ vehiculo.marca }} {{ vehiculo.modelo }} {{ vehiculo.anio }}</h3>
-
-                                    <p>
-                                        {% if vehiculo.tipo_vehiculo %}
-                                            {{ vehiculo.tipo_vehiculo }}
-                                        {% else %}
-                                            Vehículo
-                                        {% endif %}
-
-                                        {% if vehiculo.transmision %}
-                                            • {{ vehiculo.transmision }}
-                                        {% endif %}
-                                    </p>
-
-                                </article>
-
-                            {% endfor %}
-
-                            <a href="#seccion-mis-vehiculos" class="more_vehicules sidebar-link" data-section="mis-vehiculos">
+                    <article class="profile-home-panel profile-home-vehicles">
+                        <div class="profile-panel-head">
+                            <div>
+                                <h3>Mis vehículos</h3>
+                            </div>
+                            <a href="#seccion-mis-vehiculos" class="profile-panel-link sidebar-link" data-section="mis-vehiculos">
                                 Ver todos
-                            </a>
-
-                        </div>
-
-                    {% else %}
-
-                        <div class="empty-vehicles-state">
-                            <i class="fa-solid fa-car-side"></i>
-                            <h3>Aún no tienes vehículos registrados</h3>
-                            <p>
-                                Cuando registres tu primer vehículo con un código de activación,
-                                aparecerá aquí como acceso rápido.
-                            </p>
-
-                            <a href="#seccion-agregar-vehiculo" class="profile-save-btn sidebar-link sidebar-link-like" data-section="agregar-vehiculo">
-                                <i class="fa-solid fa-circle-plus"></i>
-                                Agregar vehículo
+                                <i class="fa-solid fa-arrow-right"></i>
                             </a>
                         </div>
 
-                    {% endif %}
+                        {% if mis_vehiculos %}
+                            <div class="profile-garage-cards">
+                                {% for vehiculo in mis_vehiculos[:2] %}
+                                    <button type="button" class="profile-garage-card" data-open-vehicle-modal="vehicleModal{{ vehiculo.id }}">
+                                        <div class="profile-garage-image">
+                                            {% if vehiculo.imagen %}
+                                                <img src="{{ url_for('static', filename='img/vehicles/' ~ vehiculo.imagen) }}" alt="{{ vehiculo.marca }} {{ vehiculo.modelo }}">
+                                            {% else %}
+                                                <img src="{{ url_for('static', filename='img/vehicles/default-car.png') }}" alt="Vehículo VINOVA">
+                                            {% endif %}
+                                        </div>
+                                        <div class="profile-garage-info">
+                                            <strong>{{ vehiculo.marca }} {{ vehiculo.modelo }} {{ vehiculo.anio }}</strong>
+                                            <span>
+                                                {% if vehiculo.placa %}
+                                                    {{ vehiculo.placa }}
+                                                {% elif vehiculo.codigo_catalogo %}
+                                                    {{ vehiculo.codigo_catalogo }}
+                                                {% else %}
+                                                    Unidad VINOVA
+                                                {% endif %}
+                                            </span>
+                                            <em><i class="fa-solid fa-circle"></i> Activo</em>
+                                        </div>
+                                    </button>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="profile-empty-inline">
+                                <i class="fa-solid fa-car-side"></i>
+                                <p>Aún no tienes vehículos registrados.</p>
+                                <a href="#seccion-agregar-vehiculo" class="sidebar-link" data-section="agregar-vehiculo">Agregar vehículo</a>
+                            </div>
+                        {% endif %}
+                    </article>
+
+                    <article class="profile-home-panel profile-home-services">
+                        <div class="profile-panel-head">
+                            <div>
+                                <h3>Próximos servicios</h3>
+                            </div>
+                            <a href="#seccion-proximos-servicios" class="profile-panel-link sidebar-link" data-section="proximos-servicios">
+                                Ver todos
+                                <i class="fa-solid fa-arrow-right"></i>
+                            </a>
+                        </div>
+
+                        {% if servicios_proximos %}
+                            <div class="profile-service-list-mini">
+                                {% for servicio in servicios_proximos[:4] %}
+                                    <article class="profile-service-mini service-{{ servicio.estado }}">
+                                        <span class="profile-service-icon">
+                                            {% if 'aceite' in servicio.tipo_servicio|lower %}
+                                                <i class="fa-solid fa-oil-can"></i>
+                                            {% elif 'freno' in servicio.tipo_servicio|lower %}
+                                                <i class="fa-solid fa-circle-dot"></i>
+                                            {% elif 'filtro' in servicio.tipo_servicio|lower %}
+                                                <i class="fa-solid fa-fan"></i>
+                                            {% else %}
+                                                <i class="fa-solid fa-screwdriver-wrench"></i>
+                                            {% endif %}
+                                        </span>
+                                        <div>
+                                            <strong>{{ servicio.tipo_servicio }}</strong>
+                                            <small>
+                                                {{ servicio.marca }} {{ servicio.modelo }} {{ servicio.anio }}
+                                                {% if servicio.detalle_programacion %}<br>{{ servicio.detalle_programacion }}{% endif %}
+                                            </small>
+                                        </div>
+                                        <em class="service-status-badge {{ servicio.estado }}">{{ servicio.estado_texto }}</em>
+                                    </article>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="profile-empty-inline">
+                                <i class="fa-solid fa-calendar-check"></i>
+                                <p>No hay próximos servicios programados.</p>
+                            </div>
+                        {% endif %}
+                    </article>
+
+                    <article class="profile-home-panel profile-home-history-chart">
+                        <div class="profile-panel-head">
+                            <div>
+                                <h3>Historial de mantenimientos</h3>
+                            </div>
+                            <span class="profile-chart-filter">Este año</span>
+                        </div>
+
+                        <div class="profile-maintenance-chart-wrap">
+                            <canvas id="profileMaintenanceChart" height="180"></canvas>
+                            {% if not historial_mantenimientos %}
+                                <div class="profile-chart-empty">Sin datos suficientes todavía</div>
+                            {% endif %}
+                        </div>
+                    </article>
+
+                    <article class="profile-home-panel profile-home-activity">
+                        <div class="profile-panel-head">
+                            <div>
+                                <h3>Actividad reciente</h3>
+                            </div>
+                            <a href="#seccion-historial" class="profile-panel-link sidebar-link" data-section="historial">
+                                Ver toda la actividad
+                                <i class="fa-solid fa-arrow-right"></i>
+                            </a>
+                        </div>
+
+                        <div class="profile-activity-list">
+                            {% if historial_mantenimientos %}
+                                {% for mantenimiento in historial_mantenimientos[:3] %}
+                                    <article>
+                                        <span class="activity-dot maintenance"></span>
+                                        <div>
+                                            <strong>{{ mantenimiento.tipo_servicio }} realizado</strong>
+                                            <small>{{ mantenimiento.marca }} {{ mantenimiento.modelo }} • {{ mantenimiento.fecha_visible }}</small>
+                                        </div>
+                                        <time>{{ mantenimiento.fecha_visible }}</time>
+                                    </article>
+                                {% endfor %}
+                            {% endif %}
+
+                            {% if facturas_usuario %}
+                                {% for factura in facturas_usuario[:2] %}
+                                    <article>
+                                        <span class="activity-dot invoice"></span>
+                                        <div>
+                                            <strong>Factura {{ factura.numero_factura|default('VINOVA') }}</strong>
+                                            <small>{{ factura.fecha_visible }} • ${{ "{:,.2f}".format(factura.monto|default(0)|float) }}</small>
+                                        </div>
+                                        <time>{{ factura.fecha_visible }}</time>
+                                    </article>
+                                {% endfor %}
+                            {% endif %}
+
+                            {% if not historial_mantenimientos and not facturas_usuario %}
+                                <div class="profile-empty-inline">
+                                    <i class="fa-solid fa-bolt"></i>
+                                    <p>Aún no hay actividad reciente.</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </article>
 
                 </section>
 
@@ -289,93 +371,60 @@
                 <div class="section-title">
                     <span>VEHÍCULOS</span>
                     <h2>Mis vehículos</h2>
-                    <p>Administra los vehículos registrados en tu cuenta.</p>
+                    <p>Abre el detalle de cada unidad para revisar resumen, historial, mantenimiento y documentación.</p>
                 </div>
 
-                <section class="vehicles">
+                <section class="vehicles profile-vehicle-showcase">
 
                     {% if mis_vehiculos %}
 
-                        <div class="vehicle-grid">
+                        <div class="profile-vehicle-grid">
 
                             {% for vehiculo in mis_vehiculos %}
 
-                                <article class="vehicle-card registered-vehicle-card">
-
-                                    <div class="vehicle-image">
+                                <article class="profile-vehicle-card">
+                                    <button type="button" class="profile-vehicle-cover" data-open-vehicle-modal="vehicleModal{{ vehiculo.id }}">
                                         {% if vehiculo.imagen %}
-                                            <img
-                                                src="{{ url_for('static', filename='img/vehicles/' ~ vehiculo.imagen) }}"
-                                                alt="{{ vehiculo.marca }} {{ vehiculo.modelo }}">
+                                            <img src="{{ url_for('static', filename='img/vehicles/' ~ vehiculo.imagen) }}" alt="{{ vehiculo.marca }} {{ vehiculo.modelo }}">
                                         {% else %}
-                                            <img
-                                                src="{{ url_for('static', filename='img/vehicles/default-car.png') }}"
-                                                alt="Vehículo VINOVA">
+                                            <img src="{{ url_for('static', filename='img/vehicles/default-car.png') }}" alt="Vehículo VINOVA">
                                         {% endif %}
-                                    </div>
+                                    </button>
 
-                                    <div class="vehicle-card-body">
-
-                                        <div class="vehicle-card-header">
+                                    <div class="profile-vehicle-info">
+                                        <div class="profile-vehicle-title-row">
                                             <div>
                                                 <h3>{{ vehiculo.marca }} {{ vehiculo.modelo }} {{ vehiculo.anio }}</h3>
-
-                                                {% if vehiculo.codigo_catalogo %}
-                                                    <p class="vehicle-reference">
-                                                        Referencia de unidad: {{ vehiculo.codigo_catalogo }}
-                                                    </p>
-                                                {% endif %}
+                                                <p>
+                                                    {% if vehiculo.placa %}
+                                                        Placa {{ vehiculo.placa }}
+                                                    {% elif vehiculo.codigo_catalogo %}
+                                                        {{ vehiculo.codigo_catalogo }}
+                                                    {% else %}
+                                                        Unidad registrada
+                                                    {% endif %}
+                                                </p>
                                             </div>
-
-                                            <span class="registered-badge">
-                                                Registrado
-                                            </span>
+                                            <span>Activo</span>
                                         </div>
 
-                                        <div class="vehicle-meta">
-
-                                            {% if vehiculo.kilometraje is not none %}
-                                                <p>
-                                                    <i class="fa-solid fa-gauge-high"></i>
-                                                    Kilometraje inicial: {{ "{:,}".format(vehiculo.kilometraje).replace(",", ".") }} km
-                                                </p>
+                                        <div class="profile-vehicle-specs">
+                                            {% if vehiculo.kilometraje_actual is not none %}
+                                                <span><i class="fa-solid fa-gauge-high"></i>{{ "{:,}".format(vehiculo.kilometraje_actual).replace(",", ".") }} km</span>
                                             {% endif %}
-
                                             {% if vehiculo.combustible %}
-                                                <p>
-                                                    <i class="fa-solid fa-gas-pump"></i>
-                                                    Combustible: {{ vehiculo.combustible }}
-                                                </p>
+                                                <span><i class="fa-solid fa-gas-pump"></i>{{ vehiculo.combustible }}</span>
                                             {% endif %}
-
                                             {% if vehiculo.transmision %}
-                                                <p>
-                                                    <i class="fa-solid fa-gears"></i>
-                                                    Transmisión: {{ vehiculo.transmision }}
-                                                </p>
+                                                <span><i class="fa-solid fa-gears"></i>{{ vehiculo.transmision }}</span>
                                             {% endif %}
-
-                                            {% if vehiculo.fecha_registro %}
-                                                <p>
-                                                    <i class="fa-solid fa-calendar-check"></i>
-                                                    Fecha de registro: {{ vehiculo.fecha_registro }}
-                                                </p>
-                                            {% endif %}
-
                                         </div>
 
-                                        <div class="vehicle-actions-row">
-                                            <a href="#seccion-historial" class="mini-action-btn sidebar-link" data-section="historial">
-                                                Historial de servicios
-                                            </a>
-
-                                            <a href="#seccion-proximos-servicios" class="mini-action-btn sidebar-link" data-section="proximos-servicios">
-                                                Próximos servicios
-                                            </a>
-                                        </div>
-
+                                        <button type="button" class="profile-detail-btn" data-open-vehicle-modal="vehicleModal{{ vehiculo.id }}">
+                                            Ver detalle completo
+                                            <i class="fa-solid fa-arrow-right"></i>
+                                        </button>
                                     </div>
-
                                 </article>
 
                             {% endfor %}
@@ -387,11 +436,7 @@
                         <div class="empty-vehicles-state">
                             <i class="fa-solid fa-car-side"></i>
                             <h3>Aún no tienes vehículos registrados</h3>
-                            <p>
-                                Cuando compres un vehículo en VINOVA, recibirás un código privado
-                                para activarlo en tu perfil.
-                            </p>
-
+                            <p>Cuando compres un vehículo en VINOVA, recibirás un código privado para activarlo en tu perfil.</p>
                             <a href="#seccion-agregar-vehiculo" class="profile-save-btn sidebar-link sidebar-link-like" data-section="agregar-vehiculo">
                                 <i class="fa-solid fa-circle-plus"></i>
                                 Agregar vehículo
@@ -981,6 +1026,201 @@
 
     </div>
 
+
+
+    <!-- MODALES DETALLE VEHÍCULO -->
+    {% if mis_vehiculos %}
+        {% for vehiculo in mis_vehiculos %}
+            {% set vehiculo_historial = historial_mantenimientos|selectattr('vehiculo_id', 'equalto', vehiculo.id)|list %}
+            {% set vehiculo_servicios = servicios_proximos|selectattr('vehiculo_id', 'equalto', vehiculo.id)|list %}
+            {% set vehiculo_facturas = facturas_usuario|selectattr('vehiculo_id', 'equalto', vehiculo.id)|list %}
+
+            <div class="profile-vehicle-modal" id="vehicleModal{{ vehiculo.id }}" aria-hidden="true">
+                <div class="profile-vehicle-modal-backdrop" data-close-vehicle-modal></div>
+
+                <article class="profile-vehicle-modal-card" role="dialog" aria-modal="true" aria-label="Detalle de {{ vehiculo.marca }} {{ vehiculo.modelo }}">
+                    <header class="profile-vehicle-modal-header">
+                        <a href="#seccion-mis-vehiculos" class="profile-modal-back" data-close-vehicle-modal>
+                            <i class="fa-solid fa-arrow-left"></i>
+                            Mis vehículos
+                        </a>
+
+                        <nav class="profile-modal-tabs" aria-label="Secciones del vehículo">
+                            <button type="button" class="active" data-vehicle-tab="resumen">Resumen</button>
+                            <button type="button" data-vehicle-tab="historial">Historial</button>
+                            <button type="button" data-vehicle-tab="mantenimiento">Mantenimiento</button>
+                            <button type="button" data-vehicle-tab="documentacion">Documentación</button>
+                        </nav>
+
+                        <button type="button" class="profile-modal-close" data-close-vehicle-modal aria-label="Cerrar detalle">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </header>
+
+                    <div class="profile-vehicle-modal-body">
+                        <section class="profile-modal-hero" data-vehicle-panel="resumen">
+                            <div class="profile-modal-image">
+                                {% if vehiculo.imagen %}
+                                    <img src="{{ url_for('static', filename='img/vehicles/' ~ vehiculo.imagen) }}" alt="{{ vehiculo.marca }} {{ vehiculo.modelo }}">
+                                {% else %}
+                                    <img src="{{ url_for('static', filename='img/vehicles/default-car.png') }}" alt="Vehículo VINOVA">
+                                {% endif %}
+                            </div>
+
+                            <div class="profile-modal-summary">
+                                <span>Vehículo registrado</span>
+                                <h2>{{ vehiculo.marca }} {{ vehiculo.modelo }} {{ vehiculo.anio }}</h2>
+                                <p>{{ vehiculo.descripcion|default('Unidad registrada en tu perfil VINOVA.', true) }}</p>
+
+                                <div class="profile-modal-spec-grid">
+                                    <article>
+                                        <i class="fa-solid fa-id-card"></i>
+                                        <small>Placa</small>
+                                        <strong>{{ vehiculo.placa|default('N/D', true) }}</strong>
+                                    </article>
+                                    <article>
+                                        <i class="fa-solid fa-barcode"></i>
+                                        <small>Referencia</small>
+                                        <strong>{{ vehiculo.codigo_catalogo|default('VINOVA', true) }}</strong>
+                                    </article>
+                                    <article>
+                                        <i class="fa-solid fa-gauge-high"></i>
+                                        <small>Kilometraje</small>
+                                        <strong>{% if vehiculo.kilometraje_actual is not none %}{{ "{:,}".format(vehiculo.kilometraje_actual).replace(",", ".") }} km{% else %}N/D{% endif %}</strong>
+                                    </article>
+                                    <article>
+                                        <i class="fa-solid fa-gas-pump"></i>
+                                        <small>Combustible</small>
+                                        <strong>{{ vehiculo.combustible|default('N/D', true) }}</strong>
+                                    </article>
+                                    <article>
+                                        <i class="fa-solid fa-gears"></i>
+                                        <small>Transmisión</small>
+                                        <strong>{{ vehiculo.transmision|default('N/D', true) }}</strong>
+                                    </article>
+                                    <article>
+                                        <i class="fa-solid fa-car-side"></i>
+                                        <small>Tipo</small>
+                                        <strong>{{ vehiculo.tipo_vehiculo|default('Vehículo', true) }}</strong>
+                                    </article>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="profile-modal-panel" data-vehicle-panel="historial" hidden>
+                            <div class="profile-modal-panel-title">
+                                <h3>Línea de tiempo</h3>
+                                <p>Servicios registrados para esta unidad.</p>
+                            </div>
+
+                            {% if vehiculo_historial %}
+                                <div class="profile-modal-timeline">
+                                    {% for mantenimiento in vehiculo_historial %}
+                                        <article>
+                                            <time>{{ mantenimiento.fecha_visible }}</time>
+                                            <span></span>
+                                            <div>
+                                                <strong>{{ mantenimiento.tipo_servicio }}</strong>
+                                                <small>
+                                                    {% if mantenimiento.establecimiento %}{{ mantenimiento.establecimiento }}{% else %}VINOVA{% endif %}
+                                                    {% if mantenimiento.kilometraje_actual is not none %} • {{ "{:,}".format(mantenimiento.kilometraje_actual).replace(",", ".") }} km{% endif %}
+                                                </small>
+                                                {% if mantenimiento.observaciones %}<p>{{ mantenimiento.observaciones }}</p>{% endif %}
+                                            </div>
+                                        </article>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <div class="profile-modal-empty">
+                                    <i class="fa-solid fa-clock-rotate-left"></i>
+                                    <h4>Sin historial registrado</h4>
+                                    <p>Cuando VINOVA registre servicios para este vehículo, aparecerán aquí.</p>
+                                </div>
+                            {% endif %}
+                        </section>
+
+                        <section class="profile-modal-panel" data-vehicle-panel="mantenimiento" hidden>
+                            <div class="profile-modal-panel-title">
+                                <h3>Mantenimiento programado</h3>
+                                <p>Servicios pendientes o próximos asociados a este vehículo.</p>
+                            </div>
+
+                            {% if vehiculo_servicios %}
+                                <div class="profile-modal-service-grid">
+                                    {% for servicio in vehiculo_servicios %}
+                                        <article class="service-{{ servicio.estado }}">
+                                            <div>
+                                                <i class="fa-solid fa-screwdriver-wrench"></i>
+                                                <span class="service-status-badge {{ servicio.estado }}">{{ servicio.estado_texto }}</span>
+                                            </div>
+                                            <h4>{{ servicio.tipo_servicio }}</h4>
+                                            {% if servicio.detalle_programacion %}<strong>{{ servicio.detalle_programacion }}</strong>{% endif %}
+                                            {% if servicio.descripcion %}<p>{{ servicio.descripcion }}</p>{% endif %}
+                                        </article>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <div class="profile-modal-empty">
+                                    <i class="fa-solid fa-calendar-check"></i>
+                                    <h4>Sin próximos servicios</h4>
+                                    <p>No hay mantenimientos programados para esta unidad.</p>
+                                </div>
+                            {% endif %}
+                        </section>
+
+                        <section class="profile-modal-panel" data-vehicle-panel="documentacion" hidden>
+                            <div class="profile-modal-panel-title">
+                                <h3>Documentación</h3>
+                                <p>Manuales y facturas relacionadas con esta unidad.</p>
+                            </div>
+
+                            <div class="profile-modal-doc-grid">
+                                <article>
+                                    <h4>Facturas</h4>
+                                    {% if vehiculo_facturas %}
+                                        {% for factura in vehiculo_facturas %}
+                                            <a href="{{ url_for('ver_factura_vehiculo', factura_id=factura.id) }}" target="_blank" rel="noopener">
+                                                <i class="fa-solid fa-file-invoice-dollar"></i>
+                                                <span>Factura {{ factura.numero_factura|default('VINOVA') }} • {{ factura.fecha_visible }}</span>
+                                            </a>
+                                        {% endfor %}
+                                    {% else %}
+                                        <p>No hay facturas asociadas.</p>
+                                    {% endif %}
+                                </article>
+
+                                <article>
+                                    <h4>Manuales</h4>
+                                    {% set manuales_relacionados = [] %}
+                                    {% for manual in manuales_usuario|default([]) %}
+                                        {% if manual.marca == vehiculo.marca and manual.modelo == vehiculo.modelo and manual.anio == vehiculo.anio %}
+                                            {% if manual.enlace %}
+                                                <a href="{{ manual.enlace }}" target="_blank" rel="noopener">
+                                                    <i class="fa-solid fa-book-open"></i>
+                                                    <span>{{ manual.titulo }}</span>
+                                                </a>
+                                            {% elif manual.archivo %}
+                                                <a href="{{ url_for('static', filename=manual.archivo) }}" target="_blank" rel="noopener">
+                                                    <i class="fa-solid fa-book-open"></i>
+                                                    <span>{{ manual.titulo }}</span>
+                                                </a>
+                                            {% endif %}
+                                        {% endif %}
+                                    {% endfor %}
+                                    <p class="profile-modal-doc-note">Si no aparece documentación, VINOVA todavía no ha asignado manuales para esta unidad.</p>
+                                </article>
+                            </div>
+                        </section>
+                    </div>
+                </article>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <script>
+        window.VINOVA_PROFILE_CHART = {{ grafica_mantenimientos|default({'labels': [], 'values': []})|tojson }};
+    </script>
     <script src="{{ url_for('static', filename='js/script1.js') }}"></script>
 
 </body>

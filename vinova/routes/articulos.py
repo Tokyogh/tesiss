@@ -92,6 +92,243 @@ def _normalizar_stock(valor, defecto=0):
     return max(0, float(numero))
 
 
+
+def _telefono_whatsapp_url(telefono, mensaje):
+    numero = solo_digitos(telefono or "")
+    if not numero:
+        return ""
+    if numero.startswith("0"):
+        numero = "593" + numero[1:]
+    from urllib.parse import quote
+    return f"https://wa.me/{numero}?text={quote(mensaje or '')}"
+
+
+def _establecimientos_activos(cursor):
+    try:
+        cursor.execute("""
+            SELECT id, nombre, tipo, direccion, ciudad, provincia, telefono, lat, lng, distancia_km
+            FROM establecimientos
+            WHERE COALESCE(activo, 1) = 1
+            ORDER BY COALESCE(distancia_km, 999999) ASC, nombre ASC
+        """)
+        return [dict(row) for row in cursor.fetchall()]
+    except sqlite3.OperationalError:
+        return []
+
+
+def _establecimiento_usuario_actual(cursor):
+    usuario_id = session.get("usuario_id")
+    if not usuario_id:
+        return None
+
+    try:
+        cursor.execute("""
+            SELECT id, establecimiento, establecimiento_id
+            FROM usuarios
+            WHERE id = ?
+        """, (usuario_id,))
+        usuario = cursor.fetchone()
+    except sqlite3.OperationalError:
+        cursor.execute("SELECT id, establecimiento FROM usuarios WHERE id = ?", (usuario_id,))
+        usuario = cursor.fetchone()
+
+    if not usuario:
+        return None
+
+    try:
+        establecimiento_id = usuario["establecimiento_id"]
+    except Exception:
+        establecimiento_id = None
+
+    if establecimiento_id:
+        cursor.execute("""
+            SELECT id, nombre, tipo, direccion, ciudad, provincia, telefono, lat, lng, distancia_km
+            FROM establecimientos
+            WHERE id = ? AND COALESCE(activo, 1) = 1
+        """, (establecimiento_id,))
+        row = cursor.fetchone()
+        if row:
+            return dict(row)
+
+    nombre = (usuario["establecimiento"] or "").strip() if "establecimiento" in usuario.keys() else ""
+    if nombre:
+        cursor.execute("""
+            SELECT id, nombre, tipo, direccion, ciudad, provincia, telefono, lat, lng, distancia_km
+            FROM establecimientos
+            WHERE LOWER(TRIM(nombre)) = LOWER(TRIM(?)) AND COALESCE(activo, 1) = 1
+            LIMIT 1
+        """, (nombre,))
+        row = cursor.fetchone()
+        if row:
+            return dict(row)
+
+    return None
+
+
+def _establecimiento_operativo(cursor):
+    rol = str(session.get("rol", "")).upper()
+    solicitado = request.form.get("establecimiento_id", type=int) or request.args.get("establecimiento_id", type=int)
+
+    if rol == "ADMIN" and solicitado:
+        cursor.execute("""
+            SELECT id, nombre, tipo, direccion, ciudad, provincia, telefono, lat, lng, distancia_km
+            FROM establecimientos
+            WHERE id = ? AND COALESCE(activo, 1) = 1
+        """, (solicitado,))
+        row = cursor.fetchone()
+        if row:
+            return dict(row)
+
+    solicitado_nombre = request.form.get("establecimiento", "").strip() or request.args.get("establecimiento", "").strip()
+    if rol == "ADMIN" and solicitado_nombre:
+        cursor.execute("""
+            SELECT id, nombre, tipo, direccion, ciudad, provincia, telefono, lat, lng, distancia_km
+            FROM establecimientos
+            WHERE LOWER(TRIM(nombre)) = LOWER(TRIM(?)) AND COALESCE(activo, 1) = 1
+            LIMIT 1
+        """, (solicitado_nombre,))
+        row = cursor.fetchone()
+        if row:
+            return dict(row)
+
+    asignado = _establecimiento_usuario_actual(cursor)
+    if asignado:
+        return asignado
+
+    activos = _establecimientos_activos(cursor)
+    return activos[0] if activos else None
+
+
+def _asegurar_stock_establecimiento(cursor, articulo_id, establecimiento_id, stock=0, stock_minimo=0):
+    if not establecimiento_id:
+        return
+    ahora = fecha_actual()
+    cursor.execute("""
+        INSERT INTO articulo_stock_establecimiento (
+            articulo_id, establecimiento_id, stock, stock_minimo, unidades_vendidas, creado_en, actualizado_en
+        )
+        VALUES (?, ?, ?, ?, 0, ?, ?)
+        ON CONFLICT(articulo_id, establecimiento_id)
+        DO UPDATE SET stock = excluded.stock,
+                      stock_minimo = excluded.stock_minimo,
+                      actualizado_en = excluded.actualizado_en
+    """, (articulo_id, establecimiento_id, stock, stock_minimo, ahora, ahora))
+
+
+def _recalcular_stock_articulo(cursor, articulo_id):
+    try:
+        cursor.execute("""
+            SELECT
+                COALESCE(SUM(stock), 0) AS stock_total,
+                COALESCE(SUM(unidades_vendidas), 0) AS vendidas_total,
+                COALESCE(MAX(stock_minimo), 0) AS stock_minimo_ref
+            FROM articulo_stock_establecimiento
+            WHERE articulo_id = ?
+        """, (articulo_id,))
+        row = cursor.fetchone()
+        stock_total = normalizar_precio(row["stock_total"] if row else 0) or 0
+        vendidas_total = normalizar_precio(row["vendidas_total"] if row else 0) or 0
+        stock_minimo_ref = normalizar_precio(row["stock_minimo_ref"] if row else 0) or 0
+        cursor.execute("""
+            UPDATE articulos
+            SET stock = ?,
+                unidades_vendidas = ?,
+                stock_minimo = CASE WHEN COALESCE(stock_minimo, 0) = 0 THEN ? ELSE stock_minimo END,
+                estado = CASE WHEN ? <= 0 THEN 'Agotado' ELSE 'Disponible' END,
+                actualizado_en = ?
+            WHERE id = ?
+        """, (stock_total, vendidas_total, stock_minimo_ref, stock_total, fecha_actual(), articulo_id))
+    except sqlite3.OperationalError:
+        return
+
+
+def _stock_por_establecimiento(cursor, articulo_id):
+    try:
+        cursor.execute("""
+            SELECT
+                ase.establecimiento_id,
+                establecimientos.nombre,
+                establecimientos.direccion,
+                establecimientos.ciudad,
+                establecimientos.telefono,
+                establecimientos.lat,
+                establecimientos.lng,
+                COALESCE(establecimientos.distancia_km, 999999) AS distancia_km,
+                COALESCE(ase.stock, 0) AS stock,
+                COALESCE(ase.stock_minimo, 0) AS stock_minimo,
+                COALESCE(ase.unidades_vendidas, 0) AS unidades_vendidas
+            FROM articulo_stock_establecimiento AS ase
+            INNER JOIN establecimientos
+                ON establecimientos.id = ase.establecimiento_id
+            WHERE ase.articulo_id = ?
+              AND COALESCE(establecimientos.activo, 1) = 1
+            ORDER BY COALESCE(establecimientos.distancia_km, 999999) ASC, establecimientos.nombre ASC
+        """, (articulo_id,))
+        return [dict(row) for row in cursor.fetchall()]
+    except sqlite3.OperationalError:
+        return []
+
+
+def _enriquecer_disponibilidad_publica(cursor, articulos):
+    establecimientos = _establecimientos_activos(cursor)
+    total_establecimientos = len(establecimientos)
+    instituciones_url = url_for("instituciones")
+
+    for articulo in articulos:
+        filas_stock = _stock_por_establecimiento(cursor, articulo["id"])
+        disponibles = []
+        for fila in filas_stock:
+            stock = normalizar_precio(fila.get("stock")) or 0
+            if stock > 0:
+                disponibles.append(fila)
+
+        cantidad = len(disponibles)
+        articulo["disponible_sucursales"] = cantidad
+        articulo["instituciones_url"] = instituciones_url
+        articulo["sucursales_disponibles"] = []
+
+        if cantidad <= 0:
+            articulo["disponibilidad_estado"] = "agotado"
+            articulo["disponibilidad_label"] = "Agotado temporalmente"
+            articulo["disponibilidad_detalle"] = "Consulta instituciones para ubicar el local más cercano o pregunta por reposición."
+            articulo["whatsapp_url"] = ""
+            continue
+
+        if total_establecimientos and cantidad >= total_establecimientos and total_establecimientos > 1:
+            articulo["disponibilidad_estado"] = "total"
+            articulo["disponibilidad_label"] = "Disponible en tu VINOVA más cercano"
+            articulo["disponibilidad_detalle"] = "Este artículo está disponible en la red VINOVA. Te mostramos la sucursal más cercana registrada."
+            sucursales_para_mostrar = disponibles[:1]
+        elif cantidad == 1:
+            articulo["disponibilidad_estado"] = "parcial"
+            articulo["disponibilidad_label"] = "Disponible en 1 sucursal"
+            articulo["disponibilidad_detalle"] = "Disponible en una sucursal VINOVA. Puedes reservarlo por WhatsApp."
+            sucursales_para_mostrar = disponibles[:1]
+        else:
+            articulo["disponibilidad_estado"] = "parcial"
+            articulo["disponibilidad_label"] = f"Disponible en {cantidad} sucursales"
+            articulo["disponibilidad_detalle"] = "Elige una sucursal disponible al reservar por WhatsApp."
+            sucursales_para_mostrar = disponibles
+
+        for sucursal in sucursales_para_mostrar:
+            mensaje = (
+                f"Hola VINOVA, quiero reservar el artículo {articulo.get('nombre', '')} "
+                f"({articulo.get('codigo_articulo', 'sin código')}) en {sucursal.get('nombre', 'VINOVA')}."
+            )
+            articulo["sucursales_disponibles"].append({
+                "id": sucursal.get("establecimiento_id"),
+                "nombre": sucursal.get("nombre") or "VINOVA",
+                "direccion": sucursal.get("direccion") or "Dirección no registrada",
+                "ciudad": sucursal.get("ciudad") or "",
+                "telefono": sucursal.get("telefono") or "",
+                "whatsapp_url": _telefono_whatsapp_url(sucursal.get("telefono"), mensaje),
+            })
+
+        articulo["whatsapp_url"] = articulo["sucursales_disponibles"][0].get("whatsapp_url") if articulo["sucursales_disponibles"] else ""
+
+    return articulos
+
+
 def _row_to_articulo(row, publico=False):
     articulo = dict(row)
     imagen = normalizar_ruta_static_documento(articulo.get("imagen"))
@@ -223,6 +460,7 @@ def catalogo_articulos():
             LIMIT ? OFFSET ?
         """, params + [por_pagina, offset])
         articulos = [_row_to_articulo(row, publico=True) for row in cursor.fetchall()]
+        articulos = _enriquecer_disponibilidad_publica(cursor, articulos)
 
         cursor.execute("""
             SELECT DISTINCT marca
@@ -284,6 +522,8 @@ def articulos_api_gestion():
 
     try:
         articulos = _consultar_articulos(cursor, incluir_archivados=incluir_archivados)
+        for articulo in articulos:
+            articulo["stock_establecimientos"] = _stock_por_establecimiento(cursor, articulo["id"])
         stats = _estadisticas_articulos(cursor)
         return jsonify({
             "ok": True,
@@ -292,6 +532,8 @@ def articulos_api_gestion():
             "categorias": ARTICULO_CATEGORIAS,
             "unidades": ARTICULO_UNIDADES,
             "estados": ARTICULO_ESTADOS,
+            "establecimientos": _establecimientos_activos(cursor),
+            "establecimiento_actual": _establecimiento_operativo(cursor),
         })
     except sqlite3.OperationalError as error:
         return jsonify({
@@ -315,43 +557,61 @@ def buscar_articulos_factura():
     cursor = conexion.cursor()
 
     try:
+        establecimiento = _establecimiento_operativo(cursor)
+        establecimiento_id = establecimiento.get("id") if establecimiento else None
         params = []
         filtros = [
-            "COALESCE(archivado, 0) = 0",
-            "COALESCE(activo, 1) = 1",
-            "COALESCE(stock, 0) > 0",
+            "COALESCE(articulos.archivado, 0) = 0",
+            "COALESCE(articulos.activo, 1) = 1",
         ]
+
+        join_stock = ""
+        select_stock = "COALESCE(articulos.stock, 0) AS stock"
+        if establecimiento_id:
+            join_stock = """
+                INNER JOIN articulo_stock_establecimiento AS ase
+                    ON ase.articulo_id = articulos.id
+                   AND ase.establecimiento_id = ?
+                   AND COALESCE(ase.stock, 0) > 0
+            """
+            params.append(establecimiento_id)
+            select_stock = "COALESCE(ase.stock, 0) AS stock"
+        else:
+            filtros.append("COALESCE(articulos.stock, 0) > 0")
 
         if q:
             filtros.append("""
                 (
-                    LOWER(nombre) LIKE LOWER(?)
-                    OR LOWER(codigo_articulo) LIKE LOWER(?)
-                    OR LOWER(marca) LIKE LOWER(?)
-                    OR LOWER(categoria) LIKE LOWER(?)
+                    LOWER(articulos.nombre) LIKE LOWER(?)
+                    OR LOWER(articulos.codigo_articulo) LIKE LOWER(?)
+                    OR LOWER(articulos.marca) LIKE LOWER(?)
+                    OR LOWER(articulos.categoria) LIKE LOWER(?)
                 )
             """)
             term = f"%{q}%"
             params.extend([term, term, term, term])
 
         cursor.execute(f"""
-            SELECT id, codigo_articulo, nombre, categoria, marca, precio, stock, unidad, imagen
+            SELECT articulos.id, articulos.codigo_articulo, articulos.nombre, articulos.categoria,
+                   articulos.marca, articulos.precio, {select_stock}, articulos.unidad, articulos.imagen
             FROM articulos
+            {join_stock}
             WHERE {' AND '.join(filtros)}
-            ORDER BY nombre ASC
+            ORDER BY articulos.nombre ASC
             LIMIT 20
         """, params)
 
         resultados = [_row_to_articulo(row, publico=False) for row in cursor.fetchall()]
-        return jsonify({"ok": True, "resultados": resultados})
+        return jsonify({"ok": True, "resultados": resultados, "establecimiento": establecimiento})
 
-    except sqlite3.OperationalError:
-        return jsonify({"ok": False, "error": "Ejecuta la migración de artículos.", "resultados": []}), 500
+    except sqlite3.OperationalError as error:
+        return jsonify({"ok": False, "error": "Ejecuta la migración de inventario por establecimiento.", "detalle": str(error), "resultados": []}), 500
     finally:
         conexion.close()
 
 
 @app.route("/articulos/guardar", methods=["POST"])
+
 def guardar_articulo():
     if not _rol_operativo():
         flash("No tienes permisos para gestionar artículos.", "warning")
@@ -399,6 +659,8 @@ def guardar_articulo():
 
     try:
         ahora = fecha_actual()
+        establecimiento_operativo = _establecimiento_operativo(cursor)
+        establecimiento_id = establecimiento_operativo.get("id") if establecimiento_operativo else None
 
         if not codigo_articulo:
             codigo_articulo = _generar_codigo_articulo(cursor, nombre, categoria, articulo_id)
@@ -428,6 +690,16 @@ def guardar_articulo():
                 session.get("usuario_id"), ahora, articulo_id,
             ))
 
+            if establecimiento_id:
+                filas_actuales = _stock_por_establecimiento(cursor, articulo_id)
+                stock_anterior_est = 0
+                for fila_stock in filas_actuales:
+                    if int(fila_stock.get("establecimiento_id") or 0) == int(establecimiento_id):
+                        stock_anterior_est = _normalizar_stock(fila_stock.get("stock"), 0)
+                        break
+                _asegurar_stock_establecimiento(cursor, articulo_id, establecimiento_id, stock, stock_minimo)
+                _recalcular_stock_articulo(cursor, articulo_id)
+                stock_anterior = stock_anterior_est
             diferencia = stock - stock_anterior
             if abs(diferencia) > 0.0001:
                 cursor.execute("""
@@ -463,6 +735,10 @@ def guardar_articulo():
                 session.get("usuario_id"), session.get("usuario_id"), ahora, ahora,
             ))
             articulo_id = cursor.lastrowid
+
+            if establecimiento_id:
+                _asegurar_stock_establecimiento(cursor, articulo_id, establecimiento_id, stock, stock_minimo)
+                _recalcular_stock_articulo(cursor, articulo_id)
 
             if stock > 0:
                 cursor.execute("""

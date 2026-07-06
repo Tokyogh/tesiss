@@ -1590,3 +1590,1427 @@ body {
     object-position: left center;
     filter: drop-shadow(0 0 10px rgba(37, 99, 235, 0.22));
 }
+
+
+/* =========================================================
+   PERFIL VINOVA - DASHBOARD + MODAL VEHÍCULO
+   ========================================================= */
+
+.profile-hero-title h2 {
+    font-size: clamp(2rem, 3vw, 3.2rem);
+    letter-spacing: -0.045em;
+}
+
+.profile-home-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.9fr);
+    gap: 22px;
+    align-items: stretch;
+}
+
+.profile-home-panel {
+    min-width: 0;
+    padding: 22px;
+    border-radius: 18px;
+    background:
+        radial-gradient(circle at top right, rgba(59, 130, 246, 0.10), transparent 34%),
+        linear-gradient(180deg, rgba(26, 34, 52, 0.96), rgba(17, 24, 39, 0.96));
+    border: 1px solid rgba(148, 163, 184, 0.11);
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.profile-home-vehicles,
+.profile-home-history {
+    grid-column: 1 / 2;
+}
+
+.profile-home-services,
+.profile-home-activity {
+    grid-column: 2 / 3;
+}
+
+.profile-panel-head {
+    margin-bottom: 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+}
+
+.profile-panel-head span {
+    display: block;
+    margin-bottom: 5px;
+    color: #60a5fa;
+    font-size: 0.72rem;
+    font-weight: 900;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.profile-panel-head h3 {
+    margin: 0;
+    color: #ffffff;
+    font-size: 1.15rem;
+    font-weight: 900;
+}
+
+.profile-panel-link {
+    min-height: 34px;
+    padding: 0 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #93c5fd;
+    text-decoration: none;
+    border-radius: 10px;
+    background: rgba(59, 130, 246, 0.08);
+    border: 1px solid rgba(59, 130, 246, 0.18);
+    font-size: 0.78rem;
+    font-weight: 800;
+}
+
+.profile-panel-link:hover {
+    color: #ffffff;
+    border-color: rgba(96, 165, 250, 0.42);
+}
+
+.profile-car-strip,
+.profile-service-list-mini,
+.profile-activity-list,
+.profile-timeline-mini {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.profile-car-mini {
+    width: 100%;
+    padding: 11px;
+    display: grid;
+    grid-template-columns: 112px minmax(0, 1fr) auto;
+    gap: 14px;
+    align-items: center;
+    border: 1px solid rgba(148, 163, 184, 0.10);
+    border-radius: 16px;
+    background: rgba(3, 10, 23, 0.48);
+    color: #ffffff;
+    text-align: left;
+    cursor: pointer;
+    transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.profile-car-mini:hover {
+    transform: translateY(-2px);
+    border-color: rgba(96, 165, 250, 0.42);
+    background: rgba(7, 15, 30, 0.82);
+}
+
+.profile-car-mini-image {
+    height: 82px;
+    border-radius: 13px;
+    overflow: hidden;
+    display: grid;
+    place-items: center;
+    background: radial-gradient(circle at center, rgba(96, 165, 250, 0.22), rgba(2, 8, 20, 0.72));
+}
+
+.profile-car-mini-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    filter: drop-shadow(0 16px 16px rgba(0, 0, 0, 0.48));
+}
+
+.profile-car-mini strong,
+.profile-car-mini span {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.profile-car-mini strong {
+    font-size: 0.95rem;
+}
+
+.profile-car-mini span {
+    margin-top: 5px;
+    color: #a6b0c2;
+    font-size: 0.78rem;
+}
+
+.profile-car-mini em {
+    padding: 6px 9px;
+    border-radius: 999px;
+    color: #86efac;
+    background: rgba(34, 197, 94, 0.12);
+    border: 1px solid rgba(34, 197, 94, 0.24);
+    font-size: 0.68rem;
+    font-style: normal;
+    font-weight: 900;
+}
+
+.profile-service-mini,
+.profile-activity-list article,
+.profile-timeline-mini article {
+    min-height: 58px;
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+    padding: 10px;
+    border-radius: 14px;
+    background: rgba(3, 10, 23, 0.45);
+    border: 1px solid rgba(148, 163, 184, 0.09);
+}
+
+.profile-service-icon {
+    width: 42px;
+    height: 42px;
+    display: grid;
+    place-items: center;
+    border-radius: 12px;
+    color: #93c5fd;
+    background: rgba(59, 130, 246, 0.11);
+}
+
+.profile-service-mini strong,
+.profile-activity-list strong,
+.profile-timeline-mini strong {
+    display: block;
+    color: #ffffff;
+    font-size: 0.84rem;
+}
+
+.profile-service-mini small,
+.profile-activity-list small,
+.profile-timeline-mini small {
+    display: block;
+    margin-top: 3px;
+    color: #94a3b8;
+    font-size: 0.72rem;
+    line-height: 1.35;
+}
+
+.profile-timeline-mini article {
+    grid-template-columns: 95px 14px minmax(0, 1fr);
+}
+
+.profile-timeline-mini article > span {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #3b82f6;
+    box-shadow: 0 0 0 5px rgba(59, 130, 246, 0.12);
+}
+
+.profile-timeline-mini time {
+    color: #94a3b8;
+    font-size: 0.72rem;
+}
+
+.activity-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    justify-self: center;
+    background: #3b82f6;
+    box-shadow: 0 0 0 5px rgba(59, 130, 246, 0.10);
+}
+
+.activity-dot.maintenance {
+    background: #22c55e;
+    box-shadow: 0 0 0 5px rgba(34, 197, 94, 0.10);
+}
+
+.activity-dot.invoice {
+    background: #a78bfa;
+    box-shadow: 0 0 0 5px rgba(167, 139, 250, 0.10);
+}
+
+.profile-empty-inline {
+    min-height: 130px;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    gap: 10px;
+    color: #94a3b8;
+}
+
+.profile-empty-inline i {
+    color: #60a5fa;
+    font-size: 1.7rem;
+}
+
+.profile-empty-inline a {
+    color: #93c5fd;
+    font-weight: 800;
+    text-decoration: none;
+}
+
+.profile-vehicle-showcase {
+    background: transparent;
+    padding: 0;
+    border: 0;
+}
+
+.profile-vehicle-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+}
+
+.profile-vehicle-card {
+    overflow: hidden;
+    border-radius: 20px;
+    background:
+        radial-gradient(circle at 50% 20%, rgba(96, 165, 250, 0.12), transparent 42%),
+        linear-gradient(180deg, rgba(26, 34, 52, 0.96), rgba(17, 24, 39, 0.98));
+    border: 1px solid rgba(148, 163, 184, 0.11);
+    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.28);
+}
+
+.profile-vehicle-cover {
+    width: 100%;
+    height: 230px;
+    padding: 16px;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    border: 0;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.09);
+    background: radial-gradient(circle at center, rgba(148, 163, 184, 0.24), rgba(3, 10, 23, 0.54));
+    cursor: pointer;
+}
+
+.profile-vehicle-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    filter: drop-shadow(0 24px 20px rgba(0, 0, 0, 0.54));
+    transition: transform 0.25s ease;
+}
+
+.profile-vehicle-card:hover .profile-vehicle-cover img {
+    transform: translateY(-3px) scale(1.03);
+}
+
+.profile-vehicle-info {
+    padding: 18px;
+}
+
+.profile-vehicle-title-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 14px;
+    align-items: flex-start;
+}
+
+.profile-vehicle-title-row h3 {
+    margin: 0 0 6px;
+    color: #ffffff;
+    font-size: 1.05rem;
+}
+
+.profile-vehicle-title-row p {
+    margin: 0;
+    color: #94a3b8;
+    font-size: 0.78rem;
+}
+
+.profile-vehicle-title-row span {
+    padding: 6px 9px;
+    border-radius: 999px;
+    color: #86efac;
+    background: rgba(34, 197, 94, 0.12);
+    border: 1px solid rgba(34, 197, 94, 0.24);
+    font-size: 0.68rem;
+    font-weight: 900;
+}
+
+.profile-vehicle-specs {
+    margin: 16px 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.profile-vehicle-specs span {
+    min-height: 30px;
+    padding: 0 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    border-radius: 999px;
+    color: #dbeafe;
+    background: rgba(255, 255, 255, 0.045);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+
+.profile-vehicle-specs i {
+    color: #93c5fd;
+}
+
+.profile-detail-btn {
+    width: 100%;
+    min-height: 42px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: #ffffff;
+    border: 0;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #1e40af, #2563eb);
+    font: inherit;
+    font-weight: 900;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.profile-detail-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 26px rgba(37, 99, 235, 0.28);
+}
+
+body.vehicle-modal-open {
+    overflow: hidden;
+}
+
+.profile-vehicle-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+}
+
+.profile-vehicle-modal.is-open {
+    display: flex;
+}
+
+.profile-vehicle-modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(2, 8, 20, 0.78);
+    backdrop-filter: blur(12px);
+}
+
+.profile-vehicle-modal-card {
+    width: min(1180px, 100%);
+    max-height: min(820px, calc(100vh - 36px));
+    position: relative;
+    z-index: 2;
+    overflow: hidden;
+    border-radius: 22px;
+    background:
+        radial-gradient(circle at 16% 8%, rgba(59, 130, 246, 0.14), transparent 32%),
+        linear-gradient(180deg, rgba(15, 23, 42, 0.98), rgba(3, 10, 23, 0.98));
+    border: 1px solid rgba(148, 163, 184, 0.16);
+    box-shadow: 0 36px 90px rgba(0, 0, 0, 0.58), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.profile-vehicle-modal-header {
+    min-height: 64px;
+    padding: 12px 16px;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 16px;
+    align-items: center;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.profile-modal-back,
+.profile-modal-close,
+.profile-modal-tabs button {
+    border: 0;
+    font: inherit;
+    cursor: pointer;
+}
+
+.profile-modal-back {
+    min-height: 38px;
+    padding: 0 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #bfdbfe;
+    text-decoration: none;
+    border-radius: 11px;
+    background: rgba(37, 99, 235, 0.10);
+    border: 1px solid rgba(59, 130, 246, 0.18);
+    font-size: 0.82rem;
+    font-weight: 800;
+}
+
+.profile-modal-tabs {
+    justify-self: center;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px;
+    border-radius: 13px;
+    background: rgba(2, 8, 20, 0.54);
+    border: 1px solid rgba(148, 163, 184, 0.10);
+    overflow-x: auto;
+}
+
+.profile-modal-tabs button {
+    min-height: 34px;
+    padding: 0 13px;
+    border-radius: 10px;
+    color: #94a3b8;
+    background: transparent;
+    font-size: 0.78rem;
+    font-weight: 900;
+    white-space: nowrap;
+}
+
+.profile-modal-tabs button.active,
+.profile-modal-tabs button:hover {
+    color: #ffffff;
+    background: linear-gradient(135deg, rgba(30, 64, 175, 0.86), rgba(37, 99, 235, 0.72));
+}
+
+.profile-modal-close {
+    width: 40px;
+    height: 40px;
+    display: grid;
+    place-items: center;
+    border-radius: 12px;
+    color: #dbeafe;
+    background: rgba(15, 23, 42, 0.76);
+    border: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.profile-vehicle-modal-body {
+    max-height: calc(min(820px, 100vh - 36px) - 64px);
+    overflow-y: auto;
+    padding: 20px;
+}
+
+.profile-modal-hero {
+    display: grid;
+    grid-template-columns: minmax(360px, 1fr) minmax(360px, 0.92fr);
+    gap: 22px;
+    align-items: stretch;
+}
+
+.profile-modal-image {
+    min-height: 420px;
+    display: grid;
+    place-items: center;
+    border-radius: 20px;
+    overflow: hidden;
+    background:
+        radial-gradient(circle at 50% 32%, rgba(148, 163, 184, 0.32), transparent 42%),
+        linear-gradient(180deg, rgba(30, 41, 59, 0.9), rgba(3, 10, 23, 0.9));
+    border: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.profile-modal-image img {
+    width: 100%;
+    height: 100%;
+    max-height: 440px;
+    object-fit: contain;
+    padding: 18px;
+    filter: drop-shadow(0 30px 26px rgba(0, 0, 0, 0.58));
+}
+
+.profile-modal-summary,
+.profile-modal-panel {
+    padding: 22px;
+    border-radius: 20px;
+    background: rgba(3, 10, 23, 0.52);
+    border: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.profile-modal-summary > span,
+.profile-modal-panel-title p {
+    color: #60a5fa;
+    font-size: 0.76rem;
+    font-weight: 900;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.profile-modal-summary h2,
+.profile-modal-panel-title h3 {
+    margin: 8px 0 10px;
+    color: #ffffff;
+    font-size: clamp(1.5rem, 2.5vw, 2.2rem);
+    letter-spacing: -0.04em;
+}
+
+.profile-modal-summary p,
+.profile-modal-panel-title p {
+    margin: 0 0 18px;
+    color: #a6b0c2;
+    line-height: 1.55;
+    text-transform: none;
+    letter-spacing: 0;
+    font-weight: 600;
+}
+
+.profile-modal-spec-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.profile-modal-spec-grid article {
+    min-height: 92px;
+    padding: 14px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.045);
+    border: 1px solid rgba(148, 163, 184, 0.10);
+}
+
+.profile-modal-spec-grid i {
+    color: #60a5fa;
+    margin-bottom: 10px;
+}
+
+.profile-modal-spec-grid small,
+.profile-modal-spec-grid strong {
+    display: block;
+}
+
+.profile-modal-spec-grid small {
+    color: #94a3b8;
+    font-size: 0.72rem;
+}
+
+.profile-modal-spec-grid strong {
+    margin-top: 4px;
+    color: #ffffff;
+    font-size: 0.92rem;
+}
+
+.profile-modal-timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.profile-modal-timeline article {
+    display: grid;
+    grid-template-columns: 105px 14px minmax(0, 1fr);
+    gap: 14px;
+    align-items: start;
+}
+
+.profile-modal-timeline time {
+    color: #94a3b8;
+    font-size: 0.76rem;
+}
+
+.profile-modal-timeline article > span {
+    width: 10px;
+    height: 10px;
+    margin-top: 4px;
+    border-radius: 50%;
+    background: #3b82f6;
+    box-shadow: 0 0 0 5px rgba(59, 130, 246, 0.13);
+}
+
+.profile-modal-timeline strong,
+.profile-modal-service-grid h4,
+.profile-modal-doc-grid h4 {
+    color: #ffffff;
+}
+
+.profile-modal-timeline small,
+.profile-modal-timeline p,
+.profile-modal-service-grid p,
+.profile-modal-doc-grid p,
+.profile-modal-doc-note {
+    color: #94a3b8;
+    line-height: 1.45;
+}
+
+.profile-modal-service-grid,
+.profile-modal-doc-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.profile-modal-service-grid article,
+.profile-modal-doc-grid article {
+    padding: 16px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.045);
+    border: 1px solid rgba(148, 163, 184, 0.10);
+}
+
+.profile-modal-service-grid article > div {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+}
+
+.profile-modal-service-grid i {
+    color: #60a5fa;
+}
+
+.profile-modal-doc-grid a {
+    min-height: 42px;
+    margin-top: 10px;
+    padding: 0 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-radius: 11px;
+    color: #dbeafe;
+    background: rgba(37, 99, 235, 0.10);
+    border: 1px solid rgba(59, 130, 246, 0.18);
+    text-decoration: none;
+    font-weight: 800;
+}
+
+.profile-modal-empty {
+    min-height: 240px;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    gap: 10px;
+    color: #94a3b8;
+}
+
+.profile-modal-empty i {
+    font-size: 2.1rem;
+    color: #60a5fa;
+}
+
+.profile-modal-empty h4 {
+    margin: 0;
+    color: #ffffff;
+}
+
+.profile-modal-empty p {
+    max-width: 420px;
+    margin: 0;
+    color: #94a3b8;
+}
+
+@media (max-width: 1180px) {
+    .profile-home-grid,
+    .profile-modal-hero {
+        grid-template-columns: 1fr;
+    }
+
+    .profile-home-vehicles,
+    .profile-home-history,
+    .profile-home-services,
+    .profile-home-activity {
+        grid-column: auto;
+    }
+}
+
+@media (max-width: 840px) {
+    .profile-vehicle-grid,
+    .profile-modal-service-grid,
+    .profile-modal-doc-grid,
+    .profile-modal-spec-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .profile-vehicle-modal-header {
+        grid-template-columns: 1fr auto;
+    }
+
+    .profile-modal-tabs {
+        grid-column: 1 / -1;
+        justify-self: stretch;
+        order: 3;
+    }
+
+    .profile-car-mini {
+        grid-template-columns: 92px minmax(0, 1fr);
+    }
+
+    .profile-car-mini em {
+        grid-column: 1 / -1;
+        justify-self: start;
+    }
+}
+
+@media (max-width: 560px) {
+    .profile-vehicle-modal {
+        padding: 8px;
+    }
+
+    .profile-vehicle-modal-card {
+        max-height: calc(100vh - 16px);
+        border-radius: 16px;
+    }
+
+    .profile-vehicle-modal-body {
+        padding: 12px;
+    }
+
+    .profile-modal-image {
+        min-height: 260px;
+    }
+
+    .profile-modal-timeline article,
+    .profile-timeline-mini article {
+        grid-template-columns: 1fr;
+    }
+}
+
+
+/* =========================================================
+   PERFIL - DASHBOARD REFERENCIA + GRÁFICA
+   ========================================================= */
+
+/* ============================= */
+/* RESUMEN SUPERIOR - PERFIL */
+/* ============================= */
+
+.profile-hero-title {
+    margin-bottom: 18px;
+}
+
+.profile-summary-cards {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+    margin-bottom: 22px;
+}
+
+.profile-summary-card {
+    min-height: 132px;
+    padding: 18px 18px 16px;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: 7px;
+    border-radius: 15px;
+    background:
+        radial-gradient(circle at 90% 12%, rgba(var(--summary-rgb), 0.10), transparent 34%),
+        linear-gradient(180deg, rgba(26, 34, 52, 0.96), rgba(16, 23, 36, 0.96));
+    border: 1px solid rgba(148, 163, 184, 0.075);
+    box-shadow: 0 16px 32px rgba(0, 0, 0, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
+
+.profile-summary-card::after {
+    content: "";
+    position: absolute;
+    right: -34px;
+    bottom: -46px;
+    width: 118px;
+    height: 118px;
+    border-radius: 50%;
+    background: rgba(var(--summary-rgb), 0.10);
+    filter: blur(4px);
+    pointer-events: none;
+}
+
+.profile-summary-icon {
+    width: 42px;
+    height: 42px;
+    min-width: 42px;
+    display: grid;
+    place-items: center;
+    border-radius: 12px;
+    color: rgb(var(--summary-rgb));
+    background: rgba(var(--summary-rgb), 0.18);
+    border: 1px solid rgba(var(--summary-rgb), 0.18);
+    box-shadow: none;
+    margin-bottom: 7px;
+}
+
+.profile-summary-icon i {
+    font-size: 1.15rem;
+}
+
+.profile-summary-card p {
+    margin: 0;
+    color: #cbd5e1;
+    font-size: 0.80rem;
+    line-height: 1.15;
+    font-weight: 850;
+}
+
+.profile-summary-card h2 {
+    max-width: 100%;
+    margin: 0;
+    color: #ffffff;
+    font-size: clamp(1.35rem, 1.9vw, 1.7rem);
+    line-height: 1.02;
+    font-weight: 950;
+    letter-spacing: -0.04em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.profile-summary-card span {
+    display: block;
+    max-width: 100%;
+    color: #94a3b8;
+    font-size: 0.74rem;
+    line-height: 1.32;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+.summary-purple { --summary-rgb: 139, 92, 246; }
+.summary-blue { --summary-rgb: 59, 130, 246; }
+.summary-green { --summary-rgb: 34, 197, 94; }
+.summary-yellow { --summary-rgb: 245, 158, 11; }
+
+.profile-dashboard-reference {
+    display: grid;
+    grid-template-columns: minmax(0, 1.16fr) minmax(310px, 0.82fr);
+    gap: 20px;
+    align-items: stretch;
+}
+
+.profile-home-panel {
+    position: relative;
+    overflow: hidden;
+    border-radius: 16px;
+    background: linear-gradient(180deg, rgba(26, 34, 52, 0.94), rgba(17, 24, 39, 0.94));
+    border: 1px solid rgba(148, 163, 184, 0.08);
+    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.035);
+    padding: 18px;
+}
+
+.profile-home-panel::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 18% 8%, rgba(59, 130, 246, 0.08), transparent 36%);
+    pointer-events: none;
+}
+
+.profile-panel-head {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 14px;
+}
+
+.profile-panel-head h3 {
+    margin: 0;
+    color: #ffffff;
+    font-size: 1.05rem;
+    font-weight: 900;
+    letter-spacing: -0.02em;
+}
+
+.profile-panel-link,
+.profile-chart-filter {
+    min-height: 34px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #93c5fd;
+    text-decoration: none;
+    font-size: 0.78rem;
+    font-weight: 850;
+}
+
+.profile-chart-filter {
+    padding: 0 12px;
+    color: #cbd5e1;
+    border-radius: 10px;
+    background: rgba(15, 23, 42, 0.78);
+    border: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.profile-home-vehicles,
+.profile-home-history-chart {
+    grid-column: 1 / 2;
+}
+
+.profile-home-services,
+.profile-home-activity {
+    grid-column: 2 / 3;
+}
+
+.profile-garage-cards {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.profile-garage-card {
+    min-width: 0;
+    padding: 0;
+    overflow: hidden;
+    border-radius: 14px;
+    border: 1px solid rgba(148, 163, 184, 0.1);
+    background: rgba(4, 11, 22, 0.52);
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: transform 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease;
+}
+
+.profile-garage-card:hover {
+    transform: translateY(-3px);
+    border-color: rgba(96, 165, 250, 0.34);
+    box-shadow: 0 16px 32px rgba(0, 0, 0, 0.28), 0 0 18px rgba(59, 130, 246, 0.12);
+}
+
+.profile-garage-image {
+    height: 140px;
+    position: relative;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    background: radial-gradient(circle at 50% 42%, rgba(226, 232, 240, 0.88), rgba(96, 165, 250, 0.12) 44%, rgba(2, 8, 20, 0.68) 100%);
+}
+
+.profile-garage-image::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 58px;
+    background: linear-gradient(180deg, transparent, rgba(17, 24, 39, 0.88));
+}
+
+.profile-garage-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    padding: 10px;
+    filter: drop-shadow(0 18px 18px rgba(0, 0, 0, 0.42));
+}
+
+.profile-garage-info {
+    padding: 12px 14px 14px;
+}
+
+.profile-garage-info strong,
+.profile-garage-info span,
+.profile-garage-info em {
+    display: block;
+}
+
+.profile-garage-info strong {
+    color: #ffffff;
+    font-size: 0.9rem;
+    font-weight: 900;
+    margin-bottom: 6px;
+}
+
+.profile-garage-info span {
+    color: #aab6c9;
+    font-size: 0.76rem;
+    margin-bottom: 8px;
+}
+
+.profile-garage-info em {
+    width: fit-content;
+    padding: 3px 8px;
+    border-radius: 999px;
+    color: #86efac;
+    background: rgba(34, 197, 94, 0.16);
+    font-size: 0.7rem;
+    font-style: normal;
+    font-weight: 850;
+}
+
+.profile-garage-info em i {
+    font-size: 0.45rem;
+    margin-right: 4px;
+}
+
+.profile-service-list-mini {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.profile-service-mini {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+}
+
+.profile-service-mini:last-child {
+    border-bottom: 0;
+}
+
+.profile-service-icon {
+    width: 40px;
+    height: 40px;
+    display: grid;
+    place-items: center;
+    border-radius: 13px;
+    color: #dbeafe;
+    background: rgba(148, 163, 184, 0.10);
+}
+
+.profile-service-mini strong {
+    display: block;
+    margin-bottom: 3px;
+    color: #ffffff;
+    font-size: 0.84rem;
+    font-weight: 900;
+}
+
+.profile-service-mini small {
+    display: block;
+    color: #94a3b8;
+    font-size: 0.72rem;
+    line-height: 1.35;
+}
+
+.service-status-badge {
+    white-space: nowrap;
+    min-height: 26px;
+    padding: 0 9px;
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    font-size: 0.68rem;
+    font-style: normal;
+    font-weight: 900;
+}
+
+.service-status-badge.programado {
+    color: #86efac;
+    background: rgba(34, 197, 94, 0.16);
+}
+
+.service-status-badge.proximo {
+    color: #fde68a;
+    background: rgba(245, 158, 11, 0.16);
+}
+
+.service-status-badge.vencido {
+    color: #fecaca;
+    background: rgba(239, 68, 68, 0.16);
+}
+
+.profile-maintenance-chart-wrap {
+    position: relative;
+    z-index: 1;
+    height: 215px;
+    padding: 8px 4px 0;
+}
+
+.profile-maintenance-chart-wrap canvas {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+.profile-chart-empty {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    color: #64748b;
+    font-weight: 800;
+    pointer-events: none;
+}
+
+.profile-activity-list {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.profile-activity-list article {
+    display: grid;
+    grid-template-columns: 12px minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+    min-height: 38px;
+}
+
+.activity-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    box-shadow: 0 0 12px currentColor;
+}
+
+.activity-dot.maintenance { color: #22c55e; background: #22c55e; }
+.activity-dot.invoice { color: #60a5fa; background: #60a5fa; }
+
+.profile-activity-list strong {
+    display: block;
+    color: #e5edf9;
+    font-size: 0.8rem;
+    font-weight: 800;
+}
+
+.profile-activity-list small,
+.profile-activity-list time {
+    color: #8ea0b8;
+    font-size: 0.72rem;
+}
+
+@media (max-width: 1180px) {
+    .profile-summary-cards,
+    .profile-dashboard-reference,
+    .profile-garage-cards {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .profile-home-vehicles,
+    .profile-home-history-chart,
+    .profile-home-services,
+    .profile-home-activity {
+        grid-column: auto;
+    }
+}
+
+@media (max-width: 760px) {
+    .profile-summary-cards,
+    .profile-dashboard-reference,
+    .profile-garage-cards {
+        grid-template-columns: 1fr;
+    }
+
+    .profile-service-mini,
+    .profile-activity-list article {
+        grid-template-columns: 40px minmax(0, 1fr);
+    }
+
+    .profile-service-mini .service-status-badge,
+    .profile-activity-list time {
+        grid-column: 2;
+        justify-self: start;
+    }
+}
+
+/* =========================================================
+   FIX PERFIL - ÍCONOS RESUMEN SUPERIOR
+   Evita que la regla global .card i pinte todos los íconos azul.
+   ========================================================= */
+
+.profile-summary-card .profile-summary-icon {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    margin: 0 0 8px;
+    display: grid;
+    place-items: center;
+    border-radius: 13px;
+    color: rgb(var(--summary-rgb));
+    background:
+        radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.12), transparent 34%),
+        rgba(var(--summary-rgb), 0.16);
+    border: 1px solid rgba(var(--summary-rgb), 0.20);
+    box-shadow:
+        0 0 18px rgba(var(--summary-rgb), 0.24),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.profile-summary-card .profile-summary-icon i {
+    margin: 0;
+    color: currentColor;
+    font-size: 1.15rem;
+    line-height: 1;
+    display: block;
+    text-align: center;
+    filter: drop-shadow(0 0 8px rgba(var(--summary-rgb), 0.55));
+}
+
+.profile-summary-card.summary-purple .profile-summary-icon {
+    color: #a78bfa;
+}
+
+.profile-summary-card.summary-blue .profile-summary-icon {
+    color: #60a5fa;
+}
+
+.profile-summary-card.summary-green .profile-summary-icon {
+    color: #22c55e;
+}
+
+.profile-summary-card.summary-yellow .profile-summary-icon {
+    color: #f59e0b;
+}
+
+.profile-summary-card.summary-purple {
+    border-color: rgba(139, 92, 246, 0.20);
+}
+
+.profile-summary-card.summary-blue {
+    border-color: rgba(59, 130, 246, 0.20);
+}
+
+.profile-summary-card.summary-green {
+    border-color: rgba(34, 197, 94, 0.20);
+}
+
+.profile-summary-card.summary-yellow {
+    border-color: rgba(245, 158, 11, 0.20);
+}
+
+/* =========================================================
+   FIX PERFIL - ALINEACIÓN PRÓXIMOS SERVICIOS / FILTRO AÑO
+   Mantiene las reglas anteriores, pero corrige la cascada
+   específica del dashboard de inicio.
+   ========================================================= */
+
+.profile-home-services .profile-service-list-mini {
+    gap: 10px;
+}
+
+.profile-home-services .profile-service-mini {
+    min-height: 80px;
+    display: grid;
+    grid-template-columns: 46px minmax(0, 1fr) max-content;
+    gap: 12px;
+    align-items: center;
+    padding: 11px 12px;
+    border-radius: 16px;
+    background: rgba(3, 10, 23, 0.52);
+    border: 1px solid rgba(148, 163, 184, 0.09);
+}
+
+.profile-home-services .profile-service-icon {
+    width: 46px;
+    height: 46px;
+    align-self: center;
+    justify-self: center;
+    display: grid;
+    place-items: center;
+    border-radius: 15px;
+    color: #c7ddff;
+    background: rgba(59, 130, 246, 0.12);
+    border: 1px solid rgba(96, 165, 250, 0.14);
+    box-shadow: 0 0 16px rgba(59, 130, 246, 0.10);
+}
+
+.profile-home-services .profile-service-icon i {
+    margin: 0;
+    width: auto;
+    font-size: 1rem;
+    line-height: 1;
+    color: currentColor;
+}
+
+.profile-home-services .profile-service-mini > div {
+    min-width: 0;
+}
+
+.profile-home-services .profile-service-mini strong {
+    display: block;
+    margin: 0 0 4px;
+    color: #ffffff;
+    font-size: 0.95rem;
+    line-height: 1.15;
+    font-weight: 900;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.profile-home-services .profile-service-mini small {
+    display: block;
+    margin: 0;
+    color: #94a3b8;
+    font-size: 0.78rem;
+    line-height: 1.35;
+}
+
+.profile-home-services .profile-service-mini .service-status-badge {
+    min-width: 96px;
+    min-height: 32px;
+    margin: 0;
+    align-self: center;
+    justify-self: end;
+    padding: 0 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    border-radius: 999px;
+    font-size: 0.74rem;
+    line-height: 1;
+    font-weight: 900;
+    letter-spacing: 0;
+    text-transform: none;
+}
+
+.profile-home-services .profile-service-mini .service-status-badge.programado {
+    color: #86efac;
+    background: rgba(34, 197, 94, 0.14);
+    border: 1px solid rgba(34, 197, 94, 0.30);
+    box-shadow: 0 0 14px rgba(34, 197, 94, 0.10);
+}
+
+.profile-home-services .profile-service-mini .service-status-badge.proximo {
+    color: #fde68a;
+    background: rgba(245, 158, 11, 0.14);
+    border: 1px solid rgba(245, 158, 11, 0.30);
+    box-shadow: 0 0 14px rgba(245, 158, 11, 0.10);
+}
+
+.profile-home-services .profile-service-mini .service-status-badge.vencido {
+    color: #fecaca;
+    background: rgba(239, 68, 68, 0.14);
+    border: 1px solid rgba(239, 68, 68, 0.30);
+    box-shadow: 0 0 14px rgba(239, 68, 68, 0.10);
+}
+
+.profile-home-history-chart .profile-panel-head {
+    align-items: center;
+}
+
+.profile-home-history-chart .profile-chart-filter {
+    min-height: 34px;
+    margin: 0;
+    padding: 0 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #60a5fa;
+    border-radius: 11px;
+    background: rgba(15, 23, 42, 0.78);
+    border: 1px solid rgba(59, 130, 246, 0.22);
+    box-shadow: 0 0 14px rgba(59, 130, 246, 0.08);
+    font-size: 0.78rem;
+    line-height: 1;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+@media (max-width: 720px) {
+    .profile-home-services .profile-service-mini {
+        grid-template-columns: 42px minmax(0, 1fr);
+    }
+
+    .profile-home-services .profile-service-mini .service-status-badge {
+        grid-column: 2 / 3;
+        justify-self: start;
+        min-width: 0;
+        margin-top: 4px;
+    }
+}
+

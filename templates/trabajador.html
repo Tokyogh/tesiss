@@ -253,7 +253,7 @@
                                     <div class="worker-mini-icon"><i data-lucide="car"></i></div>
                                     <div>
                                         <strong>{{ vehiculo.marca }} {{ vehiculo.modelo }} {{ vehiculo.anio }}</strong>
-                                        <span>{{ vehiculo.codigo_catalogo|default('Sin referencia') }}</span>
+                                        <span>{{ vehiculo.codigo_catalogo|default('Sin referencia') }}{% if vehiculo.placa %} · {{ vehiculo.placa }}{% endif %}</span>
                                     </div>
                                     {% set mini_archivado = vehiculo.archivado|default(0)|int %}
                                     <small class="worker-status {{ 'inactive' if mini_archivado == 1 else 'sold' if vehiculo.estado == 'Vendido' else 'active' if vehiculo.activo == 1 else 'inactive' }}">
@@ -324,41 +324,55 @@
             </div>
 
             <section class="worker-panel worker-form-panel">
+                {% set editando_vehiculo = vehiculo_editar is defined and vehiculo_editar %}
+                {% set codigos_edicion_worker = vehiculo_editar_codigo_existente|default(false) %}
                 <div class="worker-panel-title">
                     <div>
-                        <span>NUEVA UNIDAD</span>
-                        <h2>Agregar vehículo al catálogo</h2>
+                        <span>{% if editando_vehiculo %}EDITAR UNIDAD{% else %}NUEVA UNIDAD{% endif %}</span>
+                        <h2>{% if editando_vehiculo %}Editar vehículo{% else %}Agregar vehículo al catálogo{% endif %}</h2>
                         <p>Los manuales y modelos 3D se comparten por marca + modelo + año.</p>
                     </div>
+                    {% if editando_vehiculo %}
+                        <a href="{{ url_for('trabajador_panel') }}#trabajador-vehiculos" class="worker-secondary-link">Cancelar edición</a>
+                    {% endif %}
                 </div>
 
                 <form action="{{ url_for('admin_guardar_vehiculo') }}" method="POST" enctype="multipart/form-data" class="worker-form">
                     <input type="hidden" name="origen" value="trabajador">
+                    {% if editando_vehiculo %}<input type="hidden" name="vehiculo_id" value="{{ vehiculo_editar.id }}">{% endif %}
+
                     <div class="worker-form-grid">
-                        <label class="worker-field"><span>Código catálogo</span><div class="vinova-code-tool"><input type="text" name="codigo_catalogo" placeholder="Automático: VIN-MARCA-MODELO-AÑO"><button type="button" class="vinova-code-generate-btn" data-generate-catalog-code>Generar</button></div><small>Opcional. Si queda vacío, VINOVA lo genera automáticamente.</small></label>
-                        <label class="worker-field"><span>Marca</span><input type="text" name="marca" placeholder="Toyota" required></label>
-                        <label class="worker-field"><span>Modelo</span><input type="text" name="modelo" placeholder="RAV4" required></label>
-                        <label class="worker-field"><span>Año</span><input type="number" name="anio" min="1980" max="2035" placeholder="2024" required></label>
-                        <label class="worker-field"><span>Tipo</span><input type="text" name="tipo_vehiculo" placeholder="SUV" required></label>
-                        <label class="worker-field"><span>Combustible</span><input type="text" name="combustible" placeholder="Gasolina" required></label>
-                        <label class="worker-field"><span>Transmisión</span><input type="text" name="transmision" placeholder="Automática" required></label>
-                        <label class="worker-field"><span>Kilometraje</span><input type="number" name="kilometraje" min="0" value="0"></label>
-                        <label class="worker-field"><span>Precio USD</span><input type="number" name="precio" min="0" step="0.01" value="0"></label>
-                        <label class="worker-field"><span>Estado</span><select name="estado"><option value="Disponible">Disponible</option><option value="Reservado">Reservado</option><option value="No disponible">No disponible</option></select></label>
-                        <label class="worker-field worker-field-wide vinova-file-field"><span>Imagen</span><input type="file" name="imagen" accept="image/png,image/jpeg,image/webp"><small>Se guardará en static/img/vehicles/.</small></label>
-                        <label class="worker-field worker-field-wide vinova-file-field"><span>Subir modelo 3D</span><input type="file" name="modelo_3d_file" accept=".glb,.gltf,model/gltf-binary,model/gltf+json"><small>Opcional. Se guardará en static/models/vehicles/ y se compartirá por marca + modelo + año.</small></label>
-                        <label class="worker-field"><span>ID modelo 3D</span><input type="text" name="modelo_3d_id" placeholder="rav4_2024"></label>
-                        <label class="worker-field"><span>Ruta modelo 3D</span><input type="text" name="modelo_3d" placeholder="models/vehicles/rav4_2024.glb"></label>
-                        <label class="worker-field"><span>Tipo modelo 3D</span><select name="modelo_3d_tipo"><option value="glb">GLB</option><option value="gltf">GLTF</option><option value="pendiente">Pendiente</option></select></label>
-                        <label class="worker-field worker-field-wide vinova-file-field"><span>Manual del modelo</span><input type="text" name="manual_titulo" placeholder="Manual del propietario"><input type="file" name="manual_file" accept=".pdf,image/jpeg,image/png,image/webp"><small>Opcional. Se aplica a todos los vehículos iguales.</small></label>
-                        <div class="worker-field worker-field-wide vinova-manual-source-field"><span>Manual existente o enlace externo</span><div class="vinova-manual-source-grid"><label class="vinova-subfield"><strong>Enlace externo</strong><input type="url" name="manual_enlace" placeholder="https://..." list="workerManualLinks"><small>Úsalo para manuales alojados fuera del proyecto.</small></label><label class="vinova-subfield"><strong>Archivo local existente</strong><select name="manual_archivo"><option value="">No usar archivo local</option>{% for manual in manuales_admin|default([]) %}{% if manual['archivo'] %}<option value="{{ manual['archivo'] }}">{{ manual['titulo'] }} · {{ manual['marca'] }} {{ manual['modelo'] }} {{ manual['anio'] }}</option>{% endif %}{% endfor %}</select><small>Selecciona un archivo que ya exista en static/docs/manuales.</small></label></div><datalist id="workerManualLinks">{% for manual in manuales_admin|default([]) %}{% if manual['enlace'] %}<option value="{{ manual['enlace'] }}">{{ manual['titulo'] }} · {{ manual['marca'] }} {{ manual['modelo'] }} {{ manual['anio'] }}</option>{% endif %}{% endfor %}</datalist></div>
-                        <label class="worker-field worker-field-wide"><span>Descripción</span><textarea name="descripcion" rows="3" placeholder="Descripción breve del vehículo..."></textarea></label>
-                        <label class="worker-switch"><input type="checkbox" name="activo" checked><span></span>Mostrar en catálogo</label>
+                        <label class="worker-field"><span>Código catálogo</span><div class="vinova-code-tool"><input type="text" name="codigo_catalogo" placeholder="Automático: VIN-MARCA-MODELO-AÑO" value="{{ vehiculo_editar.codigo_catalogo if editando_vehiculo else '' }}" {% if editando_vehiculo and (vehiculo_editar.estado == 'Vendido' or codigos_edicion_worker) %}readonly{% endif %}>{% if not (editando_vehiculo and (vehiculo_editar.estado == 'Vendido' or codigos_edicion_worker)) %}<button type="button" class="vinova-code-generate-btn" data-generate-catalog-code>Generar</button>{% endif %}</div><small>{% if editando_vehiculo and codigos_edicion_worker %}Referencia bloqueada porque ya tiene código de canje.{% else %}Opcional. Si queda vacío, VINOVA lo genera automáticamente.{% endif %}</small></label>
+                        <label class="worker-field"><span>Placa / matrícula</span><input type="text" name="placa" placeholder="ABC-1234 o N/D si aún no tiene" maxlength="16" value="{{ vehiculo_editar.placa if editando_vehiculo and vehiculo_editar.placa else '' }}"><small>Opcional. Puede editarse cuando el vehículo ya tenga placa.</small></label>
+                        <label class="worker-field"><span>Marca</span><input type="text" name="marca" placeholder="Toyota" value="{{ vehiculo_editar.marca if editando_vehiculo else '' }}" required></label>
+                        <label class="worker-field"><span>Modelo</span><input type="text" name="modelo" placeholder="RAV4" value="{{ vehiculo_editar.modelo if editando_vehiculo else '' }}" required></label>
+                        <label class="worker-field"><span>Año</span><input type="number" name="anio" min="1980" max="2035" placeholder="2024" value="{{ vehiculo_editar.anio if editando_vehiculo else '' }}" required></label>
+                        {% set tipo_actual_worker = vehiculo_editar.tipo_vehiculo if editando_vehiculo else '' %}
+                        <label class="worker-field"><span>Tipo</span><select name="tipo_vehiculo" required><option value="">Seleccionar</option><option value="SUV" {% if tipo_actual_worker == 'SUV' %}selected{% endif %}>SUV</option><option value="Sedán" {% if tipo_actual_worker == 'Sedán' %}selected{% endif %}>Sedán</option><option value="Camioneta" {% if tipo_actual_worker == 'Camioneta' %}selected{% endif %}>Camioneta</option><option value="Pickup" {% if tipo_actual_worker == 'Pickup' %}selected{% endif %}>Pickup</option><option value="Deportivo" {% if tipo_actual_worker == 'Deportivo' %}selected{% endif %}>Deportivo</option><option value="Hatchback" {% if tipo_actual_worker == 'Hatchback' %}selected{% endif %}>Hatchback</option></select></label>
+                        {% set combustible_actual_worker = vehiculo_editar.combustible if editando_vehiculo else '' %}
+                        <label class="worker-field"><span>Combustible</span><select name="combustible" required><option value="">Seleccionar</option><option value="Gasolina" {% if combustible_actual_worker == 'Gasolina' %}selected{% endif %}>Gasolina</option><option value="Diésel" {% if combustible_actual_worker == 'Diésel' %}selected{% endif %}>Diésel</option><option value="Híbrido" {% if combustible_actual_worker == 'Híbrido' %}selected{% endif %}>Híbrido</option><option value="Eléctrico" {% if combustible_actual_worker == 'Eléctrico' %}selected{% endif %}>Eléctrico</option></select></label>
+                        {% set transmision_actual_worker = vehiculo_editar.transmision if editando_vehiculo else '' %}
+                        <label class="worker-field"><span>Transmisión</span><select name="transmision" required><option value="">Seleccionar</option><option value="Automática" {% if transmision_actual_worker == 'Automática' %}selected{% endif %}>Automática</option><option value="Manual" {% if transmision_actual_worker == 'Manual' %}selected{% endif %}>Manual</option></select></label>
+                        <label class="worker-field"><span>Kilometraje</span><input type="number" name="kilometraje" min="0" value="{{ vehiculo_editar.kilometraje if editando_vehiculo else '0' }}"></label>
+                        <label class="worker-field"><span>Precio USD</span><input type="number" name="precio" min="0" step="0.01" value="{{ vehiculo_editar.precio if editando_vehiculo else '0' }}"></label>
+                        {% set estado_actual_worker = vehiculo_editar.estado if editando_vehiculo else 'Disponible' %}
+                        <label class="worker-field"><span>Estado</span><select name="estado"><option value="Disponible" {% if estado_actual_worker == 'Disponible' %}selected{% endif %}>Disponible</option><option value="Reservado" {% if estado_actual_worker == 'Reservado' %}selected{% endif %}>Reservado</option><option value="No disponible" {% if estado_actual_worker == 'No disponible' %}selected{% endif %}>No disponible</option><option value="Vendido" {% if estado_actual_worker == 'Vendido' %}selected{% endif %}>Vendido</option></select></label>
+
+                        <label class="worker-field worker-field-wide vinova-file-field"><span>Imagen</span>{% if editando_vehiculo and vehiculo_editar.imagen %}{% set imagen_actual_worker = vehiculo_editar.imagen|string %}<div class="vinova-current-resource vinova-current-resource-image"><div class="vinova-current-preview">{% if imagen_actual_worker.startswith('http') %}<img src="{{ imagen_actual_worker }}" alt="Imagen actual del vehículo">{% else %}<img src="{{ url_for('static', filename=imagen_actual_worker) }}" alt="Imagen actual del vehículo">{% endif %}</div><div><strong>Imagen actual conservada</strong><small>{{ imagen_actual_worker }}</small><em>Sube una nueva imagen solo si deseas reemplazarla.</em></div></div>{% endif %}<input type="file" name="imagen" accept="image/png,image/jpeg,image/webp"><small>{% if editando_vehiculo and vehiculo_editar.imagen %}Selecciona un archivo nuevo para reemplazar la imagen actual.{% else %}Se guardará en static/img/vehicles/.{% endif %}</small></label>
+                        <label class="worker-field worker-field-wide vinova-file-field"><span>Subir modelo 3D</span>{% if editando_vehiculo and vehiculo_editar.modelo_3d %}<div class="vinova-current-resource"><div class="vinova-current-icon"><i data-lucide="box"></i></div><div><strong>Modelo 3D actual</strong><small>{{ vehiculo_editar.modelo_3d }}</small><em>Si subes otro GLB/GLTF, reemplazará el recurso del modelo.</em></div></div>{% endif %}<input type="file" name="modelo_3d_file" accept=".glb,.gltf,model/gltf-binary,model/gltf+json"><small>Opcional. Se guardará en static/models/vehicles/ y se compartirá por marca + modelo + año.</small></label>
+                        <label class="worker-field"><span>ID modelo 3D</span><input type="text" name="modelo_3d_id" placeholder="rav4_2024" value="{{ vehiculo_editar.modelo_3d_id if editando_vehiculo else '' }}"></label>
+                        <label class="worker-field"><span>Ruta modelo 3D</span><input type="text" name="modelo_3d" placeholder="models/vehicles/rav4_2024.glb" value="{{ vehiculo_editar.modelo_3d if editando_vehiculo else '' }}"></label>
+                        {% set modelo_3d_tipo_actual_worker = vehiculo_editar.modelo_3d_tipo if editando_vehiculo else 'glb' %}
+                        <label class="worker-field"><span>Tipo modelo 3D</span><select name="modelo_3d_tipo"><option value="glb" {% if modelo_3d_tipo_actual_worker == 'glb' %}selected{% endif %}>GLB</option><option value="gltf" {% if modelo_3d_tipo_actual_worker == 'gltf' %}selected{% endif %}>GLTF</option><option value="pendiente" {% if modelo_3d_tipo_actual_worker == 'pendiente' %}selected{% endif %}>Pendiente</option></select></label>
+                        {% if manuales_modelo_editar|default([]) %}<div class="worker-field worker-field-wide vinova-current-resource-list"><span>Manuales actuales del modelo</span>{% for manual in manuales_modelo_editar %}<div class="vinova-current-resource"><div class="vinova-current-icon"><i data-lucide="file-text"></i></div><div><strong>{{ manual.titulo }}</strong><small>{{ manual.tipo_documento|default('Manual') }} · {{ manual.archivo or manual.enlace or 'Sin archivo/enlace' }}</small><em>Este manual se conserva si no subes ni seleccionas otro recurso.</em></div></div>{% endfor %}</div>{% endif %}
+                        <label class="worker-field worker-field-wide vinova-file-field"><span>Manual del modelo</span><input type="text" name="manual_titulo" placeholder="Manual del propietario" value="{{ manual_editar.titulo if manual_editar|default(None) else '' }}"><input type="file" name="manual_file" accept=".pdf,image/jpeg,image/png,image/webp"><small>Opcional. Se aplica a todos los vehículos iguales.</small></label>
+                        <div class="worker-field worker-field-wide vinova-manual-source-field"><span>Manual existente o enlace externo</span><div class="vinova-manual-source-grid"><label class="vinova-subfield"><strong>Enlace externo</strong><input type="url" name="manual_enlace" placeholder="https://..." list="workerManualLinks" value="{{ manual_editar.enlace if manual_editar|default(None) and manual_editar.enlace else '' }}"><small>Úsalo para manuales alojados fuera del proyecto.</small></label><label class="vinova-subfield"><strong>Archivo local existente</strong><select name="manual_archivo"><option value="">No usar archivo local</option>{% if manual_editar|default(None) and manual_editar.archivo %}<option value="{{ manual_editar.archivo }}" selected>Actual: {{ manual_editar.archivo }}</option>{% endif %}{% for manual in manuales_admin|default([]) %}{% if manual['archivo'] %}<option value="{{ manual['archivo'] }}">{{ manual['titulo'] }} · {{ manual['marca'] }} {{ manual['modelo'] }} {{ manual['anio'] }}</option>{% endif %}{% endfor %}</select><small>Selecciona un archivo que ya exista en static/docs/manuales.</small></label></div><datalist id="workerManualLinks">{% for manual in manuales_admin|default([]) %}{% if manual['enlace'] %}<option value="{{ manual['enlace'] }}">{{ manual['titulo'] }} · {{ manual['marca'] }} {{ manual['modelo'] }} {{ manual['anio'] }}</option>{% endif %}{% endfor %}</datalist></div>
+                        <label class="worker-field worker-field-wide"><span>Descripción</span><textarea name="descripcion" rows="3" placeholder="Descripción breve del vehículo...">{{ vehiculo_editar.descripcion if editando_vehiculo else '' }}</textarea></label>
+                        <label class="worker-switch"><input type="checkbox" name="activo" {% if not editando_vehiculo or vehiculo_editar.activo == 1 %}checked{% endif %}><span></span>Mostrar en catálogo</label>
                     </div>
-                    <button type="submit" class="worker-primary-btn"><i data-lucide="save"></i>Crear vehículo</button>
+                    <button type="submit" class="worker-primary-btn"><i data-lucide="save"></i>{% if editando_vehiculo %}Guardar cambios{% else %}Crear vehículo{% endif %}</button>
                 </form>
             </section>
-
             <section class="worker-panel">
                 <div class="worker-panel-title">
                     <div>
@@ -399,6 +413,7 @@
                                             <h3>{{ vehiculo.marca }} {{ vehiculo.modelo }} {{ vehiculo.anio }}</h3>
                                             <p>
                                                 {{ vehiculo.codigo_catalogo|default('Sin referencia') }}
+                                                · Placa: {{ vehiculo.placa if vehiculo.placa else 'N/D' }}
                                                 · {{ vehiculo.tipo_vehiculo|default('Vehículo') }}
                                                 · {{ vehiculo.combustible|default('N/D') }}
                                                 · {{ vehiculo.transmision|default('N/D') }}
@@ -431,6 +446,10 @@
                                     </div>
 
                                     <div class="worker-actions">
+                                        {% if vehiculo_archivado != 1 %}
+                                            <a href="{{ url_for('trabajador_panel', editar=vehiculo.id) }}#trabajador-vehiculos" class="worker-mini-btn worker-edit-btn">Editar</a>
+                                        {% endif %}
+
                                         {% if vehiculo_archivado == 1 %}
                                             {% if desarchivar_url %}
                                                 <form method="POST" action="{{ desarchivar_url }}" class="worker-inline-form" data-worker-confirm="¿Desarchivar esta unidad? Volverá al listado principal como oculta.">
@@ -679,6 +698,7 @@
                             <label class="worker-field articulo-file-field"><span>Imagen</span><input type="file" name="imagen" accept="image/png,image/jpeg,image/webp"><small data-articulo-file-name>Selecciona PNG, JPG o WEBP. Se guarda en static/img/articulos/.</small></label>
                             <label class="worker-field"><span>Precio venta</span><input type="number" name="precio" min="0" step="0.01" required></label>
                             <label class="worker-field"><span>Costo interno</span><input type="number" name="costo" min="0" step="0.01" placeholder="Opcional"></label>
+                            <label class="worker-field articulo-establecimiento-field"><span>Sucursal del stock</span><input type="text" value="{{ trabajador_establecimiento|default('Sucursal asignada') }}" disabled><small>Se usa automáticamente tu establecimiento asignado.</small></label>
                             <label class="worker-field"><span>Stock actual</span><input type="number" name="stock" min="0" step="0.01" value="0"></label>
                             <label class="worker-field"><span>Stock mínimo</span><input type="number" name="stock_minimo" min="0" step="0.01" value="0"></label>
                             <label class="worker-field"><span>Unidad</span><select name="unidad"><option>Unidad</option><option>Litro</option><option>Galón</option><option>Pieza</option><option>Par</option><option>Kit</option><option>Servicio</option></select></label>
@@ -994,6 +1014,21 @@
                                 <span>Costo USD</span>
                                 <input type="number" name="costo" min="0" step="0.01" placeholder="0.00">
                             </label>
+
+                            <div class="worker-field worker-field-wide articulos-invoice-builder" data-articulo-factura-builder data-articulo-search-url="{{ url_for('buscar_articulos_factura') }}">
+                                <span>Artículos usados o vendidos en este mantenimiento</span>
+                                <div class="article-invoice-search-row">
+                                    <input type="search" data-articulo-search-input placeholder="Buscar aceite, filtro, repuesto o accesorio..." autocomplete="off">
+                                    <button type="button" data-articulo-clear>Limpiar</button>
+                                </div>
+                                <small>Opcional. Si agregas artículos, se incluyen en la misma factura del mantenimiento y VINOVA descuenta stock automáticamente.</small>
+                                <div class="article-invoice-results" data-articulo-results hidden></div>
+                                <div class="article-invoice-selected" data-articulo-selected></div>
+                                <div class="article-invoice-total">
+                                    Subtotal artículos: <strong data-articulo-subtotal>$0.00</strong>
+                                    <small>El total final será: costo del mantenimiento + artículos seleccionados.</small>
+                                </div>
+                            </div>
 
                             <label class="worker-field worker-field-wide">
                                 <span>Establecimiento</span>

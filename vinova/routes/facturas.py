@@ -1,5 +1,94 @@
 from vinova.core import *
 
+
+def _establecimiento_operativo_facturacion(cursor):
+    solicitado = request.form.get("establecimiento_id", type=int)
+    if solicitado:
+        cursor.execute("""
+            SELECT id, nombre
+            FROM establecimientos
+            WHERE id = ? AND COALESCE(activo, 1) = 1
+        """, (solicitado,))
+        row = cursor.fetchone()
+        if row:
+            return {"id": row["id"], "nombre": row["nombre"]}
+
+    solicitado_nombre = request.form.get("establecimiento", "").strip() or request.args.get("establecimiento", "").strip()
+    if solicitado_nombre:
+        cursor.execute("""
+            SELECT id, nombre
+            FROM establecimientos
+            WHERE LOWER(TRIM(nombre)) = LOWER(TRIM(?)) AND COALESCE(activo, 1) = 1
+            LIMIT 1
+        """, (solicitado_nombre,))
+        row = cursor.fetchone()
+        if row:
+            return {"id": row["id"], "nombre": row["nombre"]}
+
+    try:
+        cursor.execute("""
+            SELECT establecimiento_id, establecimiento
+            FROM usuarios
+            WHERE id = ?
+        """, (session.get("usuario_id"),))
+        usuario = cursor.fetchone()
+    except sqlite3.OperationalError:
+        cursor.execute("SELECT establecimiento FROM usuarios WHERE id = ?", (session.get("usuario_id"),))
+        usuario = cursor.fetchone()
+
+    if usuario:
+        try:
+            establecimiento_id = usuario["establecimiento_id"]
+        except Exception:
+            establecimiento_id = None
+        if establecimiento_id:
+            cursor.execute("SELECT id, nombre FROM establecimientos WHERE id = ? AND COALESCE(activo,1)=1", (establecimiento_id,))
+            row = cursor.fetchone()
+            if row:
+                return {"id": row["id"], "nombre": row["nombre"]}
+        nombre = (usuario["establecimiento"] or "").strip() if "establecimiento" in usuario.keys() else ""
+        if nombre:
+            cursor.execute("""
+                SELECT id, nombre
+                FROM establecimientos
+                WHERE LOWER(TRIM(nombre)) = LOWER(TRIM(?)) AND COALESCE(activo,1)=1
+                LIMIT 1
+            """, (nombre,))
+            row = cursor.fetchone()
+            if row:
+                return {"id": row["id"], "nombre": row["nombre"]}
+            return {"id": None, "nombre": nombre}
+
+    cursor.execute("SELECT id, nombre FROM establecimientos WHERE COALESCE(activo,1)=1 ORDER BY COALESCE(distancia_km, 999999), nombre LIMIT 1")
+    row = cursor.fetchone()
+    if row:
+        return {"id": row["id"], "nombre": row["nombre"]}
+    return {"id": None, "nombre": "VINOVA"}
+
+
+def _recalcular_stock_articulo_facturacion(cursor, articulo_id):
+    try:
+        cursor.execute("""
+            SELECT COALESCE(SUM(stock), 0) AS stock_total,
+                   COALESCE(SUM(unidades_vendidas), 0) AS vendidas_total
+            FROM articulo_stock_establecimiento
+            WHERE articulo_id = ?
+        """, (articulo_id,))
+        row = cursor.fetchone()
+        stock_total = normalizar_precio(row["stock_total"] if row else 0) or 0
+        vendidas_total = normalizar_precio(row["vendidas_total"] if row else 0) or 0
+        cursor.execute("""
+            UPDATE articulos
+            SET stock = ?,
+                unidades_vendidas = ?,
+                estado = CASE WHEN ? <= 0 THEN 'Agotado' ELSE 'Disponible' END,
+                actualizado_por = ?,
+                actualizado_en = ?
+            WHERE id = ?
+        """, (stock_total, vendidas_total, stock_total, session.get("usuario_id"), fecha_actual(), articulo_id))
+    except sqlite3.OperationalError:
+        return
+
 @app.route("/facturas/guardar", methods=["POST"])
 def guardar_factura_vehiculo():
 
@@ -62,7 +151,8 @@ def guardar_factura_vehiculo():
                 vehiculos.codigo_catalogo,
                 vehiculos.marca,
                 vehiculos.modelo,
-                vehiculos.anio
+                vehiculos.anio,
+                vehiculos.placa
             FROM usuarios_vehiculos
             INNER JOIN usuarios
                 ON usuarios.id = usuarios_vehiculos.usuario_id
@@ -77,18 +167,18 @@ def guardar_factura_vehiculo():
             flash("No encontré ese vehículo registrado en un perfil de cliente.", "warning")
             return redirect(destino)
 
+        establecimiento_operativo = _establecimiento_operativo_facturacion(cursor)
+        establecimiento_id = establecimiento_operativo.get("id") if establecimiento_operativo else None
+        establecimiento_nombre = establecimiento_operativo.get("nombre") if establecimiento_operativo else "VINOVA"
+
         cedula_actual = solo_digitos(registro["usuario_cedula"])
         cedula_factura = cliente_cedula_form or cedula_actual
 
-        if not cedula_factura:
-            flash("Ingresa la cédula o RUC del cliente para emitir la factura.", "warning")
-            return redirect(destino)
-
-        if not validar_identificacion_ec(cedula_factura):
+        if cedula_factura and not validar_identificacion_ec(cedula_factura):
             flash("La cédula o RUC del cliente no es válida.", "warning")
             return redirect(destino)
 
-        if cedula_factura != cedula_actual:
+        if cedula_factura and cedula_factura != cedula_actual:
             cursor.execute("""
                 UPDATE usuarios
                 SET cedula = ?, actualizado_en = ?
@@ -100,22 +190,38 @@ def guardar_factura_vehiculo():
             ))
 
         registro_factura = dict(registro)
-        registro_factura["usuario_cedula"] = cedula_factura
-        registro_factura["cedula"] = cedula_factura
+        registro_factura["usuario_cedula"] = cedula_factura or "N/D"
+        registro_factura["cedula"] = cedula_factura or "N/D"
+        registro_factura["establecimiento"] = establecimiento_nombre
+        registro_factura["establecimiento_id"] = establecimiento_id
 
         items_pdf = []
         articulos_factura = []
 
         if articulos_solicitados:
             for item in articulos_solicitados:
-                cursor.execute("""
-                    SELECT id, codigo_articulo, nombre, categoria, precio, stock, unidad,
-                           COALESCE(activo, 1) AS activo,
-                           COALESCE(archivado, 0) AS archivado
-                    FROM articulos
-                    WHERE id = ?
-                    LIMIT 1
-                """, (item["id"],))
+                if establecimiento_id:
+                    cursor.execute("""
+                        SELECT articulos.id, articulos.codigo_articulo, articulos.nombre, articulos.categoria,
+                               articulos.precio, articulos.unidad, COALESCE(ase.stock, 0) AS stock,
+                               COALESCE(articulos.activo, 1) AS activo,
+                               COALESCE(articulos.archivado, 0) AS archivado
+                        FROM articulos
+                        INNER JOIN articulo_stock_establecimiento AS ase
+                            ON ase.articulo_id = articulos.id
+                           AND ase.establecimiento_id = ?
+                        WHERE articulos.id = ?
+                        LIMIT 1
+                    """, (establecimiento_id, item["id"]))
+                else:
+                    cursor.execute("""
+                        SELECT id, codigo_articulo, nombre, categoria, precio, stock, unidad,
+                               COALESCE(activo, 1) AS activo,
+                               COALESCE(archivado, 0) AS archivado
+                        FROM articulos
+                        WHERE id = ?
+                        LIMIT 1
+                    """, (item["id"],))
                 articulo = cursor.fetchone()
 
                 if not articulo or articulo["archivado"] == 1 or articulo["activo"] != 1:
@@ -125,7 +231,8 @@ def guardar_factura_vehiculo():
                 cantidad = item["cantidad"]
 
                 if cantidad > stock_actual:
-                    raise ValueError(f"Stock insuficiente para {articulo['nombre']}. Disponible: {stock_actual:g} {articulo['unidad'] or 'Unidad'}.")
+                    sede_stock = f" en {establecimiento_nombre}" if establecimiento_nombre else ""
+                    raise ValueError(f"Stock insuficiente para {articulo['nombre']}{sede_stock}. Disponible: {stock_actual:g} {articulo['unidad'] or 'Unidad'}.")
 
                 precio_unitario = normalizar_precio(articulo["precio"]) or 0
                 total_item = cantidad * precio_unitario
@@ -141,6 +248,8 @@ def guardar_factura_vehiculo():
                     "total": total_item,
                     "stock_anterior": stock_actual,
                     "stock_nuevo": stock_actual - cantidad,
+                    "establecimiento_id": establecimiento_id,
+                    "establecimiento": establecimiento_nombre,
                 })
 
                 items_pdf.append({
@@ -195,22 +304,38 @@ def guardar_factura_vehiculo():
                     ahora,
                 ))
 
-                cursor.execute("""
-                    UPDATE articulos
-                    SET stock = ?,
-                        unidades_vendidas = COALESCE(unidades_vendidas, 0) + ?,
-                        estado = CASE WHEN ? <= 0 THEN 'Agotado' ELSE estado END,
-                        actualizado_por = ?,
-                        actualizado_en = ?
-                    WHERE id = ?
-                """, (
-                    item["stock_nuevo"],
-                    item["cantidad"],
-                    item["stock_nuevo"],
-                    session.get("usuario_id"),
-                    ahora,
-                    item["id"],
-                ))
+                if item.get("establecimiento_id"):
+                    cursor.execute("""
+                        UPDATE articulo_stock_establecimiento
+                        SET stock = ?,
+                            unidades_vendidas = COALESCE(unidades_vendidas, 0) + ?,
+                            actualizado_en = ?
+                        WHERE articulo_id = ? AND establecimiento_id = ?
+                    """, (
+                        item["stock_nuevo"],
+                        item["cantidad"],
+                        ahora,
+                        item["id"],
+                        item["establecimiento_id"],
+                    ))
+                    _recalcular_stock_articulo_facturacion(cursor, item["id"])
+                else:
+                    cursor.execute("""
+                        UPDATE articulos
+                        SET stock = ?,
+                            unidades_vendidas = COALESCE(unidades_vendidas, 0) + ?,
+                            estado = CASE WHEN ? <= 0 THEN 'Agotado' ELSE estado END,
+                            actualizado_por = ?,
+                            actualizado_en = ?
+                        WHERE id = ?
+                    """, (
+                        item["stock_nuevo"],
+                        item["cantidad"],
+                        item["stock_nuevo"],
+                        session.get("usuario_id"),
+                        ahora,
+                        item["id"],
+                    ))
 
                 cursor.execute("""
                     INSERT INTO articulo_movimientos (
@@ -224,7 +349,7 @@ def guardar_factura_vehiculo():
                     item["stock_anterior"],
                     item["stock_nuevo"],
                     factura_id,
-                    f"Venta en factura {factura_id}",
+                    f"Venta en factura {factura_id} - {establecimiento_nombre}",
                     session.get("usuario_id"),
                     ahora,
                 ))

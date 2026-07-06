@@ -148,10 +148,10 @@
         <section class="articulos-public-grid">
             {% if articulos|default([]) %}
                 {% for articulo in articulos %}
-                    <article class="articulo-public-card">
+                    <article class="articulo-public-card" data-articulo-public-card data-articulo-json='{{ articulo|tojson }}'>
                         <div class="articulo-public-image">
                             {% if articulo.imagen %}
-                                <img src="{{ url_for('static', filename=articulo.imagen) }}" alt="{{ articulo.nombre }}">
+                                <img src="{{ url_for('static', filename=articulo.imagen) }}" alt="{{ articulo.nombre }}" loading="lazy">
                             {% else %}
                                 <i data-lucide="package"></i>
                             {% endif %}
@@ -160,9 +160,17 @@
                             <small>{{ articulo.categoria }}</small>
                             <h3>{{ articulo.nombre }}</h3>
                             <p>{{ articulo.descripcion|default('Artículo disponible en la red VINOVA.', true) }}</p>
+                            <div class="articulo-availability-line {{ articulo.disponibilidad_estado|default('parcial') }}">
+                                <i data-lucide="map-pin-check"></i>
+                                <span>{{ articulo.disponibilidad_label|default('Consultar disponibilidad') }}</span>
+                            </div>
                             <div class="articulo-public-footer">
                                 <strong>${{ "{:,.2f}".format(articulo.precio|default(0)|float) }}</strong>
-                                <span>{{ articulo.estado|default('Disponible') }}</span>
+                                {% if articulo.disponible_sucursales|default(0)|int > 0 %}
+                                    <button type="button" data-articulo-open>Ver disponibilidad</button>
+                                {% else %}
+                                    <span class="is-out">Agotado</span>
+                                {% endif %}
                             </div>
                         </div>
                     </article>
@@ -188,6 +196,34 @@
             </nav>
         {% endif %}
     </main>
+
+
+
+    <div class="articulo-public-modal" data-articulo-modal hidden>
+        <div class="articulo-public-modal-backdrop" data-articulo-modal-close></div>
+        <article class="articulo-public-modal-card">
+            <button type="button" class="articulo-public-modal-close" data-articulo-modal-close aria-label="Cerrar"><i data-lucide="x"></i></button>
+            <div class="articulo-public-modal-media" data-articulo-modal-media><i data-lucide="package"></i></div>
+            <div class="articulo-public-modal-body">
+                <span data-articulo-modal-category>Artículo VINOVA</span>
+                <h2 data-articulo-modal-title>Artículo</h2>
+                <p data-articulo-modal-description>Consulta disponibilidad en la red VINOVA.</p>
+                <strong data-articulo-modal-price>$0.00</strong>
+                <div class="articulo-modal-availability">
+                    <h3 data-articulo-modal-availability-title>Disponibilidad</h3>
+                    <p data-articulo-modal-availability-text>Selecciona una sucursal disponible para reservar por WhatsApp.</p>
+                    <label data-articulo-branch-wrap>
+                        <span>Sucursal disponible</span>
+                        <select data-articulo-branch-select></select>
+                    </label>
+                </div>
+                <div class="articulo-public-modal-actions">
+                    <a href="#" target="_blank" rel="noopener" class="primary" data-articulo-reserve-link>Reservar por WhatsApp</a>
+                    <a href="{{ url_for('instituciones') }}" class="secondary">Cómo llegar / ver locales</a>
+                </div>
+            </div>
+        </article>
+    </div>
 
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
     <script src="{{ url_for('static', filename='js/articulos.js') }}"></script>

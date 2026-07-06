@@ -5,6 +5,7 @@ document.addEventListener("DOMContentLoaded", () => {
     initVinovaArticleFileInputs();
     initVinovaArticleInvoiceBuilders();
     initVinovaArticleCatalogFilters();
+    initVinovaPublicArticleModal();
 });
 
 function vinovaArticleNormalize(text) {
@@ -504,7 +505,12 @@ function initVinovaArticleInvoiceBuilders() {
                 return;
             }
 
-            const url = `${searchUrl}?q=${encodeURIComponent(query)}`;
+            const params = new URLSearchParams({ q: query });
+            const establecimientoId = form.querySelector('[name="establecimiento_id"]')?.value || "";
+            const establecimientoNombre = form.querySelector('[name="establecimiento"]')?.value || "";
+            if (establecimientoId) params.set("establecimiento_id", establecimientoId);
+            if (establecimientoNombre) params.set("establecimiento", establecimientoNombre);
+            const url = `${searchUrl}?${params.toString()}`;
             const response = await fetch(url, { headers: { "Accept": "application/json" } });
             const data = await response.json();
 
@@ -561,5 +567,90 @@ function initVinovaArticleCatalogFilters() {
                 }
             });
         });
+    });
+}
+
+
+function initVinovaPublicArticleModal() {
+    const modal = document.querySelector("[data-articulo-modal]");
+    if (!modal) return;
+
+    const media = modal.querySelector("[data-articulo-modal-media]");
+    const category = modal.querySelector("[data-articulo-modal-category]");
+    const title = modal.querySelector("[data-articulo-modal-title]");
+    const description = modal.querySelector("[data-articulo-modal-description]");
+    const price = modal.querySelector("[data-articulo-modal-price]");
+    const availabilityTitle = modal.querySelector("[data-articulo-modal-availability-title]");
+    const availabilityText = modal.querySelector("[data-articulo-modal-availability-text]");
+    const branchWrap = modal.querySelector("[data-articulo-branch-wrap]");
+    const branchSelect = modal.querySelector("[data-articulo-branch-select]");
+    const reserveLink = modal.querySelector("[data-articulo-reserve-link]");
+
+    function money(value) {
+        const number = Number(value || 0);
+        return number.toLocaleString("es-EC", { style: "currency", currency: "USD" });
+    }
+
+    function closeModal() {
+        modal.hidden = true;
+        document.body.classList.remove("articulo-modal-open");
+    }
+
+    function updateReserveLink() {
+        const option = branchSelect?.selectedOptions?.[0];
+        const url = option?.dataset?.whatsapp || "";
+        if (reserveLink) {
+            reserveLink.href = url || "#";
+            reserveLink.classList.toggle("is-disabled", !url);
+            reserveLink.textContent = url ? "Reservar por WhatsApp" : "WhatsApp no registrado";
+        }
+    }
+
+    function openModal(articulo) {
+        const sucursales = Array.isArray(articulo.sucursales_disponibles) ? articulo.sucursales_disponibles : [];
+        if (media) {
+            media.innerHTML = articulo.imagen_url
+                ? `<img src="${articulo.imagen_url}" alt="${articulo.nombre || 'Artículo'}">`
+                : `<i data-lucide="package"></i>`;
+        }
+        if (category) category.textContent = articulo.categoria || "Artículo VINOVA";
+        if (title) title.textContent = articulo.nombre || "Artículo";
+        if (description) description.textContent = articulo.descripcion || "Artículo disponible en la red VINOVA.";
+        if (price) price.textContent = money(articulo.precio);
+        if (availabilityTitle) availabilityTitle.textContent = articulo.disponibilidad_label || "Consultar disponibilidad";
+        if (availabilityText) availabilityText.textContent = articulo.disponibilidad_detalle || "Elige una sucursal disponible para reservar por WhatsApp.";
+
+        if (branchSelect) {
+            branchSelect.innerHTML = sucursales.map((sucursal) => {
+                const label = `${sucursal.nombre || 'VINOVA'}${sucursal.ciudad ? ' · ' + sucursal.ciudad : ''}`;
+                return `<option value="${sucursal.id || ''}" data-whatsapp="${sucursal.whatsapp_url || ''}">${label}</option>`;
+            }).join("");
+        }
+        if (branchWrap) branchWrap.hidden = sucursales.length <= 1;
+        updateReserveLink();
+
+        modal.hidden = false;
+        document.body.classList.add("articulo-modal-open");
+        if (window.lucide) window.lucide.createIcons();
+    }
+
+    document.querySelectorAll("[data-articulo-public-card]").forEach((card) => {
+        const openButton = card.querySelector("[data-articulo-open]");
+        if (!openButton) return;
+        openButton.addEventListener("click", () => {
+            let articulo = {};
+            try {
+                articulo = JSON.parse(card.dataset.articuloJson || "{}");
+            } catch (_) {
+                articulo = {};
+            }
+            openModal(articulo);
+        });
+    });
+
+    branchSelect?.addEventListener("change", updateReserveLink);
+    modal.querySelectorAll("[data-articulo-modal-close]").forEach((button) => button.addEventListener("click", closeModal));
+    document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && !modal.hidden) closeModal();
     });
 }

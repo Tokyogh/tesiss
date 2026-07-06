@@ -163,4 +163,147 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         });
     });
+
+    // ================= MODAL DETALLE VEHÍCULO =================
+
+    const vehicleModals = document.querySelectorAll(".profile-vehicle-modal");
+
+    function openVehicleModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (!modal) return;
+
+        vehicleModals.forEach((item) => {
+            item.classList.remove("is-open");
+            item.setAttribute("aria-hidden", "true");
+        });
+
+        modal.classList.add("is-open");
+        modal.setAttribute("aria-hidden", "false");
+        document.body.classList.add("vehicle-modal-open");
+
+        const firstTab = modal.querySelector("[data-vehicle-tab]");
+        if (firstTab) {
+            firstTab.click();
+        }
+    }
+
+    function closeVehicleModal() {
+        vehicleModals.forEach((modal) => {
+            modal.classList.remove("is-open");
+            modal.setAttribute("aria-hidden", "true");
+        });
+
+        document.body.classList.remove("vehicle-modal-open");
+    }
+
+    document.addEventListener("click", (event) => {
+        const openButton = event.target.closest("[data-open-vehicle-modal]");
+
+        if (openButton) {
+            event.preventDefault();
+            openVehicleModal(openButton.dataset.openVehicleModal);
+            return;
+        }
+
+        if (event.target.closest("[data-close-vehicle-modal]")) {
+            event.preventDefault();
+            closeVehicleModal();
+        }
+    });
+
+    document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+            closeVehicleModal();
+        }
+    });
+
+    document.querySelectorAll(".profile-vehicle-modal").forEach((modal) => {
+        const tabs = modal.querySelectorAll("[data-vehicle-tab]");
+        const panels = modal.querySelectorAll("[data-vehicle-panel]");
+
+        tabs.forEach((tab) => {
+            tab.addEventListener("click", () => {
+                const targetPanel = tab.dataset.vehicleTab;
+
+                tabs.forEach((item) => item.classList.remove("active"));
+                tab.classList.add("active");
+
+                panels.forEach((panel) => {
+                    const isActive = panel.dataset.vehiclePanel === targetPanel;
+                    panel.hidden = !isActive;
+                });
+            });
+        });
+    });
+
+
+
+    // ================= GRÁFICA HISTORIAL DE MANTENIMIENTOS =================
+
+    const maintenanceChartCanvas = document.getElementById("profileMaintenanceChart");
+
+    if (maintenanceChartCanvas && window.Chart) {
+        const chartData = window.VINOVA_PROFILE_CHART || { labels: [], values: [] };
+        const labels = Array.isArray(chartData.labels) ? chartData.labels : [];
+        const values = Array.isArray(chartData.values) ? chartData.values : [];
+        const ctx = maintenanceChartCanvas.getContext("2d");
+        const gradient = ctx.createLinearGradient(0, 0, 0, maintenanceChartCanvas.offsetHeight || 220);
+        gradient.addColorStop(0, "rgba(59, 130, 246, 0.42)");
+        gradient.addColorStop(1, "rgba(59, 130, 246, 0.02)");
+
+        new Chart(ctx, {
+            type: "line",
+            data: {
+                labels,
+                datasets: [{
+                    data: values,
+                    tension: 0.42,
+                    fill: true,
+                    borderWidth: 3,
+                    borderColor: "#2563eb",
+                    backgroundColor: gradient,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    pointBorderWidth: 2,
+                    pointBackgroundColor: "#60a5fa",
+                    pointBorderColor: "#0f172a"
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: "rgba(2, 8, 20, 0.92)",
+                        borderColor: "rgba(96, 165, 250, 0.22)",
+                        borderWidth: 1,
+                        titleColor: "#ffffff",
+                        bodyColor: "#cbd5e1",
+                        displayColors: false,
+                        callbacks: {
+                            label: (context) => `${context.parsed.y} mantenimiento(s)`
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { color: "rgba(148, 163, 184, 0.08)" },
+                        ticks: { color: "#8ea0b8", font: { size: 11, weight: "700" } }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        precision: 0,
+                        grid: { color: "rgba(148, 163, 184, 0.08)" },
+                        ticks: {
+                            color: "#8ea0b8",
+                            stepSize: 1,
+                            font: { size: 11, weight: "700" }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
 });
