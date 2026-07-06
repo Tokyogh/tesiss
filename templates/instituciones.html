@@ -373,13 +373,6 @@
                                     </a>
                                 {% endif %}
 
-                                {% if establecimiento.website %}
-                                    <a href="{{ establecimiento.website }}" target="_blank" rel="noopener" class="institution-secondary-btn">
-                                        <i data-lucide="external-link"></i>
-                                        Ver detalles
-                                    </a>
-                                {% endif %}
-
                                 <a href="https://www.google.com/maps/search/?api=1&query={{ establecimiento.direccion|urlencode }}" target="_blank" rel="noopener" class="institution-secondary-btn">
                                     <i data-lucide="route"></i>
                                     Cómo llegar

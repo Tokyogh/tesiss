@@ -619,6 +619,17 @@ document.addEventListener("DOMContentLoaded", () => {
             lngInput.value = Number(lngLat.lng).toFixed(6);
         }
 
+        function ensureInputsHaveMarkerPosition() {
+            if (!marker) return;
+
+            const latIsEmpty = !String(latInput.value || "").trim();
+            const lngIsEmpty = !String(lngInput.value || "").trim();
+
+            if (latIsEmpty || lngIsEmpty) {
+                setInputs(marker.getLngLat());
+            }
+        }
+
         function resizeMapRepeated() {
             if (!map) return;
 
@@ -758,6 +769,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 .setLngLat(initialPosition)
                 .addTo(map);
 
+            ensureInputsHaveMarkerPosition();
+
             popup = new maplibregl.Popup({
                 offset: 30,
                 closeButton: false,
@@ -817,6 +830,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
         latInput.addEventListener("change", moveMarkerToInputs);
         lngInput.addEventListener("change", moveMarkerToInputs);
+
+        const form = mapElement.closest("form");
+
+        if (form) {
+            form.addEventListener("submit", () => {
+                ensureInputsHaveMarkerPosition();
+            });
+        }
 
         window.vinovaAdminInvalidateMaps = () => {
             createAdminMap();

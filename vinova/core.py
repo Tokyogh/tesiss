@@ -75,10 +75,18 @@ app.config["INVOICE_FOLDER"] = os.path.join(
     "facturas"
 )
 
+app.config["ESTABLISHMENT_IMAGE_FOLDER"] = os.path.join(
+    BASE_DIR,
+    "static",
+    "img",
+    "establecimientos"
+)
+
 os.makedirs(app.config["VEHICLE_IMAGE_FOLDER"], exist_ok=True)
 os.makedirs(app.config["VEHICLE_3D_FOLDER"], exist_ok=True)
 os.makedirs(app.config["MANUALS_FOLDER"], exist_ok=True)
 os.makedirs(app.config["INVOICE_FOLDER"], exist_ok=True)
+os.makedirs(app.config["ESTABLISHMENT_IMAGE_FOLDER"], exist_ok=True)
 
 EXTENSIONES_IMAGEN_VEHICULO = {"jpg", "jpeg", "png", "webp"}
 EXTENSIONES_DOCUMENTO = {"pdf", "jpg", "jpeg", "png", "webp"}
@@ -467,6 +475,32 @@ def guardar_documento_local(archivo, carpeta_config, prefijo):
     nombre_final = f"{prefijo_seguro}-{int(time.time())}-{secrets.token_hex(4)}.{extension}"
 
     carpeta_destino = app.config[carpeta_config]
+    os.makedirs(carpeta_destino, exist_ok=True)
+
+    ruta_destino = os.path.join(carpeta_destino, nombre_final)
+    archivo.save(ruta_destino)
+
+    return os.path.relpath(ruta_destino, app.static_folder).replace("\\", "/")
+
+
+def guardar_imagen_establecimiento(archivo, nombre, tipo="establecimiento"):
+    """Guarda la imagen de un establecimiento y devuelve la ruta relativa a static."""
+
+    if not archivo or not getattr(archivo, "filename", ""):
+        return ""
+
+    nombre_original = secure_filename(archivo.filename)
+
+    if not nombre_original or not extension_permitida(nombre_original, EXTENSIONES_IMAGEN_VEHICULO):
+        raise ValueError("Formato de imagen no permitido. Usa JPG, PNG o WEBP.")
+
+    validar_archivo_imagen_real(archivo)
+
+    extension = nombre_original.rsplit(".", 1)[1].lower()
+    prefijo = crear_slug(f"{tipo}-{nombre}" or "establecimiento")
+    nombre_final = f"{prefijo}-{int(time.time())}-{secrets.token_hex(4)}.{extension}"
+
+    carpeta_destino = app.config["ESTABLISHMENT_IMAGE_FOLDER"]
     os.makedirs(carpeta_destino, exist_ok=True)
 
     ruta_destino = os.path.join(carpeta_destino, nombre_final)
@@ -1201,6 +1235,28 @@ def normalizar_precio(valor):
         return None
 
     return precio if precio >= 0 else None
+
+
+def normalizar_coordenada(valor, minimo, maximo):
+    """Convierte una coordenada a float permitiendo valores negativos."""
+
+    if valor is None:
+        return None
+
+    texto = str(valor).strip().replace(",", ".")
+
+    if not texto:
+        return None
+
+    try:
+        coordenada = float(texto)
+    except (TypeError, ValueError):
+        return None
+
+    if coordenada < minimo or coordenada > maximo:
+        return None
+
+    return coordenada
 
 
 
@@ -2221,4 +2277,3 @@ def contexto_panel_trabajador():
     return {
         "trabajador_panel_url": panel_url
     }
-

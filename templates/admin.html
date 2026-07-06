@@ -2080,7 +2080,7 @@
                         {% endif %}
                     </div>
 
-                    <form action="{{ url_for('admin_guardar_establecimiento') }}" method="POST" class="admin-form">
+                    <form action="{{ url_for('admin_guardar_establecimiento') }}" method="POST" enctype="multipart/form-data" class="admin-form">
                         <input type="hidden" name="establecimiento_id" value="{{ establecimiento_form.id if establecimiento_form else '' }}">
 
                         <div class="admin-form-grid">
@@ -2138,10 +2138,34 @@
                                 <input type="url" name="website" value="{{ establecimiento_form.website if establecimiento_form else '' }}" placeholder="https://...">
                             </label>
 
-                            <label class="admin-field admin-field-wide">
-                                <span>Imagen o ruta visual</span>
-                                <input type="text" name="imagen" value="{{ establecimiento_form.imagen if establecimiento_form else '' }}" placeholder="img/establecimientos/concesionario.webp">
-                                <small>Más adelante podrás colocar aquí las imágenes finales de las tarjetas.</small>
+                            <label class="admin-field admin-field-wide vinova-file-field">
+                                <span>Imagen del establecimiento</span>
+
+                                {% if establecimiento_form and establecimiento_form.imagen %}
+                                    {% set imagen_establecimiento_actual = establecimiento_form.imagen|string %}
+                                    <div class="vinova-current-resource vinova-current-resource-image">
+                                        <div class="vinova-current-preview">
+                                            {% if imagen_establecimiento_actual.startswith('http') %}
+                                                <img src="{{ imagen_establecimiento_actual }}" alt="Imagen actual de {{ establecimiento_form.nombre }}">
+                                            {% else %}
+                                                <img src="{{ url_for('static', filename=imagen_establecimiento_actual) }}" alt="Imagen actual de {{ establecimiento_form.nombre }}">
+                                            {% endif %}
+                                        </div>
+                                        <div>
+                                            <strong>Imagen actual conservada</strong>
+                                            <small>{{ imagen_establecimiento_actual }}</small>
+                                            <em>Sube una imagen nueva solo si deseas reemplazarla.</em>
+                                        </div>
+                                    </div>
+                                    <label class="admin-inline-check">
+                                        <input type="checkbox" name="quitar_imagen">
+                                        Quitar imagen actual
+                                    </label>
+                                {% endif %}
+
+                                <input type="file" name="imagen_file" accept="image/png,image/jpeg,image/webp">
+                                <input type="hidden" name="imagen" value="{{ establecimiento_form.imagen if establecimiento_form else '' }}">
+                                <small>Selecciona PNG, JPG o WEBP. Si editas y no subes una nueva, se mantiene la imagen actual.</small>
                             </label>
 
                             <label class="admin-field admin-field-wide">
@@ -2157,12 +2181,12 @@
 
                             <label class="admin-field">
                                 <span>Latitud</span>
-                                <input type="number" name="lat" step="0.000001" value="{{ establecimiento_form.lat if establecimiento_form and establecimiento_form.lat is not none else '' }}" placeholder="-2.170998" data-map-lat-input>
+                                <input type="text" name="lat" inputmode="decimal" value="{{ establecimiento_form.lat if establecimiento_form and establecimiento_form.lat is not none else '' }}" placeholder="-2.170998" data-map-lat-input>
                             </label>
 
                             <label class="admin-field">
                                 <span>Longitud</span>
-                                <input type="number" name="lng" step="0.000001" value="{{ establecimiento_form.lng if establecimiento_form and establecimiento_form.lng is not none else '' }}" placeholder="-79.922359" data-map-lng-input>
+                                <input type="text" name="lng" inputmode="decimal" value="{{ establecimiento_form.lng if establecimiento_form and establecimiento_form.lng is not none else '' }}" placeholder="-79.922359" data-map-lng-input>
                             </label>
 
                             <input type="hidden" name="pin_x" value="{{ establecimiento_form.pin_x if establecimiento_form else 50 }}">

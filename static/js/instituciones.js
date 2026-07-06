@@ -24,8 +24,30 @@ document.addEventListener('DOMContentLoaded', () => {
     const markerById = new Map();
 
     function toNumber(value) {
-        const parsed = Number(value);
+        if (value === null || value === undefined) {
+            return null;
+        }
+
+        const rawValue = String(value).trim().replace(',', '.');
+
+        if (!rawValue) {
+            return null;
+        }
+
+        const parsed = Number(rawValue);
         return Number.isFinite(parsed) ? parsed : null;
+    }
+
+    function hasUsableCoords(lat, lng) {
+        if (lat === null || lng === null) {
+            return false;
+        }
+
+        if (lat === 0 && lng === 0) {
+            return false;
+        }
+
+        return lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
     }
 
     function escapeHtml(value) {
@@ -333,7 +355,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const lat = toNumber(item.lat);
             const lng = toNumber(item.lng);
 
-            if (lat === null || lng === null) return;
+            if (!hasUsableCoords(lat, lng)) return;
 
             const element = createMarkerElement(item.tipo, false);
 

@@ -1569,11 +1569,13 @@ def admin_guardar_establecimiento():
     correo = request.form.get("correo", "").strip().lower()
     horario = request.form.get("horario", "").strip()
     website = request.form.get("website", "").strip()
-    imagen = request.form.get("imagen", "").strip()
+    imagen_manual = normalizar_ruta_static_documento(request.form.get("imagen", ""))
+    archivo_imagen = request.files.get("imagen_file")
+    quitar_imagen = request.form.get("quitar_imagen") == "on"
     servicios = request.form.get("servicios", "").strip()
     distancia_km = normalizar_precio(request.form.get("distancia_km"))
-    lat = normalizar_precio(request.form.get("lat"))
-    lng = normalizar_precio(request.form.get("lng"))
+    lat = normalizar_coordenada(request.form.get("lat"), -90, 90)
+    lng = normalizar_coordenada(request.form.get("lng"), -180, 180)
     pin_x = normalizar_precio(request.form.get("pin_x"))
     pin_y = normalizar_precio(request.form.get("pin_y"))
     activo = 1 if request.form.get("activo") == "on" else 0
@@ -1606,13 +1608,42 @@ def admin_guardar_establecimiento():
 
     try:
         ahora = fecha_actual()
+        establecimiento_actual = None
 
         if establecimiento_id:
-            cursor.execute("SELECT id FROM establecimientos WHERE id = ?", (establecimiento_id,))
-            if not cursor.fetchone():
+            cursor.execute("SELECT * FROM establecimientos WHERE id = ?", (establecimiento_id,))
+            establecimiento_actual = cursor.fetchone()
+            if not establecimiento_actual:
                 flash("El establecimiento que intentas editar no existe.", "warning")
                 return redirigir_admin("establecimientos")
 
+        if establecimiento_actual:
+            lat_actual = normalizar_coordenada(establecimiento_actual["lat"], -90, 90) if "lat" in establecimiento_actual.keys() else None
+            lng_actual = normalizar_coordenada(establecimiento_actual["lng"], -180, 180) if "lng" in establecimiento_actual.keys() else None
+
+            if lat is None:
+                lat = lat_actual
+            if lng is None:
+                lng = lng_actual
+
+        if lat is None or lng is None or (lat == 0 and lng == 0):
+            lat = -2.170998
+            lng = -79.922359
+
+        try:
+            imagen_guardada = guardar_imagen_establecimiento(archivo_imagen, nombre, tipo)
+        except ValueError as error:
+            flash(str(error), "warning")
+            return redirigir_admin("establecimientos")
+
+        imagen_actual = (
+            establecimiento_actual["imagen"]
+            if establecimiento_actual and "imagen" in establecimiento_actual.keys()
+            else ""
+        )
+        imagen = "" if quitar_imagen else (imagen_guardada or imagen_manual or imagen_actual)
+
+        if establecimiento_id:
             cursor.execute("""
                 UPDATE establecimientos
                 SET nombre = ?, tipo = ?, descripcion = ?, direccion = ?, ciudad = ?, provincia = ?,
