@@ -1,4 +1,10 @@
 from vinova.core import *
+from vinova.services.storage import eliminar_factura_privada_si_no_referenciada, normalizar_ruta_factura_privada
+from vinova.services.notificaciones import (
+    buscar_destinatarios_notificacion,
+    crear_notificacion_usuario,
+    listar_notificaciones_enviadas,
+)
 
 @app.route("/admin")
 def admin_inicio():
@@ -1101,6 +1107,7 @@ def admin_eliminar_vehiculo_permanente(vehiculo_id):
     conexion = conectar_db()
     cursor = conexion.cursor()
     recursos_a_revisar = set()
+    facturas_privadas_a_revisar = set()
 
     def tabla_columna(tabla, columna):
         return tabla_existe_db(cursor, tabla) and columna_existe_db(cursor, tabla, columna)
@@ -1116,6 +1123,17 @@ def admin_eliminar_vehiculo_permanente(vehiculo_id):
                 ruta = normalizar_ruta_static_documento(fila[columna])
                 if ruta:
                     recursos_a_revisar.add(ruta)
+
+    def recolectar_factura_columna(tabla, columna, where, params=()):
+        if tabla_columna(tabla, columna):
+            cursor.execute(f"SELECT {columna} FROM {tabla} WHERE {where}", params)
+            for fila in cursor.fetchall():
+                ruta_privada = normalizar_ruta_factura_privada(fila[columna])
+                if ruta_privada:
+                    facturas_privadas_a_revisar.add(ruta_privada)
+                ruta_static = normalizar_ruta_static_documento(fila[columna])
+                if ruta_static:
+                    recursos_a_revisar.add(ruta_static)
 
     try:
         conexion.execute("BEGIN IMMEDIATE")
@@ -1143,7 +1161,8 @@ def admin_eliminar_vehiculo_permanente(vehiculo_id):
                 recursos_a_revisar.add(ruta)
 
         recolectar_columna("manuales_vehiculo", "archivo", "vehiculo_id = ?", (vehiculo_id,))
-        recolectar_columna("facturas_vehiculo", "archivo", "vehiculo_id = ?", (vehiculo_id,))
+        recolectar_factura_columna("facturas_vehiculo", "archivo", "vehiculo_id = ?", (vehiculo_id,))
+        recolectar_factura_columna("facturas_vehiculo", "archivo_pdf", "vehiculo_id = ?", (vehiculo_id,))
 
         usuario_vehiculo_ids = []
         if tabla_columna("usuarios_vehiculos", "id") and columna_existe_db(cursor, "usuarios_vehiculos", "vehiculo_id"):
@@ -1189,6 +1208,10 @@ def admin_eliminar_vehiculo_permanente(vehiculo_id):
         for recurso in sorted(recursos_a_revisar):
             if eliminar_archivo_static_si_no_referenciado(cursor, recurso):
                 archivos_borrados.append(recurso)
+
+        for recurso in sorted(facturas_privadas_a_revisar):
+            if eliminar_factura_privada_si_no_referenciada(cursor, recurso):
+                archivos_borrados.append(f"private/{recurso}")
 
         registrar_auditoria(
             conexion,

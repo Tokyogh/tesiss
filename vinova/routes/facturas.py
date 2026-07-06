@@ -1,111 +1,8 @@
 from vinova.core import *
+from vinova.services.facturas import enviar_factura_pdf_segura, registrar_factura_generada
+from vinova.services.inventario import obtener_concesionario_facturacion, recalcular_stock_articulo_concesionarias
 
 
-def _establecimiento_operativo_facturacion(cursor):
-    solicitado = request.form.get("establecimiento_id", type=int)
-    if solicitado:
-        cursor.execute("""
-            SELECT id, nombre
-            FROM establecimientos
-            WHERE id = ?
-              AND COALESCE(activo, 1) = 1
-              AND LOWER(TRIM(COALESCE(tipo, ''))) = 'concesionario'
-        """, (solicitado,))
-        row = cursor.fetchone()
-        if row:
-            return {"id": row["id"], "nombre": row["nombre"]}
-
-    solicitado_nombre = request.form.get("establecimiento", "").strip() or request.args.get("establecimiento", "").strip()
-    if solicitado_nombre:
-        cursor.execute("""
-            SELECT id, nombre
-            FROM establecimientos
-            WHERE LOWER(TRIM(nombre)) = LOWER(TRIM(?))
-              AND COALESCE(activo, 1) = 1
-              AND LOWER(TRIM(COALESCE(tipo, ''))) = 'concesionario'
-            LIMIT 1
-        """, (solicitado_nombre,))
-        row = cursor.fetchone()
-        if row:
-            return {"id": row["id"], "nombre": row["nombre"]}
-
-    try:
-        cursor.execute("""
-            SELECT establecimiento_id, establecimiento
-            FROM usuarios
-            WHERE id = ?
-        """, (session.get("usuario_id"),))
-        usuario = cursor.fetchone()
-    except sqlite3.OperationalError:
-        cursor.execute("SELECT establecimiento FROM usuarios WHERE id = ?", (session.get("usuario_id"),))
-        usuario = cursor.fetchone()
-
-    if usuario:
-        try:
-            establecimiento_id = usuario["establecimiento_id"]
-        except Exception:
-            establecimiento_id = None
-        if establecimiento_id:
-            cursor.execute("""
-                SELECT id, nombre
-                FROM establecimientos
-                WHERE id = ?
-                  AND COALESCE(activo, 1) = 1
-                  AND LOWER(TRIM(COALESCE(tipo, ''))) = 'concesionario'
-            """, (establecimiento_id,))
-            row = cursor.fetchone()
-            if row:
-                return {"id": row["id"], "nombre": row["nombre"]}
-        nombre = (usuario["establecimiento"] or "").strip() if "establecimiento" in usuario.keys() else ""
-        if nombre:
-            cursor.execute("""
-                SELECT id, nombre
-                FROM establecimientos
-                WHERE LOWER(TRIM(nombre)) = LOWER(TRIM(?))
-                  AND COALESCE(activo, 1) = 1
-                  AND LOWER(TRIM(COALESCE(tipo, ''))) = 'concesionario'
-                LIMIT 1
-            """, (nombre,))
-            row = cursor.fetchone()
-            if row:
-                return {"id": row["id"], "nombre": row["nombre"]}
-
-    cursor.execute("""
-        SELECT id, nombre
-        FROM establecimientos
-        WHERE COALESCE(activo, 1) = 1
-          AND LOWER(TRIM(COALESCE(tipo, ''))) = 'concesionario'
-        ORDER BY COALESCE(distancia_km, 999999), nombre
-        LIMIT 1
-    """)
-    row = cursor.fetchone()
-    if row:
-        return {"id": row["id"], "nombre": row["nombre"]}
-    return {"id": None, "nombre": "VINOVA"}
-
-
-def _recalcular_stock_articulo_facturacion(cursor, articulo_id):
-    try:
-        cursor.execute("""
-            SELECT COALESCE(SUM(stock), 0) AS stock_total,
-                   COALESCE(SUM(unidades_vendidas), 0) AS vendidas_total
-            FROM articulo_stock_establecimiento
-            WHERE articulo_id = ?
-        """, (articulo_id,))
-        row = cursor.fetchone()
-        stock_total = normalizar_precio(row["stock_total"] if row else 0) or 0
-        vendidas_total = normalizar_precio(row["vendidas_total"] if row else 0) or 0
-        cursor.execute("""
-            UPDATE articulos
-            SET stock = ?,
-                unidades_vendidas = ?,
-                estado = CASE WHEN ? <= 0 THEN 'Agotado' ELSE 'Disponible' END,
-                actualizado_por = ?,
-                actualizado_en = ?
-            WHERE id = ?
-        """, (stock_total, vendidas_total, stock_total, session.get("usuario_id"), fecha_actual(), articulo_id))
-    except sqlite3.OperationalError:
-        return
 
 @app.route("/facturas/guardar", methods=["POST"])
 def guardar_factura_vehiculo():
@@ -185,7 +82,7 @@ def guardar_factura_vehiculo():
             flash("No encontré ese vehículo registrado en un perfil de cliente.", "warning")
             return redirect(destino)
 
-        establecimiento_operativo = _establecimiento_operativo_facturacion(cursor)
+        establecimiento_operativo = obtener_concesionario_facturacion(cursor, session.get("usuario_id"), request.form.get("establecimiento_id", type=int), request.form.get("establecimiento", "").strip() or request.args.get("establecimiento", "").strip())
         establecimiento_id = establecimiento_operativo.get("id") if establecimiento_operativo else None
         establecimiento_nombre = establecimiento_operativo.get("nombre") if establecimiento_operativo else "VINOVA"
 
@@ -336,7 +233,7 @@ def guardar_factura_vehiculo():
                         item["id"],
                         item["establecimiento_id"],
                     ))
-                    _recalcular_stock_articulo_facturacion(cursor, item["id"])
+                    recalcular_stock_articulo_concesionarias(cursor, item["id"], session.get("usuario_id"))
                 else:
                     cursor.execute("""
                         UPDATE articulos
@@ -542,6 +439,10 @@ def admin_cambiar_estado_factura(factura_id):
 @app.route("/facturas/<int:factura_id>/ver")
 def ver_factura_vehiculo(factura_id):
 
+    if not session.get("usuario_id"):
+        flash("Inicia sesión para ver esta factura.", "warning")
+        return redirect(url_for("login"))
+
     conexion = conectar_db()
     cursor = conexion.cursor()
 
@@ -568,13 +469,4 @@ def ver_factura_vehiculo(factura_id):
     if not es_personal and factura["activo"] != 1:
         abort(404)
 
-    if factura["enlace"]:
-        return redirect(factura["enlace"])
-
-    archivo = normalizar_ruta_static_documento(factura["archivo_pdf"] or factura["archivo"])
-
-    if not archivo:
-        flash("La factura no tiene archivo disponible.", "warning")
-        return redirect(url_for("perfil") + "#seccion-facturas")
-
-    return send_from_directory(app.static_folder, archivo, as_attachment=False)
+    return enviar_factura_pdf_segura(factura)

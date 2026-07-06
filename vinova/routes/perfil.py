@@ -1,4 +1,10 @@
 from vinova.core import *
+from vinova.services.facturas import registrar_factura_generada
+from vinova.services.notificaciones import (
+    asegurar_tabla_notificaciones_usuario,
+    contar_notificaciones_usuario,
+    listar_notificaciones_usuario,
+)
 
 @app.route("/perfil")
 def perfil():

@@ -45,8 +45,6 @@ def find_db_path() -> str:
     return os.path.abspath(os.path.join(os.getcwd(), "vinova.db"))
 
 
-DB_PATH = find_db_path()
-
 
 def ahora() -> str:
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")

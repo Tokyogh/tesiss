@@ -1,4 +1,9 @@
 from vinova.core import *
+from vinova.services.notificaciones import (
+    buscar_destinatarios_notificacion,
+    crear_notificacion_usuario,
+    listar_notificaciones_enviadas,
+)
 
 @app.route("/trabajador")
 def trabajador_panel():

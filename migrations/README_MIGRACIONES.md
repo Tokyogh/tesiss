@@ -1,31 +1,26 @@
 # Migraciones VINOVA
 
-Ejecutar siempre desde la raíz del proyecto:
+La forma recomendada de aplicar cambios pendientes es usar el runner versionado:
 
 ```bash
-python migrations/migrar_estructura_vinova.py
-python migrations/migrar_auditoria_acciones.py
+python migrations/aplicar_migraciones.py
 ```
 
-También puedes indicar la base manualmente:
+O indicando la base manualmente:
 
 ```bash
-python migrations/migrar_estructura_vinova.py vinova.db
-python migrations/migrar_auditoria_acciones.py vinova.db
+python migrations/aplicar_migraciones.py vinova.db
 ```
 
-Ambas migraciones son idempotentes: se pueden ejecutar más de una vez.
+El runner registra cada migración aplicada en `schema_migrations` para no repetirla accidentalmente.
 
-## Establecimientos / Instituciones
+## Migraciones incluidas
 
-Para crear la tabla usada por la página pública de instituciones y la asignación de establecimientos a trabajadores:
+- `migrar_establecimientos.py`: establecimientos, instituciones y concesionarias.
+- `20260705_articulos_inventario.sql`: tablas base de artículos e inventario.
+- `migrar_stock_concesionarias_articulos.py`: stock de artículos por concesionaria.
+- `migrar_auditoria_acciones.py`: auditoría de acciones sensibles.
+- `migrar_notificaciones_usuario.py`: notificaciones internas.
+- `migrar_facturas_privadas.py`: mueve facturas PDF de `static/docs/facturas` a `private/facturas`.
 
-```bash
-python migrations/migrar_establecimientos.py
-```
-
-También puedes indicar la ruta de la base:
-
-```bash
-python migrations/migrar_establecimientos.py vinova.db
-```
+Todas las migraciones Python crean respaldo antes de modificar la base.

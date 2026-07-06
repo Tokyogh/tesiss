@@ -1,5 +1,0 @@
-Nombre del admin: Admin1
-Correo del admin: Admin1@outlook.com
-Contraseña del admin: Admin1.     
-Administrador creado correctamente: admin1@outlook.com
-http://127.0.0.1:5000/admin/vehiculos

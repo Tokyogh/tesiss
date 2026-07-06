@@ -4,15 +4,9 @@ __pycache__/
 venv/
 .venv/
 env/
-*.db
-*.sqlite
-*.sqlite3
-*_backup_*.db
-zbackups/
-.cache/
-instance/
-static/docs/facturas/
-static/img/articulos/
-static/img/vehicles/
-static/img/establecimientos/
-static/models/vehicles/
+# Almacenamiento privado local
+private/*
+!private/.gitkeep
+!private/facturas/
+private/facturas/*
+!private/facturas/.gitkeep

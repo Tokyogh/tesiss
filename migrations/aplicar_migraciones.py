@@ -70,6 +70,7 @@ MIGRACIONES = [
     ("20260706_stock_concesionarias_articulos", "migrar_stock_concesionarias_articulos.py", "py"),
     ("20260706_auditoria_acciones", "migrar_auditoria_acciones.py", "py"),
     ("20260706_notificaciones_usuario", "migrar_notificaciones_usuario.py", "py"),
+    ("20260706_facturas_privadas", "migrar_facturas_privadas.py", "py"),
 ]
 
 
