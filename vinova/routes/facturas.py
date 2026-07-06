@@ -14,9 +14,24 @@ def guardar_factura_vehiculo():
     tipo_factura = request.form.get("tipo_factura", "Producto").strip() or "Producto"
     concepto = request.form.get("concepto", "").strip() or request.form.get("descripcion", "").strip() or "Factura manual VINOVA"
     descripcion = request.form.get("descripcion", "").strip() or concepto
-    subtotal = normalizar_precio(request.form.get("monto")) or normalizar_precio(request.form.get("subtotal")) or 0
+    subtotal_form = normalizar_precio(request.form.get("monto")) or normalizar_precio(request.form.get("subtotal")) or 0
     impuesto = normalizar_precio(request.form.get("impuesto")) or 0
     cliente_cedula_form = solo_digitos(request.form.get("cliente_cedula", ""))
+
+    articulo_ids = request.form.getlist("articulo_id[]")
+    articulo_cantidades = request.form.getlist("articulo_cantidad[]")
+    articulos_solicitados = []
+
+    for index, articulo_id_raw in enumerate(articulo_ids):
+        try:
+            articulo_id = int(articulo_id_raw)
+        except (TypeError, ValueError):
+            continue
+
+        cantidad_raw = articulo_cantidades[index] if index < len(articulo_cantidades) else "1"
+        cantidad = normalizar_precio(cantidad_raw) or 1
+        cantidad = max(1, float(cantidad))
+        articulos_solicitados.append({"id": articulo_id, "cantidad": cantidad})
 
     if not usuario_vehiculo_id:
         flash("Selecciona el cliente y vehículo al que pertenece la factura.", "warning")
@@ -26,6 +41,11 @@ def guardar_factura_vehiculo():
     cursor = conexion.cursor()
 
     try:
+        # Si la factura incluye artículos de inventario, bloqueamos escritura para
+        # evitar que dos ventas descuenten el mismo stock simultáneamente.
+        if articulos_solicitados:
+            conexion.execute("BEGIN IMMEDIATE")
+
         cursor.execute("""
             SELECT
                 usuarios_vehiculos.id AS usuario_vehiculo_id,
@@ -83,6 +103,59 @@ def guardar_factura_vehiculo():
         registro_factura["usuario_cedula"] = cedula_factura
         registro_factura["cedula"] = cedula_factura
 
+        items_pdf = []
+        articulos_factura = []
+
+        if articulos_solicitados:
+            for item in articulos_solicitados:
+                cursor.execute("""
+                    SELECT id, codigo_articulo, nombre, categoria, precio, stock, unidad,
+                           COALESCE(activo, 1) AS activo,
+                           COALESCE(archivado, 0) AS archivado
+                    FROM articulos
+                    WHERE id = ?
+                    LIMIT 1
+                """, (item["id"],))
+                articulo = cursor.fetchone()
+
+                if not articulo or articulo["archivado"] == 1 or articulo["activo"] != 1:
+                    raise ValueError("Uno de los artículos seleccionados ya no está disponible.")
+
+                stock_actual = normalizar_precio(articulo["stock"]) or 0
+                cantidad = item["cantidad"]
+
+                if cantidad > stock_actual:
+                    raise ValueError(f"Stock insuficiente para {articulo['nombre']}. Disponible: {stock_actual:g} {articulo['unidad'] or 'Unidad'}.")
+
+                precio_unitario = normalizar_precio(articulo["precio"]) or 0
+                total_item = cantidad * precio_unitario
+
+                articulos_factura.append({
+                    "id": articulo["id"],
+                    "codigo_articulo": articulo["codigo_articulo"],
+                    "nombre": articulo["nombre"],
+                    "categoria": articulo["categoria"],
+                    "cantidad": cantidad,
+                    "unidad": articulo["unidad"] or "Unidad",
+                    "precio_unitario": precio_unitario,
+                    "total": total_item,
+                    "stock_anterior": stock_actual,
+                    "stock_nuevo": stock_actual - cantidad,
+                })
+
+                items_pdf.append({
+                    "descripcion": f"{articulo['nombre']} ({articulo['codigo_articulo']})",
+                    "cantidad": cantidad,
+                    "precio_unitario": precio_unitario,
+                    "total": total_item,
+                })
+
+            subtotal = sum(item["total"] for item in articulos_factura)
+            concepto = concepto if concepto != "Factura manual VINOVA" else "Venta de artículos VINOVA"
+            descripcion = descripcion if descripcion != concepto else "; ".join(f"{item['nombre']} x {item['cantidad']:g}" for item in articulos_factura)
+        else:
+            subtotal = subtotal_form
+
         factura_id = registrar_factura_generada(
             cursor,
             registro=registro_factura,
@@ -95,15 +168,78 @@ def guardar_factura_vehiculo():
             mantenimiento_id=None,
             numero_factura=numero_factura,
             fecha_factura=fecha_factura,
+            items=items_pdf,
             observaciones=observaciones
         )
+
+        if articulos_factura:
+            ahora = fecha_actual()
+
+            for item in articulos_factura:
+                cursor.execute("""
+                    INSERT INTO factura_articulos (
+                        factura_id, articulo_id, codigo_articulo, nombre_articulo, categoria,
+                        cantidad, unidad, precio_unitario, total, creado_en
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    factura_id,
+                    item["id"],
+                    item["codigo_articulo"],
+                    item["nombre"],
+                    item["categoria"],
+                    item["cantidad"],
+                    item["unidad"],
+                    item["precio_unitario"],
+                    item["total"],
+                    ahora,
+                ))
+
+                cursor.execute("""
+                    UPDATE articulos
+                    SET stock = ?,
+                        unidades_vendidas = COALESCE(unidades_vendidas, 0) + ?,
+                        estado = CASE WHEN ? <= 0 THEN 'Agotado' ELSE estado END,
+                        actualizado_por = ?,
+                        actualizado_en = ?
+                    WHERE id = ?
+                """, (
+                    item["stock_nuevo"],
+                    item["cantidad"],
+                    item["stock_nuevo"],
+                    session.get("usuario_id"),
+                    ahora,
+                    item["id"],
+                ))
+
+                cursor.execute("""
+                    INSERT INTO articulo_movimientos (
+                        articulo_id, tipo_movimiento, cantidad, stock_anterior, stock_nuevo,
+                        referencia_tipo, referencia_id, descripcion, creado_por, creado_en
+                    )
+                    VALUES (?, 'venta', ?, ?, ?, 'factura', ?, ?, ?, ?)
+                """, (
+                    item["id"],
+                    -item["cantidad"],
+                    item["stock_anterior"],
+                    item["stock_nuevo"],
+                    factura_id,
+                    f"Venta en factura {factura_id}",
+                    session.get("usuario_id"),
+                    ahora,
+                ))
 
         registrar_auditoria(
             conexion,
             "Factura generada",
             "factura",
             factura_id,
-            {"usuario_vehiculo_id": usuario_vehiculo_id, "tipo_factura": tipo_factura, "origen": origen}
+            {
+                "usuario_vehiculo_id": usuario_vehiculo_id,
+                "tipo_factura": tipo_factura,
+                "origen": origen,
+                "articulos": len(articulos_factura),
+            }
         )
         conexion.commit()
 
@@ -142,6 +278,15 @@ def guardar_factura_vehiculo():
         )
 
         flash("Factura PDF generada correctamente y visible en el perfil del cliente.", "success")
+
+    except ValueError as error:
+        conexion.rollback()
+        flash(str(error), "warning")
+
+    except sqlite3.OperationalError as error:
+        conexion.rollback()
+        print("Error SQL al generar factura:", error)
+        flash("No se pudo generar la factura. Verifica que ejecutaste la migración de artículos si estás vendiendo inventario.", "error")
 
     except Exception as error:
         conexion.rollback()

@@ -173,27 +173,6 @@ function initFilterForm() {
 
     if (!form) return;
 
-    const autoSubmitControls = document.querySelectorAll(
-        '#catalogFiltersForm [data-auto-submit="true"], [form="catalogFiltersForm"][data-auto-submit="true"]'
-    );
-
-    autoSubmitControls.forEach((control) => {
-        const eventName = control.matches('input[type="text"], input[type="search"]') ? "input" : "change";
-        const handler = eventName === "input"
-            ? debounce(() => submitCatalogForm(), 520)
-            : () => submitCatalogForm();
-
-        control.addEventListener(eventName, () => {
-            if (control.matches('input[type="search"], input[type="text"]')) {
-                const value = control.value.trim();
-
-                if (value.length === 1) return;
-            }
-
-            handler();
-        });
-    });
-
     form.addEventListener("submit", () => {
         cleanEmptyCatalogFields(form);
     });
@@ -286,10 +265,6 @@ function initRangeFilters() {
         minNumber.addEventListener("input", () => clampValues("min"));
         maxNumber.addEventListener("input", () => clampValues("max"));
 
-        [minRange, maxRange, minNumber, maxNumber].forEach((control) => {
-            control.addEventListener("change", () => submitCatalogForm());
-        });
-
         clampValues();
     });
 }
@@ -312,7 +287,6 @@ function initVehicleTypeButtons() {
             event.preventDefault();
             input.checked = !input.checked;
             card.classList.toggle("is-selected", input.checked);
-            submitCatalogForm();
         });
     });
 }
@@ -333,43 +307,42 @@ function initStatCards() {
 
     statCards.forEach((card) => {
         card.addEventListener("click", () => {
-            const url = new URL(window.location.href);
-            url.searchParams.delete("page");
-
             const clearFields = getCsvValues(card.dataset.clearFilterFields);
 
             if (clearFields.length) {
-                clearFields.forEach((fieldName) => url.searchParams.delete(fieldName));
-                window.location.href = url.toString();
+                clearFields.forEach((fieldName) => {
+                    document.querySelectorAll(`[name="${fieldName}"][form="catalogFiltersForm"], #catalogFiltersForm [name="${fieldName}"]`).forEach((field) => {
+                        if (field.type === "checkbox" || field.type === "radio") {
+                            field.checked = false;
+                        } else {
+                            field.value = "";
+                        }
+                    });
+                });
+                statCards.forEach((item) => item.classList.remove("active"));
+                card.classList.add("active");
                 return;
             }
 
             const field = card.dataset.filterField;
             const valuesToToggle = getCsvValues(card.dataset.filterValues || card.dataset.filterValue);
 
-            if (!field || !valuesToToggle.length) {
-                window.location.href = url.toString();
-                return;
-            }
+            if (!field || !valuesToToggle.length) return;
 
-            const exclusiveFields = getCsvValues(card.dataset.exclusiveFields);
-            const currentValues = url.searchParams.getAll(field);
-            const alreadyActive = valuesToToggle.every((value) => currentValues.includes(value));
+            const inputs = document.querySelectorAll(`[name="${field}"][form="catalogFiltersForm"], #catalogFiltersForm [name="${field}"]`);
+            const alreadyActive = Array.from(inputs).some((input) => valuesToToggle.includes(input.value) && input.checked);
 
-            if (exclusiveFields.length) {
-                exclusiveFields.forEach((fieldName) => url.searchParams.delete(fieldName));
-            } else {
-                url.searchParams.delete(field);
-                currentValues
-                    .filter((value) => !valuesToToggle.includes(value))
-                    .forEach((value) => url.searchParams.append(field, value));
-            }
+            inputs.forEach((input) => {
+                if (input.type === "checkbox" || input.type === "radio") {
+                    if (valuesToToggle.includes(input.value)) {
+                        input.checked = !alreadyActive;
+                    }
+                } else if (valuesToToggle.length === 1) {
+                    input.value = alreadyActive ? "" : valuesToToggle[0];
+                }
+            });
 
-            if (!alreadyActive) {
-                valuesToToggle.forEach((value) => url.searchParams.append(field, value));
-            }
-
-            window.location.href = url.toString();
+            card.classList.toggle("active", !alreadyActive);
         });
     });
 }
@@ -466,24 +439,8 @@ function initCollapsibleFilters() {
 /* ============================= */
 
 function initCatalogSearch() {
-    const searchInput = document.querySelector(".catalog-main-search input");
-    const vehicleCards = document.querySelectorAll(".catalog-vehicle-card");
-
-    if (!searchInput) return;
-
-    searchInput.addEventListener("input", debounce(() => {
-        const searchValue = normalizeText(searchInput.value);
-
-        if (searchValue.length >= 2 || searchValue.length === 0) {
-            submitCatalogForm();
-            return;
-        }
-
-        vehicleCards.forEach((card) => {
-            const cardText = normalizeText(card.textContent || "");
-            card.dataset.hiddenBySearch = cardText.includes(searchValue) ? "false" : "true";
-        });
-    }, 620));
+    // El filtrado principal ya no se envía automáticamente.
+    // El usuario completa filtros y presiona el botón "Filtrar".
 }
 
 /* ============================= */

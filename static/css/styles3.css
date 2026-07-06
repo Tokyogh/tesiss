@@ -2159,3 +2159,25 @@ a.catalog-modal-secondary:visited {
         max-height: 128px;
     }
 }
+
+
+/* Botones de filtros manuales del catálogo */
+.catalog-filter-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.catalog-apply-filters {
+    min-height: 34px;
+    padding: 0 12px;
+    border: 1px solid rgba(59, 130, 246, 0.42);
+    border-radius: 9px;
+    background: linear-gradient(135deg, #1e40af, #2563eb);
+    color: #ffffff;
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 900;
+    box-shadow: 0 0 14px rgba(59, 130, 246, 0.18);
+}

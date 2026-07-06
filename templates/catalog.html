@@ -77,6 +77,11 @@
                 </div>
             </li>
 
+
+            <li>
+                <a href="{{ url_for('catalogo_articulos') }}">Artículos</a>
+            </li>
+
             <li class="dropdown">
                 <a href="{{ url_for('perfil') }}">Mi cuenta</a>
 
@@ -151,7 +156,10 @@
 
             <div class="catalog-filters-header">
                 <h2>Filtros</h2>
-                <button type="button" class="clear-filters">Limpiar filtros</button>
+                <div class="catalog-filter-actions">
+                    <button type="submit" class="catalog-apply-filters">Filtrar</button>
+                    <button type="button" class="clear-filters">Limpiar</button>
+                </div>
             </div>
 
             <section class="catalog-filter-section">

@@ -10,6 +10,7 @@
 
 
     <link rel="stylesheet" href="{{ url_for('static', filename='css/trabajador.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/articulos.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
 
 
@@ -17,6 +18,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 
     <script src="{{ url_for('static', filename='js/trabajador.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/articulos.js') }}?v=articulos-v1" defer></script>
 </head>
 
 <body>
@@ -61,9 +63,19 @@
                 <span>Vehículos</span>
             </a>
 
+            <a href="#trabajador-ocultos" class="worker-nav-link" data-worker-section="ocultos">
+                <i data-lucide="eye-off"></i>
+                <span>Inventario oculto</span>
+            </a>
+
             <a href="#trabajador-codigos" class="worker-nav-link" data-worker-section="codigos">
                 <i data-lucide="key-round"></i>
                 <span>Códigos de canje</span>
+            </a>
+
+            <a href="#trabajador-articulos" class="worker-nav-link" data-worker-section="articulos">
+                <i data-lucide="package-open"></i>
+                <span>Artículos</span>
             </a>
 
             <a href="#trabajador-canjes" class="worker-nav-link" data-worker-section="canjes">
@@ -582,6 +594,121 @@
             </section>
         </section>
 
+
+        <!-- SECCIÓN INVENTARIO OCULTO -->
+
+        <section class="worker-section" id="trabajador-ocultos" data-worker-content="ocultos">
+            <div class="worker-section-header">
+                <div>
+                    <span>INVENTARIO INTERNO</span>
+                    <h2>Inventario oculto</h2>
+                    <p>Vehículos y artículos creados que no se muestran públicamente. Útil para preparar inventario antes de publicarlo.</p>
+                </div>
+                <div class="worker-section-actions">
+                    <a href="#trabajador-vehiculos" class="worker-secondary-link worker-nav-link" data-worker-section="vehiculos">Crear vehículo</a>
+                    <a href="#trabajador-articulos" class="worker-secondary-link worker-nav-link" data-worker-section="articulos">Crear artículo</a>
+                </div>
+            </div>
+
+            <div class="ocultos-inventory-layout">
+                <section class="worker-panel" data-vehiculos-ocultos-panel data-vehiculos-ocultos-api="/inventario/vehiculos/ocultos/api" data-csrf="{{ csrf_token() }}" data-origen="trabajador">
+                    <div class="worker-panel-title">
+                        <div>
+                            <span>UNIDADES NO PUBLICADAS</span>
+                            <h2>Vehículos ocultos</h2>
+                        </div>
+                    </div>
+                    <div class="vehiculos-ocultos-grid" data-vehiculos-ocultos-list>
+                        <div class="articulos-loading">Cargando vehículos ocultos...</div>
+                    </div>
+                </section>
+
+                <section class="worker-panel" data-articulos-ocultos-panel data-articulos-ocultos-api="/articulos/api/gestion" data-origen="trabajador">
+                    <div class="worker-panel-title">
+                        <div>
+                            <span>PRODUCTOS NO PUBLICADOS</span>
+                            <h2>Artículos ocultos</h2>
+                        </div>
+                    </div>
+                    <div class="vehiculos-ocultos-grid" data-articulos-ocultos-list>
+                        <div class="articulos-loading">Cargando artículos ocultos...</div>
+                    </div>
+                </section>
+            </div>
+        </section>
+
+
+        <section class="worker-section" id="trabajador-articulos" data-worker-content="articulos" data-articulos-panel data-articulos-api="/articulos/api/gestion" data-origen="trabajador">
+            <div class="worker-section-header">
+                <div>
+                    <span>INVENTARIO COMERCIAL</span>
+                    <h2>Catálogo de artículos</h2>
+                    <p>Gestiona artículos, repuestos y servicios sin depender de administración. El stock interno no se muestra a clientes.</p>
+                </div>
+                <div class="worker-section-actions">
+                    <a href="{{ url_for('catalogo_articulos') }}" target="_blank" rel="noopener" class="worker-secondary-link">Ver catálogo público</a>
+                </div>
+            </div>
+
+            <div class="articulos-stats-grid">
+                <article class="articulo-stat-card"><i data-lucide="package"></i><strong data-articulo-stat="total">0</strong><span>Artículos</span></article>
+                <article class="articulo-stat-card"><i data-lucide="eye"></i><strong data-articulo-stat="activos">0</strong><span>Visibles</span></article>
+                <article class="articulo-stat-card"><i data-lucide="eye-off"></i><strong data-articulo-stat="ocultos">0</strong><span>Ocultos</span></article>
+                <article class="articulo-stat-card"><i data-lucide="triangle-alert"></i><strong data-articulo-stat="bajo_stock">0</strong><span>Stock bajo</span></article>
+                <article class="articulo-stat-card"><i data-lucide="shopping-cart"></i><strong data-articulo-stat="vendidos">0</strong><span>Vendidos</span></article>
+                <article class="articulo-stat-card"><i data-lucide="archive"></i><strong data-articulo-stat="archivados">0</strong><span>Archivados</span></article>
+            </div>
+
+            <div class="articulos-management-layout">
+                <section class="worker-panel">
+                    <div class="worker-panel-title">
+                        <div>
+                            <span>REGISTRO</span>
+                            <h2 data-articulo-form-title>Agregar artículo</h2>
+                        </div>
+                    </div>
+                    <form action="{{ url_for('guardar_articulo') }}" method="POST" enctype="multipart/form-data" class="worker-form" data-articulo-form>
+                        <input type="hidden" name="origen" value="trabajador">
+                        <input type="hidden" name="articulo_id" value="">
+                        <div class="worker-form-grid">
+                            <label class="worker-field"><span>Código / SKU</span><input type="text" name="codigo_articulo" placeholder="Automático si lo dejas vacío"></label>
+                            <label class="worker-field"><span>Nombre</span><input type="text" name="nombre" placeholder="Ej. Aceite 5W-30 sintético" required></label>
+                            <label class="worker-field"><span>Categoría</span><select name="categoria"><option>Aceites</option><option>Repuestos</option><option>Filtros</option><option>Baterías</option><option>Llantas</option><option>Accesorios</option><option>Servicios</option><option>Herramientas</option><option>Otros</option></select></label>
+                            <label class="worker-field"><span>Marca</span><input type="text" name="marca" placeholder="Ej. Mobil, Bosch, VINOVA"></label>
+                            <label class="worker-field"><span>Proveedor</span><input type="text" name="proveedor" placeholder="Opcional"></label>
+                            <label class="worker-field articulo-file-field"><span>Imagen</span><input type="file" name="imagen" accept="image/png,image/jpeg,image/webp"><small data-articulo-file-name>Selecciona PNG, JPG o WEBP. Se guarda en static/img/articulos/.</small></label>
+                            <label class="worker-field"><span>Precio venta</span><input type="number" name="precio" min="0" step="0.01" required></label>
+                            <label class="worker-field"><span>Costo interno</span><input type="number" name="costo" min="0" step="0.01" placeholder="Opcional"></label>
+                            <label class="worker-field"><span>Stock actual</span><input type="number" name="stock" min="0" step="0.01" value="0"></label>
+                            <label class="worker-field"><span>Stock mínimo</span><input type="number" name="stock_minimo" min="0" step="0.01" value="0"></label>
+                            <label class="worker-field"><span>Unidad</span><select name="unidad"><option>Unidad</option><option>Litro</option><option>Galón</option><option>Pieza</option><option>Par</option><option>Kit</option><option>Servicio</option></select></label>
+                            <label class="worker-field"><span>Estado</span><select name="estado"><option>Disponible</option><option>Agotado</option><option>Pedido</option><option>No disponible</option></select></label>
+                            <label class="worker-field worker-field-wide"><span>Descripción</span><textarea name="descripcion" rows="3" placeholder="Detalle visible para clientes y personal."></textarea></label>
+                            <label class="worker-field worker-field-wide articulo-visibility-toggle"><span>Mostrar en catálogo público</span><input type="checkbox" name="activo" checked></label>
+                        </div>
+                        <div class="worker-actions-bar" style="gap:10px;">
+                            <button type="button" class="worker-mini-btn" data-articulo-reset>Limpiar</button>
+                            <button type="submit" class="worker-primary-btn"><i data-lucide="save"></i> Guardar artículo</button>
+                        </div>
+                    </form>
+                </section>
+
+                <section class="worker-panel worker-list-panel">
+                    <div class="worker-panel-title">
+                        <div>
+                            <span>INVENTARIO</span>
+                            <h2>Artículos registrados</h2>
+                        </div>
+                        <input type="text" class="worker-search-input" data-articulos-panel-search placeholder="Buscar artículo, código, marca...">
+                    </div>
+                    <div class="articulos-panel-grid" data-articulos-panel-list>
+                        <div class="articulos-loading">Cargando inventario...</div>
+                    </div>
+                </section>
+            </div>
+        </section>
+
+
         <section class="worker-section" id="trabajador-canjes" data-worker-content="canjes">
             <div class="worker-section-header">
                 <div>
@@ -1049,6 +1176,19 @@
                                     <option value="Otro">Otro</option>
                                 </select>
                             </label>
+
+
+                            <div class="worker-field worker-field-wide articulos-invoice-builder" data-articulo-factura-builder data-articulo-search-url="{{ url_for('buscar_articulos_factura') }}">
+                                <span>Artículos del inventario</span>
+                                <div class="article-invoice-search-row">
+                                    <input type="search" data-articulo-search-input placeholder="Buscar aceite, repuesto, filtro, accesorio..." autocomplete="off">
+                                    <button type="button" data-articulo-clear>Limpiar</button>
+                                </div>
+                                <small>Opcional. Si agregas artículos, VINOVA descuenta stock automáticamente al generar la factura.</small>
+                                <div class="article-invoice-results" data-articulo-results hidden></div>
+                                <div class="article-invoice-selected" data-articulo-selected></div>
+                                <div class="article-invoice-total">Subtotal artículos: <strong data-articulo-subtotal>$0.00</strong></div>
+                            </div>
 
                             <label class="worker-field">
                                 <span>Monto USD</span>

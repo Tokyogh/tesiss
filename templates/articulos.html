@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VINOVA | Catálogo de artículos</title>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/articulos.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+</head>
+<body>
+{% set es_admin = session.get("rol", "")|upper == "ADMIN" %}
+{% set es_trabajador = session.get("rol", "")|upper == "TRABAJADOR" %}
+
+<header class="navbar">
+    <div class="logo">
+        <a href="{{ url_for('inicio') }}" aria-label="Ir al inicio de VINOVA" class="vinova-navbar-brand">
+            <img
+                src="{{ url_for('static', filename='img/vinova-logo.svg') }}"
+                alt="VINOVA"
+                class="vinova-navbar-logo">
+        </a>
+    </div>
+
+    <nav>
+        <ul class="nav-links">
+            <li><a href="{{ url_for('inicio') }}">Inicio</a></li>
+
+            <li class="dropdown">
+                <a href="{{ url_for('catalog') }}">Vehículos</a>
+                <div class="dropdown-menu">
+                    <a href="{{ url_for('catalog') }}">Catálogo</a>
+                    {% if es_admin %}
+                        <a href="{{ url_for('admin_vehiculos') }}">Administrar vehículos</a>
+                    {% endif %}
+                </div>
+            </li>
+
+            <li class="dropdown">
+                <a href="{{ url_for('perfil') if session.get('usuario_id') else url_for('login') }}">Mi cuenta</a>
+                <div class="dropdown-menu">
+                    {% if session.get("usuario_id") %}
+                        <a href="{{ url_for('perfil') }}">Mi perfil</a>
+                        {% if es_admin %}
+                            <a href="{{ url_for('admin_vehiculos') }}">Panel admin</a>
+                        {% endif %}
+                        {% if es_admin or es_trabajador %}
+                            <a href="{{ url_for('trabajador_panel') }}">Panel trabajador</a>
+                        {% endif %}
+                    {% else %}
+                        <a href="{{ url_for('login') }}">Iniciar sesión</a>
+                    {% endif %}
+                </div>
+            </li>
+
+            <li><a href="{{ url_for('catalogo_articulos') }}">Artículos</a></li>
+            <li><a href="{{ url_for('instituciones') }}">Instituciones</a></li>
+            <li><a href="{{ url_for('inicio') }}#contacto">Contacto</a></li>
+        </ul>
+    </nav>
+
+    <div class="navbar-actions">
+        {% if session.get("usuario_id") %}
+            <div class="user-session-box">
+                <a href="{{ url_for('perfil') }}" class="user-avatar-link" title="Ir a mi perfil">
+                    {% if session.get("foto_perfil") %}
+                        <img
+                            src="{{ session.get('foto_perfil') }}"
+                            alt="Foto de perfil de {{ session['usuario'] }}"
+                            class="user-avatar-img">
+                    {% else %}
+                        <span class="user-avatar-initial">{{ session["usuario"][:1]|upper }}</span>
+                    {% endif %}
+                    <span class="user-status-dot"></span>
+                </a>
+
+                <a href="{{ url_for('perfil') }}" class="user-name-pill">{{ session["usuario"] }}</a>
+
+                <form action="{{ url_for('logout') }}" method="POST" class="vinova-logout-form vinova-logout-inline">
+                    {{ csrf_input() }}
+                    <button type="submit" class="logout-icon-btn" title="Cerrar sesión" aria-label="Cerrar sesión">
+                        <i data-lucide="log-out"></i>
+                    </button>
+                </form>
+            </div>
+        {% else %}
+            <a href="{{ url_for('login') }}" class="login-btn">Iniciar sesión</a>
+        {% endif %}
+    </div>
+</header>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        <div class="site-messages">
+            {% for category, message in messages %}
+                <div class="site-message {{ category }}">
+                    <i data-lucide="info"></i>
+                    <span>{{ message }}</span>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+{% endwith %}
+
+    <main class="articulos-public-page">
+        <header class="articulos-public-header">
+            <div>
+                <span>TIENDA VINOVA</span>
+                <h1>Catálogo de artículos</h1>
+                <p>Explora aceites, repuestos, filtros, accesorios y servicios disponibles en la red VINOVA. El stock interno solo es visible para personal autorizado.</p>
+            </div>
+            <strong>{{ total_articulos|default(0) }} artículo(s)</strong>
+        </header>
+
+        <form action="{{ url_for('catalogo_articulos') }}" method="GET" class="articulos-filter-form" data-articulos-filter-form>
+            <input type="search" name="q" value="{{ q_actual|default('') }}" placeholder="Buscar artículo, código, marca...">
+
+            <select name="categoria">
+                <option value="">Todas las categorías</option>
+                {% for categoria in categorias_articulo|default([]) %}
+                    <option value="{{ categoria }}" {% if categoria in categorias_actuales|default([]) %}selected{% endif %}>{{ categoria }} ({{ conteos_categoria[categoria]|default(0) }})</option>
+                {% endfor %}
+            </select>
+
+            <select name="marca">
+                <option value="">Todas las marcas</option>
+                {% for marca in marcas_articulo|default([]) %}
+                    <option value="{{ marca }}" {% if marca == marca_actual %}selected{% endif %}>{{ marca }}</option>
+                {% endfor %}
+            </select>
+
+            <select name="ordenar">
+                <option value="recientes" {% if orden_actual == 'recientes' %}selected{% endif %}>Más recientes</option>
+                <option value="precio_asc" {% if orden_actual == 'precio_asc' %}selected{% endif %}>Precio menor a mayor</option>
+                <option value="precio_desc" {% if orden_actual == 'precio_desc' %}selected{% endif %}>Precio mayor a menor</option>
+                <option value="nombre_asc" {% if orden_actual == 'nombre_asc' %}selected{% endif %}>Nombre A-Z</option>
+                <option value="categoria_asc" {% if orden_actual == 'categoria_asc' %}selected{% endif %}>Categoría</option>
+            </select>
+
+            <button type="submit">Filtrar</button>
+            <a href="{{ url_for('catalogo_articulos') }}">Limpiar</a>
+        </form>
+
+        <section class="articulos-public-grid">
+            {% if articulos|default([]) %}
+                {% for articulo in articulos %}
+                    <article class="articulo-public-card">
+                        <div class="articulo-public-image">
+                            {% if articulo.imagen %}
+                                <img src="{{ url_for('static', filename=articulo.imagen) }}" alt="{{ articulo.nombre }}">
+                            {% else %}
+                                <i data-lucide="package"></i>
+                            {% endif %}
+                        </div>
+                        <div class="articulo-public-body">
+                            <small>{{ articulo.categoria }}</small>
+                            <h3>{{ articulo.nombre }}</h3>
+                            <p>{{ articulo.descripcion|default('Artículo disponible en la red VINOVA.', true) }}</p>
+                            <div class="articulo-public-footer">
+                                <strong>${{ "{:,.2f}".format(articulo.precio|default(0)|float) }}</strong>
+                                <span>{{ articulo.estado|default('Disponible') }}</span>
+                            </div>
+                        </div>
+                    </article>
+                {% endfor %}
+            {% else %}
+                <div class="articulos-empty" style="grid-column: 1 / -1;">
+                    <i data-lucide="package-search"></i>
+                    <h3>No hay artículos disponibles</h3>
+                    <p>Cuando VINOVA active artículos, aparecerán aquí.</p>
+                </div>
+            {% endif %}
+        </section>
+
+        {% if total_paginas|default(1) > 1 %}
+            <nav class="articulos-pagination" aria-label="Paginación de artículos">
+                {% for pagina in range(1, total_paginas + 1) %}
+                    {% if pagina == pagina_actual %}
+                        <span>{{ pagina }}</span>
+                    {% else %}
+                        <a href="{{ url_for('catalogo_articulos', q=q_actual, marca=marca_actual, ordenar=orden_actual, page=pagina, per_page=per_page_actual) }}{% for categoria in categorias_actuales|default([]) %}&categoria={{ categoria }}{% endfor %}">{{ pagina }}</a>
+                    {% endif %}
+                {% endfor %}
+            </nav>
+        {% endif %}
+    </main>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/articulos.js') }}"></script>
+    <script>
+        if (window.lucide) lucide.createIcons();
+    </script>
+</body>
+</html>
