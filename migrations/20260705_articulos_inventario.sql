@@ -63,7 +63,23 @@ CREATE TABLE IF NOT EXISTS factura_articulos (
     FOREIGN KEY (articulo_id) REFERENCES articulos(id) ON DELETE SET NULL
 );
 
+CREATE TABLE IF NOT EXISTS articulo_stock_establecimiento (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    articulo_id INTEGER NOT NULL,
+    establecimiento_id INTEGER NOT NULL,
+    stock REAL NOT NULL DEFAULT 0,
+    stock_minimo REAL NOT NULL DEFAULT 0,
+    unidades_vendidas REAL NOT NULL DEFAULT 0,
+    creado_en TEXT NOT NULL,
+    actualizado_en TEXT NOT NULL,
+    UNIQUE(articulo_id, establecimiento_id),
+    FOREIGN KEY (articulo_id) REFERENCES articulos(id) ON DELETE CASCADE,
+    FOREIGN KEY (establecimiento_id) REFERENCES establecimientos(id) ON DELETE CASCADE
+);
+
 CREATE INDEX IF NOT EXISTS idx_articulos_estado ON articulos(activo, archivado, categoria);
 CREATE INDEX IF NOT EXISTS idx_articulos_nombre ON articulos(nombre, codigo_articulo, marca);
 CREATE INDEX IF NOT EXISTS idx_articulo_movimientos_articulo ON articulo_movimientos(articulo_id, creado_en);
 CREATE INDEX IF NOT EXISTS idx_factura_articulos_factura ON factura_articulos(factura_id);
+CREATE INDEX IF NOT EXISTS idx_articulo_stock_est_articulo ON articulo_stock_establecimiento(articulo_id);
+CREATE INDEX IF NOT EXISTS idx_articulo_stock_est_establecimiento ON articulo_stock_establecimiento(establecimiento_id);

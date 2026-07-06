@@ -8,6 +8,7 @@ document.addEventListener("DOMContentLoaded", () => {
     initMaintenanceVehicleSearch();
     initWorkerCatalogCodeGenerator();
     initWorkerFileFields();
+    initWorkerNotificationRecipientSearch();
     initWorkerDoubleSubmitGuard();
 });
 
@@ -444,6 +445,132 @@ function initWorkerFileFields() {
 
             help.textContent = `Archivo seleccionado: ${file.name}`;
             field?.classList.add('has-selected-file');
+        });
+    });
+}
+
+
+function escapeWorkerHtml(value) {
+    return String(value || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+function initWorkerNotificationRecipientSearch() {
+    const forms = document.querySelectorAll("[data-recipient-form]");
+
+    forms.forEach((form) => {
+        const input = form.querySelector("[data-recipient-search]");
+        const hiddenInput = form.querySelector("[data-recipient-id]");
+        const resultsBox = form.querySelector("[data-recipient-results]");
+        const selectedBox = form.querySelector("[data-recipient-selected]");
+        const selectedName = form.querySelector("[data-recipient-name]");
+        const selectedMeta = form.querySelector("[data-recipient-meta]");
+        const clearButton = form.querySelector("[data-recipient-clear]");
+        const endpoint = input?.dataset.recipientEndpoint;
+        let controller = null;
+        let timeout = null;
+
+        if (!input || !hiddenInput || !resultsBox || !endpoint) return;
+
+        function setResultsMessage(message, type = "info") {
+            resultsBox.innerHTML = `<div class="notification-recipient-empty ${type}">${escapeWorkerHtml(message)}</div>`;
+        }
+
+        function clearSelection() {
+            hiddenInput.value = "";
+            if (selectedName) selectedName.textContent = "";
+            if (selectedMeta) selectedMeta.textContent = "";
+            if (selectedBox) selectedBox.hidden = true;
+        }
+
+        function selectRecipient(recipient) {
+            hiddenInput.value = recipient.id || "";
+            if (selectedName) selectedName.textContent = recipient.nombre || "Cliente";
+            if (selectedMeta) {
+                const metaParts = [recipient.correo, recipient.cedula ? `CI/RUC ${recipient.cedula}` : "", `${recipient.total_vehiculos || 0} vehículo(s)`].filter(Boolean);
+                selectedMeta.textContent = metaParts.join(" · ");
+            }
+            if (selectedBox) selectedBox.hidden = false;
+            resultsBox.innerHTML = "";
+            input.value = `${recipient.nombre || "Cliente"} — ${recipient.correo || ""}`.trim();
+        }
+
+        function renderResults(recipients) {
+            if (!recipients.length) {
+                setResultsMessage("No encontré clientes activos con ese dato.", "warning");
+                return;
+            }
+
+            resultsBox.innerHTML = recipients.map((recipient) => {
+                const meta = [
+                    recipient.correo,
+                    recipient.cedula ? `CI/RUC ${recipient.cedula}` : "",
+                    `${recipient.total_vehiculos || 0} vehículo(s)`
+                ].filter(Boolean).join(" · ");
+
+                return `
+                    <button type="button" class="notification-recipient-option" data-recipient-id="${escapeWorkerHtml(recipient.id)}">
+                        <strong>${escapeWorkerHtml(recipient.nombre || "Cliente")}</strong>
+                        <small>${escapeWorkerHtml(meta)}</small>
+                    </button>
+                `;
+            }).join("");
+
+            resultsBox.querySelectorAll("[data-recipient-id]").forEach((button, index) => {
+                button.addEventListener("click", () => selectRecipient(recipients[index]));
+            });
+        }
+
+        async function searchRecipients() {
+            const query = input.value.trim();
+            clearSelection();
+
+            if (query.length < 2) {
+                setResultsMessage("Escribe al menos 2 caracteres para buscar.");
+                return;
+            }
+
+            if (controller) controller.abort();
+            controller = new AbortController();
+            setResultsMessage("Buscando clientes...");
+
+            try {
+                const response = await fetch(`${endpoint}?q=${encodeURIComponent(query)}`, {
+                    headers: { "Accept": "application/json" },
+                    signal: controller.signal
+                });
+
+                if (!response.ok) throw new Error("Respuesta no válida");
+                const data = await response.json();
+                renderResults(Array.isArray(data.resultados) ? data.resultados : []);
+            } catch (error) {
+                if (error.name === "AbortError") return;
+                setResultsMessage("No se pudo buscar ahora. Intenta nuevamente.", "warning");
+            }
+        }
+
+        input.addEventListener("input", () => {
+            window.clearTimeout(timeout);
+            timeout = window.setTimeout(searchRecipients, 320);
+        });
+
+        clearButton?.addEventListener("click", () => {
+            clearSelection();
+            input.value = "";
+            setResultsMessage("Busca un cliente para enviarle el mensaje.");
+            input.focus();
+        });
+
+        form.addEventListener("submit", (event) => {
+            if (!hiddenInput.value) {
+                event.preventDefault();
+                setResultsMessage("Selecciona un cliente de los resultados antes de enviar.", "warning");
+                input.focus();
+            }
         });
     });
 }

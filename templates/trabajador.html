@@ -88,6 +88,11 @@
                 <span>Clientes</span>
             </a>
 
+            <a href="#trabajador-mensajes" class="worker-nav-link" data-worker-section="mensajes">
+                <i data-lucide="message-square-text"></i>
+                <span>Mensajes</span>
+            </a>
+
             <a href="#trabajador-mantenimientos" class="worker-nav-link" data-worker-section="mantenimientos">
                 <i data-lucide="wrench"></i>
                 <span>Mantenimientos</span>
@@ -342,7 +347,7 @@
                     {% if editando_vehiculo %}<input type="hidden" name="vehiculo_id" value="{{ vehiculo_editar.id }}">{% endif %}
 
                     <div class="worker-form-grid">
-                        <label class="worker-field"><span>Código catálogo</span><div class="vinova-code-tool"><input type="text" name="codigo_catalogo" placeholder="Automático: VIN-MARCA-MODELO-AÑO" value="{{ vehiculo_editar.codigo_catalogo if editando_vehiculo else '' }}" {% if editando_vehiculo and (vehiculo_editar.estado == 'Vendido' or codigos_edicion_worker) %}readonly{% endif %}>{% if not (editando_vehiculo and (vehiculo_editar.estado == 'Vendido' or codigos_edicion_worker)) %}<button type="button" class="vinova-code-generate-btn" data-generate-catalog-code>Generar</button>{% endif %}</div><small>{% if editando_vehiculo and codigos_edicion_worker %}Referencia bloqueada porque ya tiene código de canje.{% else %}Opcional. Si queda vacío, VINOVA lo genera automáticamente.{% endif %}</small></label>
+                        <label class="worker-field"><span>Código catálogo</span><div class="vinova-code-tool"><input type="text" name="codigo_catalogo" placeholder="Automático: VIN-MARCA-MODELO-AÑO" value="{{ vehiculo_editar.codigo_catalogo if editando_vehiculo else '' }}" {% if editando_vehiculo and (vehiculo_editar.estado == 'Vendido' or codigos_edicion_worker) %}readonly{% endif %}></div><small>{% if editando_vehiculo and codigos_edicion_worker %}Referencia bloqueada porque ya tiene código de canje.{% else %}Opcional. Si queda vacío, VINOVA lo genera automáticamente.{% endif %}</small></label>
                         <label class="worker-field"><span>Placa / matrícula</span><input type="text" name="placa" placeholder="ABC-1234 o N/D si aún no tiene" maxlength="16" value="{{ vehiculo_editar.placa if editando_vehiculo and vehiculo_editar.placa else '' }}"><small>Opcional. Puede editarse cuando el vehículo ya tenga placa.</small></label>
                         <label class="worker-field"><span>Marca</span><input type="text" name="marca" placeholder="Toyota" value="{{ vehiculo_editar.marca if editando_vehiculo else '' }}" required></label>
                         <label class="worker-field"><span>Modelo</span><input type="text" name="modelo" placeholder="RAV4" value="{{ vehiculo_editar.modelo if editando_vehiculo else '' }}" required></label>
@@ -358,14 +363,21 @@
                         {% set estado_actual_worker = vehiculo_editar.estado if editando_vehiculo else 'Disponible' %}
                         <label class="worker-field"><span>Estado</span><select name="estado"><option value="Disponible" {% if estado_actual_worker == 'Disponible' %}selected{% endif %}>Disponible</option><option value="Reservado" {% if estado_actual_worker == 'Reservado' %}selected{% endif %}>Reservado</option><option value="No disponible" {% if estado_actual_worker == 'No disponible' %}selected{% endif %}>No disponible</option><option value="Vendido" {% if estado_actual_worker == 'Vendido' %}selected{% endif %}>Vendido</option></select></label>
 
+                        {% set recursos_static = recursos_static_trabajador|default({}) %}
+                        {% set imagenes_vehiculo_existentes = recursos_static.get('imagenes_vehiculos', []) if recursos_static else [] %}
+                        {% set modelos_3d_existentes = recursos_static.get('modelos_3d', []) if recursos_static else [] %}
+                        {% set imagenes_articulo_existentes = recursos_static.get('imagenes_articulos', []) if recursos_static else [] %}
                         <label class="worker-field worker-field-wide vinova-file-field"><span>Imagen</span>{% if editando_vehiculo and vehiculo_editar.imagen %}{% set imagen_actual_worker = vehiculo_editar.imagen|string %}<div class="vinova-current-resource vinova-current-resource-image"><div class="vinova-current-preview">{% if imagen_actual_worker.startswith('http') %}<img src="{{ imagen_actual_worker }}" alt="Imagen actual del vehículo">{% else %}<img src="{{ url_for('static', filename=imagen_actual_worker) }}" alt="Imagen actual del vehículo">{% endif %}</div><div><strong>Imagen actual conservada</strong><small>{{ imagen_actual_worker }}</small><em>Sube una nueva imagen solo si deseas reemplazarla.</em></div></div>{% endif %}<input type="file" name="imagen" accept="image/png,image/jpeg,image/webp"><small>{% if editando_vehiculo and vehiculo_editar.imagen %}Selecciona un archivo nuevo para reemplazar la imagen actual.{% else %}Se guardará en static/img/vehicles/.{% endif %}</small></label>
-                        <label class="worker-field worker-field-wide vinova-file-field"><span>Subir modelo 3D</span>{% if editando_vehiculo and vehiculo_editar.modelo_3d %}<div class="vinova-current-resource"><div class="vinova-current-icon"><i data-lucide="box"></i></div><div><strong>Modelo 3D actual</strong><small>{{ vehiculo_editar.modelo_3d }}</small><em>Si subes otro GLB/GLTF, reemplazará el recurso del modelo.</em></div></div>{% endif %}<input type="file" name="modelo_3d_file" accept=".glb,.gltf,model/gltf-binary,model/gltf+json"><small>Opcional. Se guardará en static/models/vehicles/ y se compartirá por marca + modelo + año.</small></label>
-                        <label class="worker-field"><span>ID modelo 3D</span><input type="text" name="modelo_3d_id" placeholder="rav4_2024" value="{{ vehiculo_editar.modelo_3d_id if editando_vehiculo else '' }}"></label>
-                        <label class="worker-field"><span>Ruta modelo 3D</span><input type="text" name="modelo_3d" placeholder="models/vehicles/rav4_2024.glb" value="{{ vehiculo_editar.modelo_3d if editando_vehiculo else '' }}"></label>
-                        {% set modelo_3d_tipo_actual_worker = vehiculo_editar.modelo_3d_tipo if editando_vehiculo else 'glb' %}
-                        <label class="worker-field"><span>Tipo modelo 3D</span><select name="modelo_3d_tipo"><option value="glb" {% if modelo_3d_tipo_actual_worker == 'glb' %}selected{% endif %}>GLB</option><option value="gltf" {% if modelo_3d_tipo_actual_worker == 'gltf' %}selected{% endif %}>GLTF</option><option value="pendiente" {% if modelo_3d_tipo_actual_worker == 'pendiente' %}selected{% endif %}>Pendiente</option></select></label>
+                        <label class="worker-field worker-field-wide vinova-file-field"><span>Subir modelo 3D</span>{% if editando_vehiculo and vehiculo_editar.modelo_3d %}<div class="vinova-current-resource"><div class="vinova-current-icon"><i data-lucide="box"></i></div><div><strong>Modelo 3D actual</strong><small>{{ vehiculo_editar.modelo_3d }}</small><em>Si subes otro GLB/GLTF, reemplazará el recurso del modelo.</em></div></div>{% endif %}<input type="file" name="modelo_3d_file" accept=".glb,.gltf,model/gltf-binary,model/gltf+json"><small>Opcional. El ID, ruta y tipo se generan automáticamente.</small></label>
+                        <input type="hidden" name="modelo_3d_id" value="{{ vehiculo_editar.modelo_3d_id if editando_vehiculo else '' }}">
+                        <input type="hidden" name="modelo_3d" value="{{ vehiculo_editar.modelo_3d if editando_vehiculo else '' }}">
+                        <input type="hidden" name="modelo_3d_tipo" value="{{ vehiculo_editar.modelo_3d_tipo if editando_vehiculo and vehiculo_editar.modelo_3d_tipo else 'glb' }}">
+                        <div class="worker-field worker-field-wide vinova-resource-source-field"><span>Reutilizar recursos existentes</span><div class="vinova-resource-source-grid"><label class="vinova-subfield"><strong>Foto existente</strong><select name="imagen_existente"><option value="">No reutilizar foto</option>{% if editando_vehiculo and vehiculo_editar.imagen %}<option value="{{ vehiculo_editar.imagen }}" selected>Actual: {{ vehiculo_editar.imagen }}</option>{% endif %}{% for recurso in imagenes_vehiculo_existentes %}<option value="{{ recurso.ruta }}">{{ recurso.etiqueta }}{% if recurso.extra %} · {{ recurso.extra }}{% endif %}</option>{% endfor %}</select><small>Usa una imagen ya guardada para no duplicar archivos.</small></label><label class="vinova-subfield"><strong>Modelo 3D existente</strong><select name="modelo_3d_existente"><option value="">No reutilizar modelo 3D</option>{% if editando_vehiculo and vehiculo_editar.modelo_3d %}<option value="{{ vehiculo_editar.modelo_3d }}" selected>Actual: {{ vehiculo_editar.modelo_3d }}</option>{% endif %}{% for recurso in modelos_3d_existentes %}<option value="{{ recurso.ruta }}">{{ recurso.etiqueta }}{% if recurso.extra %} · {{ recurso.extra }}{% endif %}</option>{% endfor %}</select><small>Selecciona un GLB/GLTF existente si ya fue cargado.</small></label></div></div>
                         {% if manuales_modelo_editar|default([]) %}<div class="worker-field worker-field-wide vinova-current-resource-list"><span>Manuales actuales del modelo</span>{% for manual in manuales_modelo_editar %}<div class="vinova-current-resource"><div class="vinova-current-icon"><i data-lucide="file-text"></i></div><div><strong>{{ manual.titulo }}</strong><small>{{ manual.tipo_documento|default('Manual') }} · {{ manual.archivo or manual.enlace or 'Sin archivo/enlace' }}</small><em>Este manual se conserva si no subes ni seleccionas otro recurso.</em></div></div>{% endfor %}</div>{% endif %}
-                        <label class="worker-field worker-field-wide vinova-file-field"><span>Manual del modelo</span><input type="text" name="manual_titulo" placeholder="Manual del propietario" value="{{ manual_editar.titulo if manual_editar|default(None) else '' }}"><input type="file" name="manual_file" accept=".pdf,image/jpeg,image/png,image/webp"><small>Opcional. Se aplica a todos los vehículos iguales.</small></label>
+                        <input type="hidden" name="manual_titulo" value="{{ manual_editar.titulo if manual_editar|default(None) else 'Manual del vehículo' }}">
+                        <input type="hidden" name="manual_tipo_documento" value="{{ manual_editar.tipo_documento if manual_editar|default(None) and manual_editar.tipo_documento else 'Manual' }}">
+                        <input type="hidden" name="manual_descripcion" value="{{ manual_editar.descripcion if manual_editar|default(None) and manual_editar.descripcion else '' }}">
+                        <label class="worker-field worker-field-wide vinova-file-field"><span>Manual del modelo</span><input type="file" name="manual_file" accept=".pdf,image/jpeg,image/png,image/webp"><small>Opcional. Se aplica a todos los vehículos iguales.</small></label>
                         <div class="worker-field worker-field-wide vinova-manual-source-field"><span>Manual existente o enlace externo</span><div class="vinova-manual-source-grid"><label class="vinova-subfield"><strong>Enlace externo</strong><input type="url" name="manual_enlace" placeholder="https://..." list="workerManualLinks" value="{{ manual_editar.enlace if manual_editar|default(None) and manual_editar.enlace else '' }}"><small>Úsalo para manuales alojados fuera del proyecto.</small></label><label class="vinova-subfield"><strong>Archivo local existente</strong><select name="manual_archivo"><option value="">No usar archivo local</option>{% if manual_editar|default(None) and manual_editar.archivo %}<option value="{{ manual_editar.archivo }}" selected>Actual: {{ manual_editar.archivo }}</option>{% endif %}{% for manual in manuales_admin|default([]) %}{% if manual['archivo'] %}<option value="{{ manual['archivo'] }}">{{ manual['titulo'] }} · {{ manual['marca'] }} {{ manual['modelo'] }} {{ manual['anio'] }}</option>{% endif %}{% endfor %}</select><small>Selecciona un archivo que ya exista en static/docs/manuales.</small></label></div><datalist id="workerManualLinks">{% for manual in manuales_admin|default([]) %}{% if manual['enlace'] %}<option value="{{ manual['enlace'] }}">{{ manual['titulo'] }} · {{ manual['marca'] }} {{ manual['modelo'] }} {{ manual['anio'] }}</option>{% endif %}{% endfor %}</datalist></div>
                         <label class="worker-field worker-field-wide"><span>Descripción</span><textarea name="descripcion" rows="3" placeholder="Descripción breve del vehículo...">{{ vehiculo_editar.descripcion if editando_vehiculo else '' }}</textarea></label>
                         <label class="worker-switch"><input type="checkbox" name="activo" {% if not editando_vehiculo or vehiculo_editar.activo == 1 %}checked{% endif %}><span></span>Mostrar en catálogo</label>
@@ -464,7 +476,7 @@
                                                 <form method="POST" action="{{ generar_url }}" class="worker-inline-form" data-worker-confirm="¿Generar un código de canje para esta unidad?">
                                                     <button type="submit" class="worker-primary-btn">
                                                         <i data-lucide="key-round"></i>
-                                                        Generar código
+                                                        Crear código cliente
                                                     </button>
                                                 </form>
                                             {% else %}
@@ -696,6 +708,7 @@
                             <label class="worker-field"><span>Marca</span><input type="text" name="marca" placeholder="Ej. Mobil, Bosch, VINOVA"></label>
                             <label class="worker-field"><span>Proveedor</span><input type="text" name="proveedor" placeholder="Opcional"></label>
                             <label class="worker-field articulo-file-field"><span>Imagen</span><input type="file" name="imagen" accept="image/png,image/jpeg,image/webp"><small data-articulo-file-name>Selecciona PNG, JPG o WEBP. Se guarda en static/img/articulos/.</small></label>
+                            <label class="worker-field articulo-existing-image-field"><span>Imagen existente</span><select name="imagen_existente" data-articulo-existing-image><option value="">No reutilizar imagen</option>{% for recurso in imagenes_articulo_existentes %}<option value="{{ recurso.ruta }}">{{ recurso.etiqueta }}{% if recurso.extra %} · {{ recurso.extra }}{% endif %}</option>{% endfor %}</select><small>Reutiliza una imagen ya cargada para no duplicar archivos.</small></label>
                             <label class="worker-field"><span>Precio venta</span><input type="number" name="precio" min="0" step="0.01" required></label>
                             <label class="worker-field"><span>Costo interno</span><input type="number" name="costo" min="0" step="0.01" placeholder="Opcional"></label>
                             <label class="worker-field articulo-establecimiento-field"><span>Sucursal del stock</span><input type="text" value="{{ trabajador_establecimiento|default('Sucursal asignada') }}" disabled><small>Se usa automáticamente tu establecimiento asignado.</small></label>
@@ -930,6 +943,131 @@
                                 {% endif %}
                             </tbody>
                         </table>
+                    </div>
+                </section>
+            </section>
+        </section>
+
+
+        <section class="worker-section" id="trabajador-mensajes" data-worker-content="mensajes">
+            <div class="worker-section-header">
+                <div>
+                    <span>COMUNICACIÓN</span>
+                    <h2>Mensajes a clientes</h2>
+                    <p>Busca el cliente por nombre, correo o cédula y envíale un mensaje directo a su perfil.</p>
+                </div>
+            </div>
+
+            <section class="worker-layout worker-messages-layout">
+                <section class="worker-panel worker-form-panel notification-composer-panel">
+                    <div class="worker-panel-title">
+                        <div>
+                            <span>NUEVO MENSAJE</span>
+                            <h2>Enviar notificación</h2>
+                        </div>
+                    </div>
+
+                    <form action="{{ url_for('trabajador_enviar_notificacion_usuario') }}" method="POST" class="worker-form notification-send-form" data-recipient-form>
+                        <input type="hidden" name="usuario_id" data-recipient-id>
+
+                        <div class="worker-form-grid">
+                            <label class="worker-field worker-field-wide notification-recipient-field">
+                                <span>Buscar cliente</span>
+                                <input
+                                    type="search"
+                                    data-recipient-search
+                                    data-recipient-endpoint="{{ trabajador_buscar_clientes_url|default('/trabajador/notificaciones/buscar-clientes') }}"
+                                    placeholder="Nombre, correo, cédula o ID..."
+                                    autocomplete="off">
+                                <small>Escribe al menos 2 caracteres. Solo aparecen clientes activos.</small>
+                            </label>
+
+                            <div class="notification-recipient-selected worker-field-wide" data-recipient-selected hidden>
+                                <span>Cliente seleccionado</span>
+                                <strong data-recipient-name></strong>
+                                <small data-recipient-meta></small>
+                                <button type="button" data-recipient-clear>Quitar</button>
+                            </div>
+
+                            <div class="notification-recipient-results worker-field-wide" data-recipient-results>
+                                <div class="notification-recipient-empty">Busca un cliente para enviarle el mensaje.</div>
+                            </div>
+
+                            <label class="worker-field">
+                                <span>Tipo</span>
+                                <select name="tipo">
+                                    <option value="mensaje">Mensaje</option>
+                                    <option value="alerta">Alerta</option>
+                                    <option value="mantenimiento">Mantenimiento</option>
+                                    <option value="factura">Factura</option>
+                                </select>
+                            </label>
+
+                            <label class="worker-field">
+                                <span>Prioridad</span>
+                                <select name="prioridad">
+                                    <option value="normal">Normal</option>
+                                    <option value="alta">Alta</option>
+                                    <option value="urgente">Urgente</option>
+                                </select>
+                            </label>
+
+                            <label class="worker-field worker-field-wide">
+                                <span>Título</span>
+                                <input type="text" name="titulo" maxlength="140" placeholder="Ej. Tu vehículo está listo" required>
+                            </label>
+
+                            <label class="worker-field worker-field-wide">
+                                <span>Mensaje</span>
+                                <textarea name="mensaje" rows="5" maxlength="1600" placeholder="Escribe el mensaje que verá el cliente en su perfil..." required></textarea>
+                                <small>El cliente lo verá en Perfil > Notificaciones. No depende de correo externo.</small>
+                            </label>
+                        </div>
+
+                        <button type="submit" class="worker-primary-btn">
+                            <i data-lucide="send"></i>
+                            Enviar notificación
+                        </button>
+                    </form>
+                </section>
+
+                <section class="worker-panel notification-history-panel">
+                    <div class="worker-panel-title">
+                        <div>
+                            <span>HISTORIAL</span>
+                            <h2>Mensajes enviados</h2>
+                        </div>
+                    </div>
+
+                    <div class="notification-history-list">
+                        {% if notificaciones_enviadas_trabajador %}
+                            {% for notificacion in notificaciones_enviadas_trabajador %}
+                                <article class="notification-history-card priority-{{ notificacion.prioridad }} type-{{ notificacion.tipo }}">
+                                    <div class="notification-history-card-head">
+                                        <span>{{ notificacion.tipo|capitalize }}</span>
+                                        <small>{{ notificacion.prioridad|capitalize }}</small>
+                                    </div>
+                                    <h3>{{ notificacion.titulo }}</h3>
+                                    <p>{{ notificacion.mensaje }}</p>
+                                    <div class="notification-history-meta">
+                                        <strong>Para: {{ notificacion.destinatario_nombre }}</strong>
+                                        <span>{{ notificacion.destinatario_correo }}</span>
+                                        <span>{{ notificacion.creado_visible|default('Reciente') }}</span>
+                                        {% if notificacion.leida|int == 1 %}
+                                            <em>Leída por el cliente</em>
+                                        {% else %}
+                                            <em>Pendiente de lectura</em>
+                                        {% endif %}
+                                    </div>
+                                </article>
+                            {% endfor %}
+                        {% else %}
+                            <div class="worker-empty compact">
+                                <i data-lucide="message-square-text"></i>
+                                <h3>Sin mensajes enviados</h3>
+                                <p>Cuando envíes una notificación a un cliente, aparecerá aquí.</p>
+                            </div>
+                        {% endif %}
                     </div>
                 </section>
             </section>
@@ -1336,7 +1474,7 @@
                     <ul>
                         <li>Ver vehículos disponibles, reservados, vendidos u ocultos.</li>
                         <li>Consultar códigos de canje.</li>
-                        <li>Generar códigos para vehículos disponibles sin código previo.</li>
+                        <li>Crear códigos cliente para entregar vehículos disponibles sin código previo.</li>
                         <li>Consultar historial básico de canjes.</li>
                         <li>Registrar mantenimientos realizados por VINOVA.</li>
                         <li>Crear cuentas de clientes con rol Usuario y cédula/RUC opcional.</li>

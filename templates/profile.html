@@ -123,7 +123,12 @@
 
                     <input type="text" placeholder="Buscar vehículo...">
 
-                    <i class="fa-solid fa-bell icon"></i>
+                    <a href="#seccion-notificaciones" class="profile-bell-link sidebar-link" data-section="notificaciones" aria-label="Ver notificaciones">
+                        <i class="fa-solid fa-bell icon"></i>
+                        {% if total_notificaciones_no_leidas|default(0)|int > 0 %}
+                            <span>{{ total_notificaciones_no_leidas }}</span>
+                        {% endif %}
+                    </a>
 
                     <div class="header-profile-avatar">
                         {% if foto_perfil %}
@@ -197,8 +202,8 @@
                             <i class="fa-solid fa-triangle-exclamation"></i>
                         </div>
                         <p>Alertas</p>
-                        <h2>{{ total_alertas_mantenimiento|default(0) }}</h2>
-                        <span>Pendientes</span>
+                        <h2>{{ (total_alertas_mantenimiento|default(0)|int) + (total_notificaciones_no_leidas|default(0)|int) }}</h2>
+                        <span>{{ total_notificaciones_no_leidas|default(0) }} mensajes nuevos</span>
                     </article>
 
                 </section>
@@ -885,6 +890,86 @@
                 </div>
 
                 <section class="settings-panel">
+
+                    {% set notificaciones = notificaciones_usuario|default([]) %}
+
+                    <article class="profile-notification-inbox">
+                        <div class="profile-notification-head">
+                            <div>
+                                <h3>Mensajes VINOVA</h3>
+                                <p>Mensajes enviados por administración o personal autorizado.</p>
+                            </div>
+
+                            {% if total_notificaciones_no_leidas|default(0)|int > 0 %}
+                                <form action="{{ url_for('marcar_todas_notificaciones_leidas') }}" method="POST">
+                                    <button type="submit" class="profile-small-btn">
+                                        <i class="fa-solid fa-check-double"></i>
+                                        Marcar todas
+                                    </button>
+                                </form>
+                            {% endif %}
+                        </div>
+
+                        {% if notificaciones %}
+                            <div class="profile-notification-list">
+                                {% for notificacion in notificaciones %}
+                                    {% set tipo_notificacion = notificacion.tipo|default('mensaje') %}
+                                    {% set prioridad_notificacion = notificacion.prioridad|default('normal') %}
+                                    <article class="profile-notification-card {% if notificacion.leida|default(0)|int == 0 %}is-unread{% endif %} priority-{{ prioridad_notificacion }} type-{{ tipo_notificacion }}">
+                                        <div class="profile-notification-icon">
+                                            {% if tipo_notificacion == 'alerta' %}
+                                                <i class="fa-solid fa-triangle-exclamation"></i>
+                                            {% elif tipo_notificacion == 'factura' %}
+                                                <i class="fa-solid fa-file-invoice"></i>
+                                            {% elif tipo_notificacion == 'mantenimiento' %}
+                                                <i class="fa-solid fa-screwdriver-wrench"></i>
+                                            {% else %}
+                                                <i class="fa-solid fa-message"></i>
+                                            {% endif %}
+                                        </div>
+
+                                        <div class="profile-notification-body">
+                                            <div class="profile-notification-meta">
+                                                <span>{{ tipo_notificacion|capitalize }}</span>
+                                                <small>{{ notificacion.creado_visible|default('Reciente') }}</small>
+                                            </div>
+
+                                            <h4>{{ notificacion.titulo }}</h4>
+                                            <p>{{ notificacion.mensaje }}</p>
+
+                                            <div class="profile-notification-footer">
+                                                <span>
+                                                    Enviado por
+                                                    <strong>{{ notificacion.remitente_nombre|default('VINOVA', true) or 'VINOVA' }}</strong>
+                                                    {% if notificacion.remitente_establecimiento %}
+                                                        · {{ notificacion.remitente_establecimiento }}
+                                                    {% endif %}
+                                                </span>
+
+                                                <div class="profile-notification-actions">
+                                                    {% if notificacion.leida|default(0)|int == 0 %}
+                                                        <form action="{{ url_for('marcar_notificacion_leida', notificacion_id=notificacion.id) }}" method="POST">
+                                                            <button type="submit" class="profile-small-btn">Leída</button>
+                                                        </form>
+                                                    {% endif %}
+
+                                                    <form action="{{ url_for('ocultar_notificacion_usuario', notificacion_id=notificacion.id) }}" method="POST" onsubmit="return confirm('¿Ocultar esta notificación de tu perfil?');">
+                                                        <button type="submit" class="profile-small-btn profile-small-btn-muted">Ocultar</button>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </article>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="profile-notification-empty">
+                                <i class="fa-solid fa-bell-slash"></i>
+                                <h3>Sin mensajes por ahora</h3>
+                                <p>Cuando VINOVA te envíe una notificación, aparecerá aquí.</p>
+                            </div>
+                        {% endif %}
+                    </article>
 
                     {% set prefs = preferencias_notificacion|default({}) %}
 

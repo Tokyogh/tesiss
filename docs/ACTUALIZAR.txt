@@ -57,7 +57,7 @@ https://drive.google.com/file/d/1IRVj3a9JBvkq69rfOAZeXqeRbNogTfqL/view?usp=shari
 ===============================
 preparar db flask --app app migrar-db
 
-
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 =================
 pacman -Syu
 

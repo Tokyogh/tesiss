@@ -248,6 +248,13 @@ def perfil():
     """, (session["usuario_id"],))
     preferencias_notificacion = dict(cursor.fetchone() or {})
 
+    notificaciones_usuario = listar_notificaciones_usuario(cursor, session["usuario_id"], limite=80)
+    total_notificaciones_no_leidas = contar_notificaciones_usuario(
+        cursor,
+        session["usuario_id"],
+        solo_no_leidas=True
+    )
+
     conexion.close()
 
     ultimo_mantenimiento = historial_mantenimientos[0] if historial_mantenimientos else None
@@ -342,8 +349,108 @@ def perfil():
         grafica_mantenimientos=grafica_mantenimientos,
         manuales_usuario=manuales_usuario,
         facturas_usuario=facturas_usuario,
-        preferencias_notificacion=preferencias_notificacion
+        preferencias_notificacion=preferencias_notificacion,
+        notificaciones_usuario=notificaciones_usuario,
+        total_notificaciones_no_leidas=total_notificaciones_no_leidas
     )
+
+
+@app.route("/perfil/notificaciones/<int:notificacion_id>/leer", methods=["POST"])
+def marcar_notificacion_leida(notificacion_id):
+
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    try:
+        asegurar_tabla_notificaciones_usuario(cursor)
+        cursor.execute("""
+            UPDATE notificaciones_usuario
+            SET leida = 1,
+                leida_en = COALESCE(leida_en, ?)
+            WHERE id = ?
+              AND usuario_id = ?
+              AND COALESCE(eliminado_usuario, 0) = 0
+        """, (
+            fecha_actual(),
+            notificacion_id,
+            session["usuario_id"]
+        ))
+        conexion.commit()
+        flash("Notificación marcada como leída.", "success")
+
+    except Exception as error:
+        conexion.rollback()
+        print("Error al marcar notificación como leída:", error)
+        flash("No se pudo actualizar la notificación.", "error")
+
+    finally:
+        conexion.close()
+
+    return redirect("/perfil#seccion-notificaciones")
+
+
+@app.route("/perfil/notificaciones/marcar-todas", methods=["POST"])
+def marcar_todas_notificaciones_leidas():
+
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    try:
+        asegurar_tabla_notificaciones_usuario(cursor)
+        cursor.execute("""
+            UPDATE notificaciones_usuario
+            SET leida = 1,
+                leida_en = COALESCE(leida_en, ?)
+            WHERE usuario_id = ?
+              AND COALESCE(leida, 0) = 0
+              AND COALESCE(eliminado_usuario, 0) = 0
+        """, (fecha_actual(), session["usuario_id"]))
+        conexion.commit()
+        flash("Todas las notificaciones fueron marcadas como leídas.", "success")
+
+    except Exception as error:
+        conexion.rollback()
+        print("Error al marcar todas las notificaciones:", error)
+        flash("No se pudieron actualizar las notificaciones.", "error")
+
+    finally:
+        conexion.close()
+
+    return redirect("/perfil#seccion-notificaciones")
+
+
+@app.route("/perfil/notificaciones/<int:notificacion_id>/ocultar", methods=["POST"])
+def ocultar_notificacion_usuario(notificacion_id):
+
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    try:
+        asegurar_tabla_notificaciones_usuario(cursor)
+        cursor.execute("""
+            UPDATE notificaciones_usuario
+            SET eliminado_usuario = 1,
+                leida = 1,
+                leida_en = COALESCE(leida_en, ?)
+            WHERE id = ?
+              AND usuario_id = ?
+        """, (
+            fecha_actual(),
+            notificacion_id,
+            session["usuario_id"]
+        ))
+        conexion.commit()
+        flash("Notificación ocultada de tu perfil.", "success")
+
+    except Exception as error:
+        conexion.rollback()
+        print("Error al ocultar notificación:", error)
+        flash("No se pudo ocultar la notificación.", "error")
+
+    finally:
+        conexion.close()
+
+    return redirect("/perfil#seccion-notificaciones")
 
 
 @app.route("/perfil/notificaciones", methods=["POST"])

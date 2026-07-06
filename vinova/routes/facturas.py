@@ -7,7 +7,9 @@ def _establecimiento_operativo_facturacion(cursor):
         cursor.execute("""
             SELECT id, nombre
             FROM establecimientos
-            WHERE id = ? AND COALESCE(activo, 1) = 1
+            WHERE id = ?
+              AND COALESCE(activo, 1) = 1
+              AND LOWER(TRIM(COALESCE(tipo, ''))) = 'concesionario'
         """, (solicitado,))
         row = cursor.fetchone()
         if row:
@@ -18,7 +20,9 @@ def _establecimiento_operativo_facturacion(cursor):
         cursor.execute("""
             SELECT id, nombre
             FROM establecimientos
-            WHERE LOWER(TRIM(nombre)) = LOWER(TRIM(?)) AND COALESCE(activo, 1) = 1
+            WHERE LOWER(TRIM(nombre)) = LOWER(TRIM(?))
+              AND COALESCE(activo, 1) = 1
+              AND LOWER(TRIM(COALESCE(tipo, ''))) = 'concesionario'
             LIMIT 1
         """, (solicitado_nombre,))
         row = cursor.fetchone()
@@ -42,7 +46,13 @@ def _establecimiento_operativo_facturacion(cursor):
         except Exception:
             establecimiento_id = None
         if establecimiento_id:
-            cursor.execute("SELECT id, nombre FROM establecimientos WHERE id = ? AND COALESCE(activo,1)=1", (establecimiento_id,))
+            cursor.execute("""
+                SELECT id, nombre
+                FROM establecimientos
+                WHERE id = ?
+                  AND COALESCE(activo, 1) = 1
+                  AND LOWER(TRIM(COALESCE(tipo, ''))) = 'concesionario'
+            """, (establecimiento_id,))
             row = cursor.fetchone()
             if row:
                 return {"id": row["id"], "nombre": row["nombre"]}
@@ -51,15 +61,23 @@ def _establecimiento_operativo_facturacion(cursor):
             cursor.execute("""
                 SELECT id, nombre
                 FROM establecimientos
-                WHERE LOWER(TRIM(nombre)) = LOWER(TRIM(?)) AND COALESCE(activo,1)=1
+                WHERE LOWER(TRIM(nombre)) = LOWER(TRIM(?))
+                  AND COALESCE(activo, 1) = 1
+                  AND LOWER(TRIM(COALESCE(tipo, ''))) = 'concesionario'
                 LIMIT 1
             """, (nombre,))
             row = cursor.fetchone()
             if row:
                 return {"id": row["id"], "nombre": row["nombre"]}
-            return {"id": None, "nombre": nombre}
 
-    cursor.execute("SELECT id, nombre FROM establecimientos WHERE COALESCE(activo,1)=1 ORDER BY COALESCE(distancia_km, 999999), nombre LIMIT 1")
+    cursor.execute("""
+        SELECT id, nombre
+        FROM establecimientos
+        WHERE COALESCE(activo, 1) = 1
+          AND LOWER(TRIM(COALESCE(tipo, ''))) = 'concesionario'
+        ORDER BY COALESCE(distancia_km, 999999), nombre
+        LIMIT 1
+    """)
     row = cursor.fetchone()
     if row:
         return {"id": row["id"], "nombre": row["nombre"]}
@@ -337,22 +355,42 @@ def guardar_factura_vehiculo():
                         item["id"],
                     ))
 
-                cursor.execute("""
-                    INSERT INTO articulo_movimientos (
-                        articulo_id, tipo_movimiento, cantidad, stock_anterior, stock_nuevo,
-                        referencia_tipo, referencia_id, descripcion, creado_por, creado_en
-                    )
-                    VALUES (?, 'venta', ?, ?, ?, 'factura', ?, ?, ?, ?)
-                """, (
-                    item["id"],
-                    -item["cantidad"],
-                    item["stock_anterior"],
-                    item["stock_nuevo"],
-                    factura_id,
-                    f"Venta en factura {factura_id} - {establecimiento_nombre}",
-                    session.get("usuario_id"),
-                    ahora,
-                ))
+                try:
+                    cursor.execute("""
+                        INSERT INTO articulo_movimientos (
+                            articulo_id, establecimiento_id, tipo_movimiento, cantidad,
+                            stock_anterior, stock_nuevo, referencia_tipo, referencia_id,
+                            descripcion, creado_por, creado_en
+                        )
+                        VALUES (?, ?, 'venta', ?, ?, ?, 'factura', ?, ?, ?, ?)
+                    """, (
+                        item["id"],
+                        item.get("establecimiento_id"),
+                        -item["cantidad"],
+                        item["stock_anterior"],
+                        item["stock_nuevo"],
+                        factura_id,
+                        f"Venta en factura {factura_id} - {establecimiento_nombre}",
+                        session.get("usuario_id"),
+                        ahora,
+                    ))
+                except sqlite3.OperationalError:
+                    cursor.execute("""
+                        INSERT INTO articulo_movimientos (
+                            articulo_id, tipo_movimiento, cantidad, stock_anterior, stock_nuevo,
+                            referencia_tipo, referencia_id, descripcion, creado_por, creado_en
+                        )
+                        VALUES (?, 'venta', ?, ?, ?, 'factura', ?, ?, ?, ?)
+                    """, (
+                        item["id"],
+                        -item["cantidad"],
+                        item["stock_anterior"],
+                        item["stock_nuevo"],
+                        factura_id,
+                        f"Venta en factura {factura_id} - {establecimiento_nombre}",
+                        session.get("usuario_id"),
+                        ahora,
+                    ))
 
         registrar_auditoria(
             conexion,

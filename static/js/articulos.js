@@ -2,6 +2,7 @@ document.addEventListener("DOMContentLoaded", () => {
     initVinovaArticlePanels();
     initVinovaHiddenVehiclePanel();
     initVinovaHiddenArticlePanels();
+    initVinovaArchivedArticlePanels();
     initVinovaArticleFileInputs();
     initVinovaArticleInvoiceBuilders();
     initVinovaArticleCatalogFilters();
@@ -21,6 +22,17 @@ function vinovaMoney(value) {
     return `$${number.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+function vinovaEscapeHtml(value) {
+    const replacements = {
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+    };
+    return String(value ?? "").replace(/[&<>"']/g, (char) => replacements[char]);
+}
+
 function vinovaStaticUrl(path) {
     const clean = String(path || "").replace(/^\/+/, "");
     return clean ? `/static/${clean}` : "";
@@ -31,6 +43,23 @@ function vinovaGetCsrf() {
     return input ? input.value : "";
 }
 
+function vinovaSetSelectValue(select, value, label) {
+    if (!select) return;
+    const cleanValue = String(value || "").trim();
+    if (!cleanValue) {
+        select.value = "";
+        return;
+    }
+    const exists = Array.from(select.options).some((option) => option.value === cleanValue);
+    if (!exists) {
+        const option = document.createElement("option");
+        option.value = cleanValue;
+        option.textContent = label || `Actual: ${cleanValue}`;
+        select.appendChild(option);
+    }
+    select.value = cleanValue;
+}
+
 function initVinovaArticlePanels() {
     document.querySelectorAll("[data-articulos-panel]").forEach((panel) => {
         const apiUrl = panel.dataset.articulosApi || "/articulos/api/gestion";
@@ -38,6 +67,7 @@ function initVinovaArticlePanels() {
         const searchInput = panel.querySelector("[data-articulos-panel-search]");
         const form = panel.querySelector("[data-articulo-form]");
         const resetButton = panel.querySelector("[data-articulo-reset]");
+        const transferSelect = panel.querySelector("[data-articulo-transfer-select]");
         const stats = panel.querySelectorAll("[data-articulo-stat]");
         const origen = panel.dataset.origen || "admin";
         let articulos = [];
@@ -85,27 +115,43 @@ function initVinovaArticlePanels() {
                 const activo = Number(articulo.activo || 0) === 1;
                 const estadoClass = activo ? "active" : "inactive";
                 const stockClass = lowStock ? "warning" : (stock > 0 ? "active" : "sold");
+                const stockEstablecimientos = Array.isArray(articulo.stock_establecimientos) ? articulo.stock_establecimientos : [];
+                const branchBadges = stockEstablecimientos
+                    .filter((item) => Number(item.stock || 0) > 0)
+                    .map((item) => `<span>${vinovaEscapeHtml(item.nombre || 'Concesionaria')}: ${Number(item.stock || 0).toLocaleString('es-EC')} ${vinovaEscapeHtml(articulo.unidad || 'Unidad')}</span>`)
+                    .join("");
+                const movimientos = Array.isArray(articulo.movimientos_recientes) ? articulo.movimientos_recientes : [];
+                const ultimoMovimiento = movimientos[0];
+                const movementHtml = ultimoMovimiento ? `
+                    <p class="articulo-last-movement">
+                        Último movimiento: ${vinovaEscapeHtml(ultimoMovimiento.tipo_movimiento || 'movimiento')}
+                        ${ultimoMovimiento.establecimiento_nombre ? ' · ' + vinovaEscapeHtml(ultimoMovimiento.establecimiento_nombre) : ''}
+                        ${ultimoMovimiento.creado_en ? ' · ' + vinovaEscapeHtml(ultimoMovimiento.creado_en) : ''}
+                    </p>
+                ` : "";
                 const safeJson = encodeURIComponent(JSON.stringify(articulo));
                 return `
                     <article class="articulo-row" data-articulo-row data-articulo-json="${safeJson}">
                         <div class="articulo-thumb">
-                            ${img ? `<img src="${img}" alt="${articulo.nombre || 'Artículo'}">` : `<i data-lucide="package"></i>`}
+                            ${img ? `<img src="${vinovaEscapeHtml(img)}" alt="${vinovaEscapeHtml(articulo.nombre || 'Artículo')}">` : `<i data-lucide="package"></i>`}
                         </div>
                         <div class="articulo-info">
                             <div class="articulo-heading">
                                 <div>
-                                    <h3>${articulo.nombre || 'Artículo'}</h3>
-                                    <p>${articulo.codigo_articulo || 'Sin código'} · ${articulo.categoria || 'Otros'}${articulo.marca ? ' · ' + articulo.marca : ''}</p>
+                                    <h3>${vinovaEscapeHtml(articulo.nombre || 'Artículo')}</h3>
+                                    <p>${vinovaEscapeHtml(articulo.codigo_articulo || 'Sin código')} · ${vinovaEscapeHtml(articulo.categoria || 'Otros')}${articulo.marca ? ' · ' + vinovaEscapeHtml(articulo.marca) : ''}</p>
                                 </div>
                                 <strong>${vinovaMoney(articulo.precio)}</strong>
                             </div>
                             <div class="articulo-meta">
                                 <span class="admin-status ${estadoClass}">${activo ? 'Visible' : 'Oculto'}</span>
-                                <span class="admin-status ${stockClass}">${stock.toLocaleString('es-EC')} ${articulo.unidad || 'Unidad'} en stock</span>
+                                <span class="admin-status ${stockClass}">${stock.toLocaleString('es-EC')} ${vinovaEscapeHtml(articulo.unidad || 'Unidad')} en stock</span>
                                 <span>${Number(articulo.unidades_vendidas || 0).toLocaleString('es-EC')} vendidas</span>
                                 ${lowStock ? `<span class="admin-status warning">Stock bajo</span>` : ''}
+                                ${branchBadges}
                             </div>
-                            ${articulo.descripcion ? `<p class="articulo-description">${articulo.descripcion}</p>` : ''}
+                            ${articulo.descripcion ? `<p class="articulo-description">${vinovaEscapeHtml(articulo.descripcion)}</p>` : ''}
+                            ${movementHtml}
                         </div>
                         <div class="articulo-actions">
                             <button type="button" class="articulo-mini-btn" data-articulo-edit>Editar</button>
@@ -172,11 +218,15 @@ function initVinovaArticlePanels() {
             form.querySelector('[name="proveedor"]').value = articulo.proveedor || "";
             form.querySelector('[name="precio"]').value = articulo.precio || 0;
             form.querySelector('[name="costo"]').value = articulo.costo || 0;
-            form.querySelector('[name="stock"]').value = articulo.stock || 0;
-            form.querySelector('[name="stock_minimo"]').value = articulo.stock_minimo || 0;
+            const stockInput = form.querySelector('[name="stock"]');
+            const stockMinInput = form.querySelector('[name="stock_minimo"]');
+            if (stockInput) stockInput.value = articulo.stock || 0;
+            if (stockMinInput) stockMinInput.value = articulo.stock_minimo || 0;
             form.querySelector('[name="unidad"]').value = articulo.unidad || "Unidad";
             form.querySelector('[name="estado"]').value = articulo.estado || "Disponible";
             form.querySelector('[name="descripcion"]').value = articulo.descripcion || "";
+            vinovaSetSelectValue(form.querySelector('[name="imagen_existente"]'), articulo.imagen || "", articulo.imagen ? `Actual: ${articulo.imagen}` : "");
+            fillBranchStock(articulo);
             const activo = form.querySelector('[name="activo"]');
             if (activo) activo.checked = Number(articulo.activo || 0) === 1;
             const title = panel.querySelector("[data-articulo-form-title]");
@@ -188,6 +238,8 @@ function initVinovaArticlePanels() {
             if (!form) return;
             form.reset();
             form.querySelector('[name="articulo_id"]').value = "";
+            fillBranchStock({});
+            vinovaSetSelectValue(form.querySelector('[name="imagen_existente"]'), "", "");
             const activo = form.querySelector('[name="activo"]');
             if (activo) activo.checked = true;
             form.querySelectorAll("[data-articulo-file-name]").forEach((label) => {
@@ -195,6 +247,22 @@ function initVinovaArticlePanels() {
             });
             const title = panel.querySelector("[data-articulo-form-title]");
             if (title) title.textContent = "Agregar artículo";
+        }
+
+        function fillBranchStock(articulo) {
+            if (!form) return;
+            const stockRows = Array.isArray(articulo.stock_establecimientos) ? articulo.stock_establecimientos : [];
+            const stockByBranch = new Map(stockRows.map((item) => [String(item.establecimiento_id), item]));
+
+            form.querySelectorAll("[data-articulo-stock-branch]").forEach((input) => {
+                const item = stockByBranch.get(String(input.dataset.articuloStockBranch));
+                input.value = item ? Number(item.stock || 0) : 0;
+            });
+
+            form.querySelectorAll("[data-articulo-stock-min-branch]").forEach((input) => {
+                const item = stockByBranch.get(String(input.dataset.articuloStockMinBranch));
+                input.value = item ? Number(item.stock_minimo || 0) : 0;
+            });
         }
 
         async function loadArticles() {
@@ -205,6 +273,7 @@ function initVinovaArticlePanels() {
                 if (!data.ok) throw new Error(data.error || "No se pudo cargar el inventario.");
                 articulos = data.articulos || [];
                 updateStats(data.stats || {});
+                updateTransferOptions();
                 renderList();
             } catch (error) {
                 list.innerHTML = `
@@ -216,6 +285,20 @@ function initVinovaArticlePanels() {
                 `;
                 if (window.lucide) window.lucide.createIcons();
             }
+        }
+
+        function updateTransferOptions() {
+            if (!transferSelect) return;
+            const visibles = articulos.filter((articulo) => {
+                return Number(articulo.archivado || 0) === 0 && Number(articulo.activo || 0) === 1;
+            });
+
+            transferSelect.innerHTML = visibles.length
+                ? `<option value="">Seleccionar artículo</option>` + visibles.map((articulo) => {
+                    const label = `${articulo.nombre || 'Artículo'} · ${articulo.codigo_articulo || 'Sin código'} · Stock total: ${Number(articulo.stock || 0).toLocaleString('es-EC')}`;
+                    return `<option value="${vinovaEscapeHtml(articulo.id)}">${vinovaEscapeHtml(label)}</option>`;
+                }).join("")
+                : `<option value="">No hay artículos activos</option>`;
         }
 
         if (searchInput) searchInput.addEventListener("input", renderList);
@@ -266,20 +349,20 @@ function initVinovaHiddenVehiclePanel() {
             list.innerHTML = vehiculos.map((vehiculo) => `
                 <article class="articulo-row vehiculo-oculto-row">
                     <div class="articulo-thumb">
-                        ${vehiculo.imagen_url ? `<img src="${vehiculo.imagen_url}" alt="${vehiculo.marca} ${vehiculo.modelo}">` : `<i data-lucide="car-front"></i>`}
+                        ${vehiculo.imagen_url ? `<img src="${vinovaEscapeHtml(vehiculo.imagen_url)}" alt="${vinovaEscapeHtml(`${vehiculo.marca || ''} ${vehiculo.modelo || ''}`)}">` : `<i data-lucide="car-front"></i>`}
                     </div>
                     <div class="articulo-info">
                         <div class="articulo-heading">
                             <div>
-                                <h3>${vehiculo.marca || ''} ${vehiculo.modelo || ''}</h3>
-                                <p>${vehiculo.codigo_catalogo || 'Sin código'} · ${vehiculo.anio || ''} · ${vehiculo.tipo_vehiculo || 'Vehículo'}</p>
+                                <h3>${vinovaEscapeHtml(vehiculo.marca || '')} ${vinovaEscapeHtml(vehiculo.modelo || '')}</h3>
+                                <p>${vinovaEscapeHtml(vehiculo.codigo_catalogo || 'Sin código')} · ${vinovaEscapeHtml(vehiculo.anio || '')} · ${vinovaEscapeHtml(vehiculo.tipo_vehiculo || 'Vehículo')}</p>
                             </div>
                             <strong>${vinovaMoney(vehiculo.precio)}</strong>
                         </div>
                         <div class="articulo-meta">
                             <span class="admin-status inactive">Oculto</span>
                             <span>${Number(vehiculo.kilometraje || 0).toLocaleString('es-EC')} km</span>
-                            <span>${vehiculo.estado || 'Disponible'}</span>
+                            <span>${vinovaEscapeHtml(vehiculo.estado || 'Disponible')}</span>
                         </div>
                     </div>
                     <div class="articulo-actions">
@@ -347,19 +430,19 @@ function initVinovaHiddenArticlePanels() {
             list.innerHTML = articulos.map((articulo) => `
                 <article class="articulo-row">
                     <div class="articulo-thumb">
-                        ${articulo.imagen_url ? `<img src="${articulo.imagen_url}" alt="${articulo.nombre || 'Artículo'}">` : `<i data-lucide="package"></i>`}
+                        ${articulo.imagen_url ? `<img src="${vinovaEscapeHtml(articulo.imagen_url)}" alt="${vinovaEscapeHtml(articulo.nombre || 'Artículo')}">` : `<i data-lucide="package"></i>`}
                     </div>
                     <div class="articulo-info">
                         <div class="articulo-heading">
                             <div>
-                                <h3>${articulo.nombre || 'Artículo'}</h3>
-                                <p>${articulo.codigo_articulo || 'Sin código'} · ${articulo.categoria || 'Otros'}${articulo.marca ? ' · ' + articulo.marca : ''}</p>
+                                <h3>${vinovaEscapeHtml(articulo.nombre || 'Artículo')}</h3>
+                                <p>${vinovaEscapeHtml(articulo.codigo_articulo || 'Sin código')} · ${vinovaEscapeHtml(articulo.categoria || 'Otros')}${articulo.marca ? ' · ' + vinovaEscapeHtml(articulo.marca) : ''}</p>
                             </div>
                             <strong>${vinovaMoney(articulo.precio)}</strong>
                         </div>
                         <div class="articulo-meta">
                             <span class="admin-status inactive">Oculto</span>
-                            <span>${Number(articulo.stock || 0).toLocaleString('es-EC')} ${articulo.unidad || 'Unidad'} en stock</span>
+                            <span>${Number(articulo.stock || 0).toLocaleString('es-EC')} ${vinovaEscapeHtml(articulo.unidad || 'Unidad')} en stock</span>
                             <span>${Number(articulo.unidades_vendidas || 0).toLocaleString('es-EC')} vendidas</span>
                         </div>
                     </div>
@@ -390,6 +473,87 @@ function initVinovaHiddenArticlePanels() {
         }
 
         loadHiddenArticles();
+    });
+}
+
+
+function initVinovaArchivedArticlePanels() {
+    document.querySelectorAll("[data-articulos-archivados-panel]").forEach((panel) => {
+        const list = panel.querySelector("[data-articulos-archivados-list]");
+        const apiUrl = panel.dataset.articulosArchivadosApi || "/articulos/api/gestion?archivados=1";
+        if (!list) return;
+
+        async function postArticleAction(url) {
+            const body = new URLSearchParams();
+            body.set("csrf_token", vinovaGetCsrf());
+            const response = await fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body
+            });
+            const data = await response.json().catch(() => ({ ok: false }));
+            if (!data.ok) alert(data.error || "No se pudo completar la acción.");
+            return data;
+        }
+
+        async function loadArchivedArticles() {
+            list.innerHTML = `<div class="articulos-loading">Cargando artículos archivados...</div>`;
+            try {
+                const response = await fetch(apiUrl, { headers: { "Accept": "application/json" } });
+                const data = await response.json();
+                if (!data.ok) throw new Error(data.error || "No se pudo cargar artículos archivados.");
+                renderArchivedArticles((data.articulos || []).filter((articulo) => Number(articulo.archivado || 0) === 1));
+            } catch (error) {
+                list.innerHTML = `<div class="articulos-empty error"><h3>No se pudo cargar</h3><p>${vinovaEscapeHtml(error.message || 'Error inesperado')}</p></div>`;
+            }
+        }
+
+        function renderArchivedArticles(articulos) {
+            if (!articulos.length) {
+                list.innerHTML = `<div class="articulos-empty"><i data-lucide="archive"></i><h3>No hay artículos archivados</h3><p>Cuando archives productos aparecerán aquí para revisión administrativa.</p></div>`;
+                if (window.lucide) window.lucide.createIcons();
+                return;
+            }
+
+            list.innerHTML = articulos.map((articulo) => `
+                <article class="articulo-row archived">
+                    <div class="articulo-thumb">
+                        ${articulo.imagen_url ? `<img src="${vinovaEscapeHtml(articulo.imagen_url)}" alt="${vinovaEscapeHtml(articulo.nombre || 'Artículo')}">` : `<i data-lucide="archive"></i>`}
+                    </div>
+                    <div class="articulo-info">
+                        <div class="articulo-heading">
+                            <div>
+                                <h3>${vinovaEscapeHtml(articulo.nombre || 'Artículo')}</h3>
+                                <p>${vinovaEscapeHtml(articulo.codigo_articulo || 'Sin código')} · ${vinovaEscapeHtml(articulo.categoria || 'Otros')}${articulo.marca ? ' · ' + vinovaEscapeHtml(articulo.marca) : ''}</p>
+                            </div>
+                            <strong>${vinovaMoney(articulo.precio)}</strong>
+                        </div>
+                        <div class="articulo-meta">
+                            <span class="admin-status inactive">Archivado</span>
+                            <span>${Number(articulo.stock || 0).toLocaleString('es-EC')} ${vinovaEscapeHtml(articulo.unidad || 'Unidad')} en stock</span>
+                            <span>${Number(articulo.unidades_vendidas || 0).toLocaleString('es-EC')} vendidas</span>
+                        </div>
+                        ${articulo.motivo_archivado ? `<p class="articulo-description">Motivo: ${vinovaEscapeHtml(articulo.motivo_archivado)}</p>` : ''}
+                    </div>
+                    <div class="articulo-actions">
+                        <button type="button" class="articulo-mini-btn danger" data-archived-articulo-delete="${vinovaEscapeHtml(articulo.id)}">Eliminar permanente</button>
+                    </div>
+                </article>
+            `).join("");
+
+            list.querySelectorAll("[data-archived-articulo-delete]").forEach((button) => {
+                button.addEventListener("click", async () => {
+                    const id = button.dataset.archivedArticuloDelete;
+                    if (!confirm("Eliminar permanentemente este artículo también borrará su stock, movimientos, referencias en facturas e imagen local si no la usa otro registro. Esta acción no se puede deshacer.")) return;
+                    const data = await postArticleAction(`/admin/articulos/${id}/eliminar-permanente`);
+                    if (data.ok) await loadArchivedArticles();
+                });
+            });
+
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        loadArchivedArticles();
     });
 }
 
@@ -448,8 +612,8 @@ function initVinovaArticleInvoiceBuilders() {
                 <div class="article-invoice-row">
                     <input type="hidden" name="articulo_id[]" value="${item.id}">
                     <input type="hidden" name="articulo_cantidad[]" value="${item.cantidad}">
-                    <strong>${item.nombre}</strong>
-                    <span>${item.codigo || 'Sin código'} · ${vinovaMoney(item.precio)} · Stock: ${item.stock}</span>
+                    <strong>${vinovaEscapeHtml(item.nombre)}</strong>
+                    <span>${vinovaEscapeHtml(item.codigo || 'Sin código')} · ${vinovaMoney(item.precio)} · Stock: ${item.stock}</span>
                     <label>
                         Cantidad
                         <input type="number" min="1" step="1" max="${Math.floor(Number(item.stock || 1))}" value="${item.cantidad}" data-invoice-qty="${index}">
@@ -523,8 +687,8 @@ function initVinovaArticleInvoiceBuilders() {
             results.hidden = false;
             results.innerHTML = data.resultados.map((articulo, index) => `
                 <button type="button" class="article-result-item" data-article-result="${index}">
-                    ${articulo.imagen_url ? `<img src="${articulo.imagen_url}" alt="${articulo.nombre}">` : `<i data-lucide="package"></i>`}
-                    <span><strong>${articulo.nombre}</strong><small>${articulo.codigo_articulo} · ${articulo.categoria} · Stock: ${articulo.stock}</small></span>
+                    ${articulo.imagen_url ? `<img src="${vinovaEscapeHtml(articulo.imagen_url)}" alt="${vinovaEscapeHtml(articulo.nombre)}">` : `<i data-lucide="package"></i>`}
+                    <span><strong>${vinovaEscapeHtml(articulo.nombre)}</strong><small>${vinovaEscapeHtml(articulo.codigo_articulo)} · ${vinovaEscapeHtml(articulo.categoria)} · Stock: ${articulo.stock}</small></span>
                     <b>${vinovaMoney(articulo.precio)}</b>
                 </button>
             `).join("");
@@ -610,7 +774,7 @@ function initVinovaPublicArticleModal() {
         const sucursales = Array.isArray(articulo.sucursales_disponibles) ? articulo.sucursales_disponibles : [];
         if (media) {
             media.innerHTML = articulo.imagen_url
-                ? `<img src="${articulo.imagen_url}" alt="${articulo.nombre || 'Artículo'}">`
+                ? `<img src="${vinovaEscapeHtml(articulo.imagen_url)}" alt="${vinovaEscapeHtml(articulo.nombre || 'Artículo')}">`
                 : `<i data-lucide="package"></i>`;
         }
         if (category) category.textContent = articulo.categoria || "Artículo VINOVA";
@@ -623,7 +787,7 @@ function initVinovaPublicArticleModal() {
         if (branchSelect) {
             branchSelect.innerHTML = sucursales.map((sucursal) => {
                 const label = `${sucursal.nombre || 'VINOVA'}${sucursal.ciudad ? ' · ' + sucursal.ciudad : ''}`;
-                return `<option value="${sucursal.id || ''}" data-whatsapp="${sucursal.whatsapp_url || ''}">${label}</option>`;
+                return `<option value="${vinovaEscapeHtml(sucursal.id || '')}" data-whatsapp="${vinovaEscapeHtml(sucursal.whatsapp_url || '')}">${vinovaEscapeHtml(label)}</option>`;
             }).join("");
         }
         if (branchWrap) branchWrap.hidden = sucursales.length <= 1;

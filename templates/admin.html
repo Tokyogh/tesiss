@@ -94,6 +94,11 @@
                 <span>Usuarios</span>
             </a>
 
+            <a href="#admin-mensajes" class="admin-nav-link" data-admin-section="mensajes">
+                <i data-lucide="message-square-text"></i>
+                <span>Mensajes</span>
+            </a>
+
             <a href="#admin-trabajadores" class="admin-nav-link" data-admin-section="trabajadores">
                 <i data-lucide="briefcase-business"></i>
                 <span>Trabajadores</span>
@@ -459,9 +464,6 @@
                                         value="{{ vehiculo_editar['codigo_catalogo'] if vehiculo_editar else '' }}"
                                         {% if vehiculo_editar and (vehiculo_editar['estado'] == 'Vendido' or codigos_edicion) %}readonly{% endif %}>
 
-                                    {% if not (vehiculo_editar and (vehiculo_editar['estado'] == 'Vendido' or codigos_edicion)) %}
-                                        <button type="button" class="vinova-code-generate-btn" data-generate-catalog-code>Generar</button>
-                                    {% endif %}
                                 </div>
 
                                 {% if vehiculo_editar and vehiculo_editar['estado'] == 'Vendido' %}
@@ -593,6 +595,11 @@
                                 </select>
                             </label>
 
+                            {% set recursos_static = recursos_static_admin|default({}) %}
+                            {% set imagenes_vehiculo_existentes = recursos_static.get('imagenes_vehiculos', []) if recursos_static else [] %}
+                            {% set modelos_3d_existentes = recursos_static.get('modelos_3d', []) if recursos_static else [] %}
+                            {% set imagenes_articulo_existentes = recursos_static.get('imagenes_articulos', []) if recursos_static else [] %}
+
                             <label class="admin-field admin-field-wide vinova-file-field">
                                 <span>Imagen del vehículo</span>
 
@@ -637,39 +644,46 @@
                                 <small>{{ 'Sube un nuevo GLB/GLTF solo si quieres reemplazar el actual.' if vehiculo_editar and vehiculo_editar['modelo_3d'] else 'Opcional. Se guardará en static/models/vehicles/ y se compartirá por marca + modelo + año.' }}</small>
                             </label>
 
-                            <label class="admin-field">
-                                <span>ID modelo 3D</span>
-                                <input
-                                    type="text"
-                                    name="modelo_3d_id"
-                                    placeholder="rav4_2024"
-                                    value="{{ vehiculo_editar['modelo_3d_id'] if vehiculo_editar else '' }}">
-                            </label>
+                            <input type="hidden" name="modelo_3d_id" value="{{ vehiculo_editar['modelo_3d_id'] if vehiculo_editar else '' }}">
+                            <input type="hidden" name="modelo_3d" value="{{ vehiculo_editar['modelo_3d'] if vehiculo_editar else '' }}">
+                            <input type="hidden" name="modelo_3d_tipo" value="{{ vehiculo_editar['modelo_3d_tipo'] if vehiculo_editar and vehiculo_editar['modelo_3d_tipo'] else 'glb' }}">
 
-                            <label class="admin-field">
-                                <span>Ruta modelo 3D</span>
-                                <input
-                                    type="text"
-                                    name="modelo_3d"
-                                    placeholder="models/vehicles/rav4_2024.glb"
-                                    value="{{ vehiculo_editar['modelo_3d'] if vehiculo_editar else '' }}">
-                            </label>
+                            <div class="admin-field admin-field-wide vinova-resource-source-field">
+                                <span>Reutilizar recursos existentes</span>
+                                <div class="vinova-resource-source-grid">
+                                    <label class="vinova-subfield">
+                                        <strong>Foto existente</strong>
+                                        <select name="imagen_existente">
+                                            <option value="">No reutilizar foto</option>
+                                            {% if vehiculo_editar and vehiculo_editar['imagen'] %}
+                                                <option value="{{ vehiculo_editar['imagen'] }}" selected>Actual: {{ vehiculo_editar['imagen'] }}</option>
+                                            {% endif %}
+                                            {% for recurso in imagenes_vehiculo_existentes %}
+                                                <option value="{{ recurso.ruta }}">{{ recurso.etiqueta }}{% if recurso.extra %} · {{ recurso.extra }}{% endif %}</option>
+                                            {% endfor %}
+                                        </select>
+                                        <small>Usa una imagen ya guardada para no duplicar archivos.</small>
+                                    </label>
 
-                            <label class="admin-field">
-                                <span>Tipo modelo 3D</span>
-
-                                {% set modelo_3d_tipo_actual = vehiculo_editar['modelo_3d_tipo'] if vehiculo_editar else 'glb' %}
-
-                                <select name="modelo_3d_tipo">
-                                    <option value="glb" {% if modelo_3d_tipo_actual == 'glb' %}selected{% endif %}>GLB</option>
-                                    <option value="gltf" {% if modelo_3d_tipo_actual == 'gltf' %}selected{% endif %}>GLTF</option>
-                                    <option value="pendiente" {% if modelo_3d_tipo_actual == 'pendiente' %}selected{% endif %}>Pendiente</option>
-                                </select>
-                            </label>
+                                    <label class="vinova-subfield">
+                                        <strong>Modelo 3D existente</strong>
+                                        <select name="modelo_3d_existente">
+                                            <option value="">No reutilizar modelo 3D</option>
+                                            {% if vehiculo_editar and vehiculo_editar['modelo_3d'] %}
+                                                <option value="{{ vehiculo_editar['modelo_3d'] }}" selected>Actual: {{ vehiculo_editar['modelo_3d'] }}</option>
+                                            {% endif %}
+                                            {% for recurso in modelos_3d_existentes %}
+                                                <option value="{{ recurso.ruta }}">{{ recurso.etiqueta }}{% if recurso.extra %} · {{ recurso.extra }}{% endif %}</option>
+                                            {% endfor %}
+                                        </select>
+                                        <small>Selecciona un GLB/GLTF existente si el modelo ya fue cargado.</small>
+                                    </label>
+                                </div>
+                            </div>
 
                             <div class="admin-field admin-field-wide admin-info-box">
                                 <strong>Recursos por modelo</strong>
-                                <small>Los datos 3D y manuales se comparten por marca + modelo + año. Si ya existe otro vehículo igual, VINOVA reutiliza esos recursos automáticamente.</small>
+                                <small>Fotos, modelos 3D y manuales pueden reutilizarse para evitar duplicados. Si subes un archivo nuevo, reemplaza la selección existente.</small>
                             </div>
 
                             {% set manual_actual = manual_editar if manual_editar else none %}
@@ -689,15 +703,8 @@
                                 </div>
                             {% endif %}
 
-                            <label class="admin-field">
-                                <span>Título del manual del modelo</span>
-                                <input type="text" name="manual_titulo" placeholder="Manual del propietario" value="{{ manual_actual['titulo'] if manual_actual else '' }}">
-                            </label>
-
-                            <label class="admin-field">
-                                <span>Tipo de manual</span>
-                                <input type="text" name="manual_tipo_documento" placeholder="Manual, garantía, guía técnica" value="{{ manual_actual['tipo_documento'] if manual_actual else 'Manual' }}">
-                            </label>
+                            <input type="hidden" name="manual_titulo" value="{{ manual_actual['titulo'] if manual_actual else 'Manual del vehículo' }}">
+                            <input type="hidden" name="manual_tipo_documento" value="{{ manual_actual['tipo_documento'] if manual_actual else 'Manual' }}">
 
                             <label class="admin-field admin-field-wide vinova-file-field">
                                 <span>Subir manual para este modelo</span>
@@ -737,10 +744,7 @@
                                 </datalist>
                             </div>
 
-                            <label class="admin-field admin-field-wide">
-                                <span>Descripción del manual</span>
-                                <textarea name="manual_descripcion" rows="2" placeholder="Manual de propietario, guía de mantenimiento, garantía...">{{ manual_actual['descripcion'] if manual_actual else '' }}</textarea>
-                            </label>
+                            <input type="hidden" name="manual_descripcion" value="{{ manual_actual['descripcion'] if manual_actual else '' }}">
 
 
                             <label class="admin-field admin-field-wide">
@@ -922,7 +926,7 @@
                                         {% else %}
                                             <form action="{{ url_for('admin_generar_codigo_vehiculo', vehiculo_id=vehiculo['id']) }}" method="POST">
                                                 <button type="submit" class="admin-mini-btn admin-mini-btn-code">
-                                                    Generar código
+                                                    Crear código cliente
                                                 </button>
                                             </form>
                                         {% endif %}
@@ -1058,11 +1062,35 @@
                             <label class="admin-field"><span>Marca</span><input type="text" name="marca" placeholder="Ej. Mobil, Bosch, VINOVA"></label>
                             <label class="admin-field"><span>Proveedor</span><input type="text" name="proveedor" placeholder="Opcional"></label>
                             <label class="admin-field articulo-file-field"><span>Imagen</span><input type="file" name="imagen" accept="image/png,image/jpeg,image/webp"><small data-articulo-file-name>Selecciona PNG, JPG o WEBP. Se guarda en static/img/articulos/.</small></label>
+                            <label class="admin-field articulo-existing-image-field"><span>Imagen existente</span><select name="imagen_existente" data-articulo-existing-image><option value="">No reutilizar imagen</option>{% for recurso in imagenes_articulo_existentes %}<option value="{{ recurso.ruta }}">{{ recurso.etiqueta }}{% if recurso.extra %} · {{ recurso.extra }}{% endif %}</option>{% endfor %}</select><small>Reutiliza una imagen ya cargada para no duplicar archivos.</small></label>
                             <label class="admin-field"><span>Precio venta</span><input type="number" name="precio" min="0" step="0.01" required></label>
                             <label class="admin-field"><span>Costo interno</span><input type="number" name="costo" min="0" step="0.01" placeholder="Opcional"></label>
-                            <label class="admin-field articulo-establecimiento-field"><span>Sucursal del stock</span><select name="establecimiento_id"><option value="">Sucursal automática</option>{% for establecimiento in establecimientos_activos|default([]) %}<option value="{{ establecimiento.id }}">{{ establecimiento.nombre }}</option>{% endfor %}</select><small>Admin puede elegir la sucursal. Si lo dejas vacío se usa la primera activa.</small></label>
-                            <label class="admin-field"><span>Stock actual</span><input type="number" name="stock" min="0" step="0.01" value="0"></label>
-                            <label class="admin-field"><span>Stock mínimo</span><input type="number" name="stock_minimo" min="0" step="0.01" value="0"></label>
+                            <div class="admin-field admin-field-wide articulo-branch-stock-field">
+                                <span>Stock por concesionaria</span>
+                                <div class="articulo-branch-stock-grid">
+                                    {% set hay_concesionarias = namespace(valor=false) %}
+                                    {% for establecimiento in establecimientos_activos|default([]) %}
+                                        {% if establecimiento.tipo == 'concesionario' %}
+                                            {% set hay_concesionarias.valor = true %}
+                                            <div class="articulo-branch-stock-row">
+                                                <strong>{{ establecimiento.nombre }}</strong>
+                                                <label>
+                                                    Stock
+                                                    <input type="number" name="stock_establecimiento_{{ establecimiento.id }}" min="0" step="0.01" value="0" data-articulo-stock-branch="{{ establecimiento.id }}">
+                                                </label>
+                                                <label>
+                                                    Mínimo
+                                                    <input type="number" name="stock_minimo_establecimiento_{{ establecimiento.id }}" min="0" step="0.01" value="0" data-articulo-stock-min-branch="{{ establecimiento.id }}">
+                                                </label>
+                                            </div>
+                                        {% endif %}
+                                    {% endfor %}
+                                    {% if not hay_concesionarias.valor %}
+                                        <div class="articulo-branch-stock-empty">No hay concesionarias activas para asignar stock.</div>
+                                    {% endif %}
+                                </div>
+                                <small>La disponibilidad pública se calcula solo con concesionarias activas que tengan stock mayor a 0.</small>
+                            </div>
                             <label class="admin-field"><span>Unidad</span><select name="unidad"><option>Unidad</option><option>Litro</option><option>Galón</option><option>Pieza</option><option>Par</option><option>Kit</option><option>Servicio</option></select></label>
                             <label class="admin-field"><span>Estado</span><select name="estado"><option>Disponible</option><option>Agotado</option><option>Pedido</option><option>No disponible</option></select></label>
                             <label class="admin-field admin-field-wide"><span>Descripción</span><textarea name="descripcion" rows="3" placeholder="Detalle visible para clientes y personal."></textarea></label>
@@ -1071,6 +1099,55 @@
                         <div class="admin-actions" style="gap:10px;">
                             <button type="button" class="admin-mini-btn admin-mini-btn-muted" data-articulo-reset>Limpiar</button>
                             <button type="submit" class="admin-primary-btn"><i data-lucide="save"></i> Guardar artículo</button>
+                        </div>
+                    </form>
+
+                    <form action="{{ url_for('transferir_stock_articulo') }}" method="POST" class="admin-form articulo-transfer-form" data-articulo-transfer-form>
+                        <input type="hidden" name="origen" value="admin">
+                        <div class="articulo-transfer-title">
+                            <span>TRANSFERENCIA</span>
+                            <strong>Mover stock entre concesionarias</strong>
+                        </div>
+                        <div class="admin-form-grid">
+                            <label class="admin-field admin-field-wide">
+                                <span>Artículo</span>
+                                <select name="articulo_id" data-articulo-transfer-select required>
+                                    <option value="">Cargando artículos...</option>
+                                </select>
+                            </label>
+                            <label class="admin-field">
+                                <span>Desde</span>
+                                <select name="origen_id" required>
+                                    <option value="">Origen</option>
+                                    {% for establecimiento in establecimientos_activos|default([]) %}
+                                        {% if establecimiento.tipo == 'concesionario' %}
+                                            <option value="{{ establecimiento.id }}">{{ establecimiento.nombre }}</option>
+                                        {% endif %}
+                                    {% endfor %}
+                                </select>
+                            </label>
+                            <label class="admin-field">
+                                <span>Hacia</span>
+                                <select name="destino_id" required>
+                                    <option value="">Destino</option>
+                                    {% for establecimiento in establecimientos_activos|default([]) %}
+                                        {% if establecimiento.tipo == 'concesionario' %}
+                                            <option value="{{ establecimiento.id }}">{{ establecimiento.nombre }}</option>
+                                        {% endif %}
+                                    {% endfor %}
+                                </select>
+                            </label>
+                            <label class="admin-field">
+                                <span>Cantidad</span>
+                                <input type="number" name="cantidad" min="0.01" step="0.01" required>
+                            </label>
+                            <label class="admin-field admin-field-wide">
+                                <span>Motivo</span>
+                                <input type="text" name="motivo" placeholder="Ej. Reposición interna, venta en otra sede...">
+                            </label>
+                        </div>
+                        <div class="admin-actions" style="gap:10px;">
+                            <button type="submit" class="admin-primary-btn"><i data-lucide="repeat-2"></i> Transferir stock</button>
                         </div>
                     </form>
                 </section>
@@ -1670,6 +1747,15 @@
                                             Desarchivar
                                         </button>
                                     </form>
+
+                                    <form
+                                        action="{{ url_for('admin_eliminar_vehiculo_permanente', vehiculo_id=vehiculo['id']) }}"
+                                        method="POST"
+                                        data-admin-confirm="Eliminar permanentemente este vehículo también borrará códigos, canjes, mantenimientos, facturas y archivos locales que no use otro registro. Esta acción no se puede deshacer.">
+                                        <button type="submit" class="admin-mini-btn admin-mini-btn-danger">
+                                            Eliminar permanente
+                                        </button>
+                                    </form>
                                 </div>
 
                             </article>
@@ -1687,6 +1773,151 @@
                     {% endif %}
 
                 </div>
+
+            </section>
+
+            <section class="admin-panel" data-articulos-archivados-panel data-articulos-archivados-api="/articulos/api/gestion?archivados=1">
+                <div class="admin-panel-title">
+                    <div>
+                        <span>ARTÍCULOS ARCHIVADOS</span>
+                        <h2>Productos fuera de operación</h2>
+                    </div>
+                </div>
+                <div class="admin-vehicle-list" data-articulos-archivados-list>
+                    <div class="articulos-loading">Cargando artículos archivados...</div>
+                </div>
+            </section>
+
+        </section>
+
+
+        <!-- SECCIÓN MENSAJES -->
+
+        <section class="admin-section" id="admin-mensajes" data-admin-content="mensajes">
+
+            <div class="admin-section-header">
+                <div>
+                    <span>COMUNICACIÓN</span>
+                    <h2>Mensajes internos</h2>
+                    <p>Envía mensajes o alertas al perfil de cualquier usuario activo sin cargar una lista enorme de cuentas.</p>
+                </div>
+            </div>
+
+            <section class="admin-layout admin-messages-layout">
+
+                <section class="admin-panel admin-form-panel notification-composer-panel">
+                    <div class="admin-panel-title">
+                        <div>
+                            <span>NUEVO MENSAJE</span>
+                            <h2>Enviar notificación</h2>
+                        </div>
+                    </div>
+
+                    <form action="{{ url_for('admin_enviar_notificacion_usuario') }}" method="POST" class="admin-form notification-send-form" data-recipient-form>
+                        <input type="hidden" name="usuario_id" data-recipient-id>
+
+                        <div class="admin-form-grid">
+                            <label class="admin-field admin-field-wide notification-recipient-field">
+                                <span>Buscar destinatario</span>
+                                <input
+                                    type="search"
+                                    data-recipient-search
+                                    data-recipient-endpoint="/admin/notificaciones/buscar-usuarios"
+                                    placeholder="Nombre, correo, cédula, ID o rol..."
+                                    autocomplete="off">
+                                <small>Escribe al menos 2 caracteres. Solo se muestran cuentas activas.</small>
+                            </label>
+
+                            <div class="notification-recipient-selected admin-field-wide" data-recipient-selected hidden>
+                                <span>Destinatario seleccionado</span>
+                                <strong data-recipient-name></strong>
+                                <small data-recipient-meta></small>
+                                <button type="button" data-recipient-clear>Quitar</button>
+                            </div>
+
+                            <div class="notification-recipient-results admin-field-wide" data-recipient-results>
+                                <div class="notification-recipient-empty">Busca un usuario para enviarle el mensaje.</div>
+                            </div>
+
+                            <label class="admin-field">
+                                <span>Tipo</span>
+                                <select name="tipo">
+                                    <option value="mensaje">Mensaje</option>
+                                    <option value="alerta">Alerta</option>
+                                    <option value="mantenimiento">Mantenimiento</option>
+                                    <option value="factura">Factura</option>
+                                </select>
+                            </label>
+
+                            <label class="admin-field">
+                                <span>Prioridad</span>
+                                <select name="prioridad">
+                                    <option value="normal">Normal</option>
+                                    <option value="alta">Alta</option>
+                                    <option value="urgente">Urgente</option>
+                                </select>
+                            </label>
+
+                            <label class="admin-field admin-field-wide">
+                                <span>Título</span>
+                                <input type="text" name="titulo" maxlength="140" placeholder="Ej. Recordatorio de documentación" required>
+                            </label>
+
+                            <label class="admin-field admin-field-wide">
+                                <span>Mensaje</span>
+                                <textarea name="mensaje" rows="5" maxlength="1600" placeholder="Escribe el mensaje que verá el usuario en su perfil..." required></textarea>
+                                <small>El usuario lo verá en Perfil > Notificaciones. No depende de correo externo.</small>
+                            </label>
+                        </div>
+
+                        <div class="admin-actions">
+                            <button type="submit" class="admin-primary-btn">
+                                <i data-lucide="send"></i>
+                                Enviar notificación
+                            </button>
+                        </div>
+                    </form>
+                </section>
+
+                <section class="admin-panel admin-list-panel notification-history-panel">
+                    <div class="admin-panel-title">
+                        <div>
+                            <span>HISTORIAL</span>
+                            <h2>Mensajes recientes</h2>
+                        </div>
+                    </div>
+
+                    <div class="notification-history-list">
+                        {% if notificaciones_enviadas_admin %}
+                            {% for notificacion in notificaciones_enviadas_admin %}
+                                <article class="notification-history-card priority-{{ notificacion.prioridad }} type-{{ notificacion.tipo }}">
+                                    <div class="notification-history-card-head">
+                                        <span>{{ notificacion.tipo|capitalize }}</span>
+                                        <small>{{ notificacion.prioridad|capitalize }}</small>
+                                    </div>
+                                    <h3>{{ notificacion.titulo }}</h3>
+                                    <p>{{ notificacion.mensaje }}</p>
+                                    <div class="notification-history-meta">
+                                        <strong>Para: {{ notificacion.destinatario_nombre }}</strong>
+                                        <span>{{ notificacion.destinatario_correo }}</span>
+                                        <span>Enviado por {{ notificacion.remitente_nombre }} · {{ notificacion.creado_visible|default('Reciente') }}</span>
+                                        {% if notificacion.leida|int == 1 %}
+                                            <em>Leída por el usuario</em>
+                                        {% else %}
+                                            <em>Pendiente de lectura</em>
+                                        {% endif %}
+                                    </div>
+                                </article>
+                            {% endfor %}
+                        {% else %}
+                            <div class="admin-empty-state">
+                                <i data-lucide="message-square-text"></i>
+                                <h3>Sin mensajes internos</h3>
+                                <p>Cuando envíes notificaciones a usuarios, aparecerán aquí.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </section>
 
             </section>
 
@@ -2157,9 +2388,9 @@
                                             <em>Sube una imagen nueva solo si deseas reemplazarla.</em>
                                         </div>
                                     </div>
-                                    <label class="admin-inline-check">
+                                    <label class="admin-inline-check admin-remove-image-check">
                                         <input type="checkbox" name="quitar_imagen">
-                                        Quitar imagen actual
+                                        <span>Quitar imagen actual</span>
                                     </label>
                                 {% endif %}
 
@@ -2181,12 +2412,12 @@
 
                             <label class="admin-field">
                                 <span>Latitud</span>
-                                <input type="text" name="lat" inputmode="decimal" value="{{ establecimiento_form.lat if establecimiento_form and establecimiento_form.lat is not none else '' }}" placeholder="-2.170998" data-map-lat-input>
+                                <input type="text" name="lat" inputmode="decimal" value="{{ establecimiento_form.lat if establecimiento_form and establecimiento_form.lat is not none else '-2.170998' }}" placeholder="-2.170998" data-map-lat-input>
                             </label>
 
                             <label class="admin-field">
                                 <span>Longitud</span>
-                                <input type="text" name="lng" inputmode="decimal" value="{{ establecimiento_form.lng if establecimiento_form and establecimiento_form.lng is not none else '' }}" placeholder="-79.922359" data-map-lng-input>
+                                <input type="text" name="lng" inputmode="decimal" value="{{ establecimiento_form.lng if establecimiento_form and establecimiento_form.lng is not none else '-79.922359' }}" placeholder="-79.922359" data-map-lng-input>
                             </label>
 
                             <input type="hidden" name="pin_x" value="{{ establecimiento_form.pin_x if establecimiento_form else 50 }}">

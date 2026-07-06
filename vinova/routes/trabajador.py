@@ -119,6 +119,18 @@ def trabajador_panel():
         LIMIT 80
     """)
     clientes = cursor.fetchall()
+    clientes_notificacion = [
+        dict(cliente)
+        for cliente in clientes
+        if int(cliente["activo"] or 0) == 1
+    ]
+
+    notificaciones_enviadas_trabajador = listar_notificaciones_enviadas(
+        cursor,
+        remitente_id=session.get("usuario_id"),
+        solo_clientes=True,
+        limite=50
+    )
 
     cursor.execute("""
         SELECT
@@ -260,6 +272,8 @@ def trabajador_panel():
     """)
     manuales_admin = cursor.fetchall()
 
+    recursos_static_trabajador = listar_recursos_static_bd(cursor)
+
     conexion.close()
 
     return render_template(
@@ -274,11 +288,14 @@ def trabajador_panel():
         total_canjes=total_canjes,
         vehiculos_clientes=vehiculos_clientes,
         clientes=clientes,
+        clientes_notificacion=clientes_notificacion,
+        notificaciones_enviadas_trabajador=notificaciones_enviadas_trabajador,
         mantenimientos=mantenimientos,
         total_mantenimientos=total_mantenimientos,
         facturas=facturas,
         total_facturas=total_facturas,
         manuales_admin=manuales_admin,
+        recursos_static_trabajador=recursos_static_trabajador,
         vehiculo_editar=vehiculo_editar,
         vehiculo_editar_codigo_existente=vehiculo_editar_codigo_existente,
         manuales_modelo_editar=manuales_modelo_editar,
@@ -288,8 +305,113 @@ def trabajador_panel():
         trabajador_archivar_vehiculo_url="/trabajador/vehiculos/__ID__/archivar",
         trabajador_desarchivar_vehiculo_url="/trabajador/vehiculos/__ID__/desarchivar",
         trabajador_cambiar_estado_vehiculo_url="/trabajador/vehiculos/__ID__/estado",
-        trabajador_reactivar_codigo_url="/trabajador/codigos/__ID__/reactivar"
+        trabajador_reactivar_codigo_url="/trabajador/codigos/__ID__/reactivar",
+        trabajador_buscar_clientes_url="/trabajador/notificaciones/buscar-clientes"
     )
+
+
+
+@app.route("/trabajador/notificaciones/buscar-clientes", endpoint="trabajador_buscar_clientes_notificacion")
+def trabajador_buscar_clientes_notificacion():
+
+    termino = request.args.get("q", "").strip()
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    try:
+        resultados = buscar_destinatarios_notificacion(
+            cursor,
+            termino,
+            solo_clientes=True,
+            limite=12
+        )
+        return jsonify({"resultados": resultados})
+
+    except Exception as error:
+        print("Error al buscar clientes desde trabajador:", error)
+        return jsonify({"resultados": [], "error": "No se pudo buscar clientes."}), 500
+
+    finally:
+        conexion.close()
+
+
+@app.route("/trabajador/notificaciones/enviar", methods=["POST"])
+def trabajador_enviar_notificacion_usuario():
+
+    usuario_id = request.form.get("usuario_id", type=int)
+    tipo = normalizar_tipo_notificacion(request.form.get("tipo"))
+    prioridad = normalizar_prioridad_notificacion(request.form.get("prioridad"))
+    titulo = request.form.get("titulo", "").strip()
+    mensaje = request.form.get("mensaje", "").strip()
+
+    if not usuario_id:
+        flash("Selecciona el cliente que recibirá la notificación.", "warning")
+        return redirect(url_for("trabajador_panel") + "#trabajador-mensajes")
+
+    if not titulo or not mensaje:
+        flash("Completa título y mensaje de la notificación.", "warning")
+        return redirect(url_for("trabajador_panel") + "#trabajador-mensajes")
+
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT id, nombre, correo, rol, COALESCE(activo, 1) AS activo
+            FROM usuarios
+            WHERE id = ?
+              AND rol = 'USUARIO'
+            LIMIT 1
+        """, (usuario_id,))
+        usuario_destino = cursor.fetchone()
+
+        if not usuario_destino:
+            flash("El cliente seleccionado no existe o no puede recibir notificaciones desde este panel.", "warning")
+            return redirect(url_for("trabajador_panel") + "#trabajador-mensajes")
+
+        if int(usuario_destino["activo"] or 0) != 1:
+            flash("No puedes enviar notificaciones a una cuenta inactiva.", "warning")
+            return redirect(url_for("trabajador_panel") + "#trabajador-mensajes")
+
+        notificacion_id = crear_notificacion_usuario(
+            conexion,
+            usuario_id=usuario_destino["id"],
+            remitente_id=session.get("usuario_id"),
+            tipo=tipo,
+            prioridad=prioridad,
+            titulo=titulo,
+            mensaje=mensaje,
+        )
+
+        if not notificacion_id:
+            flash("No se pudo crear la notificación. Revisa título y mensaje.", "warning")
+            return redirect(url_for("trabajador_panel") + "#trabajador-mensajes")
+
+        registrar_auditoria(
+            conexion,
+            "Notificación enviada a cliente",
+            "notificacion_usuario",
+            notificacion_id,
+            {
+                "usuario_id": usuario_destino["id"],
+                "usuario_correo": usuario_destino["correo"],
+                "tipo": tipo,
+                "prioridad": prioridad,
+                "origen": "trabajador",
+            }
+        )
+        conexion.commit()
+        flash(f"Notificación enviada a {usuario_destino['nombre']}.", "success")
+
+    except Exception as error:
+        conexion.rollback()
+        print("Error al enviar notificación desde trabajador:", error)
+        flash("No se pudo enviar la notificación.", "error")
+
+    finally:
+        conexion.close()
+
+    return redirect(url_for("trabajador_panel") + "#trabajador-mensajes")
 
 
 @app.route("/trabajador/vehiculos/<int:vehiculo_id>/estado", methods=["POST"])

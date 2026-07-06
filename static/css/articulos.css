@@ -11,9 +11,20 @@
 
 .articulos-management-layout {
     display: grid;
-    grid-template-columns: minmax(380px, 0.85fr) minmax(520px, 1.25fr);
+    grid-template-columns: 1fr;
     gap: 24px;
     align-items: start;
+}
+
+.articulos-management-layout .admin-list-panel,
+.articulos-management-layout .worker-list-panel {
+    min-width: 0;
+}
+
+.articulos-management-layout .articulos-panel-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+    align-items: stretch;
 }
 
 .articulos-stats-grid {
@@ -154,6 +165,13 @@
 
 .articulo-description {
     margin-top: 10px;
+}
+
+.articulo-last-movement {
+    margin: 8px 0 0;
+    color: #93c5fd;
+    font-size: 0.74rem;
+    font-weight: 800;
 }
 
 .articulo-actions {
@@ -465,6 +483,96 @@
     background: #22c55e;
 }
 
+.articulo-branch-stock-field {
+    display: grid !important;
+    gap: 10px;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.articulo-branch-stock-grid {
+    display: grid;
+    gap: 10px;
+    min-width: 0;
+}
+
+.articulo-branch-stock-row {
+    width: 100%;
+    min-width: 0;
+    padding: 10px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 76px 76px;
+    gap: 8px;
+    align-items: end;
+    border-radius: 12px;
+    background: rgba(2, 8, 20, 0.58);
+    border: 1px solid rgba(96, 165, 250, 0.14);
+}
+
+.articulo-branch-stock-row strong {
+    min-width: 0;
+    color: #dbeafe;
+    font-size: 0.78rem;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+}
+
+.articulo-branch-stock-row label {
+    min-width: 0;
+    display: grid;
+    gap: 5px;
+    color: #93c5fd;
+    font-size: 0.68rem;
+    font-weight: 850;
+}
+
+.articulo-branch-stock-row input {
+    min-width: 0;
+    min-height: 36px !important;
+    padding: 0 8px !important;
+    font-size: 0.78rem !important;
+}
+
+.articulo-branch-stock-field > small {
+    display: block;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+}
+
+.articulo-branch-stock-empty {
+    padding: 12px;
+    border-radius: 12px;
+    color: #fbbf24;
+    background: rgba(245, 158, 11, 0.10);
+    border: 1px dashed rgba(245, 158, 11, 0.24);
+    font-size: 0.82rem;
+    font-weight: 850;
+}
+
+.articulo-transfer-form {
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.articulo-transfer-title {
+    margin-bottom: 12px;
+    display: grid;
+    gap: 4px;
+}
+
+.articulo-transfer-title span {
+    color: #60a5fa;
+    font-size: 0.72rem;
+    font-weight: 950;
+    letter-spacing: 0.12em;
+}
+
+.articulo-transfer-title strong {
+    color: #fff;
+    font-size: 0.98rem;
+}
+
 /* ============================= */
 /* CATÁLOGO PÚBLICO DE ARTÍCULOS */
 /* ============================= */
@@ -765,10 +873,12 @@
 }
 
 @media (max-width: 780px) {
+    .articulos-management-layout .articulos-panel-grid,
     .articulos-stats-grid,
     .articulos-public-grid,
     .articulo-row,
-    .article-invoice-row {
+    .article-invoice-row,
+    .articulo-branch-stock-row {
         grid-template-columns: 1fr;
     }
 
@@ -1137,4 +1247,14 @@
     .articulo-public-modal-media {
         min-height: 280px;
     }
+}
+
+
+.articulo-existing-image-field select {
+    min-width: 0;
+    width: 100%;
+}
+
+.articulo-row.archived {
+    opacity: 0.96;
 }

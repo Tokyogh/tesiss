@@ -116,6 +116,20 @@ def _establecimientos_activos(cursor):
         return []
 
 
+def _concesionarias_activas(cursor):
+    try:
+        cursor.execute("""
+            SELECT id, nombre, tipo, direccion, ciudad, provincia, telefono, lat, lng, distancia_km
+            FROM establecimientos
+            WHERE COALESCE(activo, 1) = 1
+              AND LOWER(TRIM(COALESCE(tipo, ''))) = 'concesionario'
+            ORDER BY COALESCE(distancia_km, 999999) ASC, nombre ASC
+        """)
+        return [dict(row) for row in cursor.fetchall()]
+    except sqlite3.OperationalError:
+        return []
+
+
 def _establecimiento_usuario_actual(cursor):
     usuario_id = session.get("usuario_id")
     if not usuario_id:
@@ -215,6 +229,94 @@ def _asegurar_stock_establecimiento(cursor, articulo_id, establecimiento_id, sto
     """, (articulo_id, establecimiento_id, stock, stock_minimo, ahora, ahora))
 
 
+def _stock_establecimiento_actual(cursor, articulo_id, establecimiento_id):
+    if not establecimiento_id:
+        return 0
+    try:
+        cursor.execute("""
+            SELECT COALESCE(stock, 0) AS stock
+            FROM articulo_stock_establecimiento
+            WHERE articulo_id = ? AND establecimiento_id = ?
+            LIMIT 1
+        """, (articulo_id, establecimiento_id))
+        row = cursor.fetchone()
+        return _normalizar_stock(row["stock"] if row else 0, 0)
+    except sqlite3.OperationalError:
+        return 0
+
+
+def _stock_minimo_establecimiento_actual(cursor, articulo_id, establecimiento_id):
+    if not establecimiento_id:
+        return 0
+    try:
+        cursor.execute("""
+            SELECT COALESCE(stock_minimo, 0) AS stock_minimo
+            FROM articulo_stock_establecimiento
+            WHERE articulo_id = ? AND establecimiento_id = ?
+            LIMIT 1
+        """, (articulo_id, establecimiento_id))
+        row = cursor.fetchone()
+        return _normalizar_stock(row["stock_minimo"] if row else 0, 0)
+    except sqlite3.OperationalError:
+        return 0
+
+
+def _registrar_movimiento_articulo(
+    cursor,
+    *,
+    articulo_id,
+    tipo_movimiento,
+    cantidad,
+    stock_anterior,
+    stock_nuevo,
+    referencia_tipo="manual",
+    referencia_id=None,
+    descripcion="",
+    establecimiento_id=None,
+):
+    ahora = fecha_actual()
+    try:
+        cursor.execute("""
+            INSERT INTO articulo_movimientos (
+                articulo_id, establecimiento_id, tipo_movimiento, cantidad,
+                stock_anterior, stock_nuevo, referencia_tipo, referencia_id,
+                descripcion, creado_por, creado_en
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            articulo_id,
+            establecimiento_id,
+            tipo_movimiento,
+            cantidad,
+            stock_anterior,
+            stock_nuevo,
+            referencia_tipo,
+            referencia_id,
+            descripcion,
+            session.get("usuario_id"),
+            ahora,
+        ))
+    except sqlite3.OperationalError:
+        cursor.execute("""
+            INSERT INTO articulo_movimientos (
+                articulo_id, tipo_movimiento, cantidad, stock_anterior, stock_nuevo,
+                referencia_tipo, referencia_id, descripcion, creado_por, creado_en
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            articulo_id,
+            tipo_movimiento,
+            cantidad,
+            stock_anterior,
+            stock_nuevo,
+            referencia_tipo,
+            referencia_id,
+            descripcion,
+            session.get("usuario_id"),
+            ahora,
+        ))
+
+
 def _recalcular_stock_articulo(cursor, articulo_id):
     try:
         cursor.execute("""
@@ -242,9 +344,13 @@ def _recalcular_stock_articulo(cursor, articulo_id):
         return
 
 
-def _stock_por_establecimiento(cursor, articulo_id):
+def _stock_por_establecimiento(cursor, articulo_id, solo_concesionarias=False):
+    filtro_tipo = ""
+    if solo_concesionarias:
+        filtro_tipo = "AND LOWER(TRIM(COALESCE(establecimientos.tipo, ''))) = 'concesionario'"
+
     try:
-        cursor.execute("""
+        cursor.execute(f"""
             SELECT
                 ase.establecimiento_id,
                 establecimientos.nombre,
@@ -262,6 +368,7 @@ def _stock_por_establecimiento(cursor, articulo_id):
                 ON establecimientos.id = ase.establecimiento_id
             WHERE ase.articulo_id = ?
               AND COALESCE(establecimientos.activo, 1) = 1
+              {filtro_tipo}
             ORDER BY COALESCE(establecimientos.distancia_km, 999999) ASC, establecimientos.nombre ASC
         """, (articulo_id,))
         return [dict(row) for row in cursor.fetchall()]
@@ -269,13 +376,42 @@ def _stock_por_establecimiento(cursor, articulo_id):
         return []
 
 
+def _stock_establecimientos_desde_form(cursor):
+    if str(session.get("rol", "")).upper() != "ADMIN":
+        return None
+
+    establecimientos = _concesionarias_activas(cursor)
+    if not establecimientos:
+        return None
+
+    stock_por_sucursal = {}
+    recibio_stock_por_sucursal = False
+
+    for establecimiento in establecimientos:
+        establecimiento_id = establecimiento.get("id")
+        if not establecimiento_id:
+            continue
+
+        stock_key = f"stock_establecimiento_{establecimiento_id}"
+        minimo_key = f"stock_minimo_establecimiento_{establecimiento_id}"
+
+        if stock_key not in request.form and minimo_key not in request.form:
+            continue
+
+        recibio_stock_por_sucursal = True
+        stock_por_sucursal[int(establecimiento_id)] = {
+            "stock": _normalizar_stock(request.form.get(stock_key), 0),
+            "stock_minimo": _normalizar_stock(request.form.get(minimo_key), 0),
+        }
+
+    return stock_por_sucursal if recibio_stock_por_sucursal else None
+
+
 def _enriquecer_disponibilidad_publica(cursor, articulos):
-    establecimientos = _establecimientos_activos(cursor)
-    total_establecimientos = len(establecimientos)
     instituciones_url = url_for("instituciones")
 
     for articulo in articulos:
-        filas_stock = _stock_por_establecimiento(cursor, articulo["id"])
+        filas_stock = _stock_por_establecimiento(cursor, articulo["id"], solo_concesionarias=True)
         disponibles = []
         for fila in filas_stock:
             stock = normalizar_precio(fila.get("stock")) or 0
@@ -294,11 +430,11 @@ def _enriquecer_disponibilidad_publica(cursor, articulos):
             articulo["whatsapp_url"] = ""
             continue
 
-        if total_establecimientos and cantidad >= total_establecimientos and total_establecimientos > 1:
+        if cantidad > 1:
             articulo["disponibilidad_estado"] = "total"
             articulo["disponibilidad_label"] = "Disponible en tu VINOVA más cercano"
-            articulo["disponibilidad_detalle"] = "Este artículo está disponible en la red VINOVA. Te mostramos la sucursal más cercana registrada."
-            sucursales_para_mostrar = disponibles[:1]
+            articulo["disponibilidad_detalle"] = f"Disponible en {cantidad} sucursales VINOVA. Te mostramos primero la más cercana registrada."
+            sucursales_para_mostrar = disponibles
         elif cantidad == 1:
             articulo["disponibilidad_estado"] = "parcial"
             articulo["disponibilidad_label"] = "Disponible en 1 sucursal"
@@ -373,6 +509,35 @@ def _consultar_articulos(cursor, *, incluir_archivados=False, solo_publicos=Fals
     """, params)
 
     return [_row_to_articulo(row, publico=solo_publicos) for row in cursor.fetchall()]
+
+
+def _movimientos_recientes_articulo(cursor, articulo_id, limite=6):
+    try:
+        cursor.execute("""
+            SELECT
+                movimientos.id,
+                movimientos.tipo_movimiento,
+                movimientos.cantidad,
+                movimientos.stock_anterior,
+                movimientos.stock_nuevo,
+                movimientos.referencia_tipo,
+                movimientos.referencia_id,
+                movimientos.descripcion,
+                movimientos.creado_en,
+                establecimientos.nombre AS establecimiento_nombre,
+                usuarios.nombre AS creado_por_nombre
+            FROM articulo_movimientos AS movimientos
+            LEFT JOIN establecimientos
+                ON establecimientos.id = movimientos.establecimiento_id
+            LEFT JOIN usuarios
+                ON usuarios.id = movimientos.creado_por
+            WHERE movimientos.articulo_id = ?
+            ORDER BY datetime(movimientos.creado_en) DESC, movimientos.id DESC
+            LIMIT ?
+        """, (articulo_id, limite))
+        return [dict(row) for row in cursor.fetchall()]
+    except sqlite3.OperationalError:
+        return []
 
 
 def _estadisticas_articulos(cursor):
@@ -523,7 +688,8 @@ def articulos_api_gestion():
     try:
         articulos = _consultar_articulos(cursor, incluir_archivados=incluir_archivados)
         for articulo in articulos:
-            articulo["stock_establecimientos"] = _stock_por_establecimiento(cursor, articulo["id"])
+            articulo["stock_establecimientos"] = _stock_por_establecimiento(cursor, articulo["id"], solo_concesionarias=True)
+            articulo["movimientos_recientes"] = _movimientos_recientes_articulo(cursor, articulo["id"])
         stats = _estadisticas_articulos(cursor)
         return jsonify({
             "ok": True,
@@ -627,6 +793,7 @@ def guardar_articulo():
     descripcion = request.form.get("descripcion", "").strip()
     unidad = request.form.get("unidad", "Unidad").strip() or "Unidad"
     estado = request.form.get("estado", "Disponible").strip() or "Disponible"
+    estado_solicitado = estado
     precio = normalizar_precio(request.form.get("precio"))
     costo = normalizar_precio(request.form.get("costo")) or 0
     stock = _normalizar_stock(request.form.get("stock"), 0)
@@ -654,6 +821,7 @@ def guardar_articulo():
         return _redirigir_articulos(origen)
 
     imagen_file = request.files.get("imagen")
+    imagen_existente = normalizar_ruta_static_documento(request.form.get("imagen_existente", ""))
     conexion = conectar_db()
     cursor = conexion.cursor()
 
@@ -661,6 +829,16 @@ def guardar_articulo():
         ahora = fecha_actual()
         establecimiento_operativo = _establecimiento_operativo(cursor)
         establecimiento_id = establecimiento_operativo.get("id") if establecimiento_operativo else None
+        stock_por_sucursal = _stock_establecimientos_desde_form(cursor)
+
+        if stock_por_sucursal is not None:
+            stock = sum(item["stock"] for item in stock_por_sucursal.values())
+            stock_minimo = max([item["stock_minimo"] for item in stock_por_sucursal.values()] or [0])
+
+        if stock <= 0 and estado == "Disponible":
+            estado = "Agotado"
+        elif stock > 0 and estado == "Agotado" and estado_solicitado == "Disponible":
+            estado = "Disponible"
 
         if not codigo_articulo:
             codigo_articulo = _generar_codigo_articulo(cursor, nombre, categoria, articulo_id)
@@ -676,7 +854,8 @@ def guardar_articulo():
                 return _redirigir_articulos(origen)
 
             stock_anterior = _normalizar_stock(actual["stock"], 0)
-            imagen_final = imagen_guardada or actual["imagen"] or ""
+            imagen_final = imagen_guardada or imagen_existente or actual["imagen"] or ""
+            movimiento_registrado = False
 
             cursor.execute("""
                 UPDATE articulos
@@ -690,7 +869,35 @@ def guardar_articulo():
                 session.get("usuario_id"), ahora, articulo_id,
             ))
 
-            if establecimiento_id:
+            if imagen_final != (actual["imagen"] or ""):
+                eliminar_archivo_static_si_no_referenciado(cursor, actual["imagen"])
+
+            if stock_por_sucursal is not None:
+                for sucursal_id, valores_stock in stock_por_sucursal.items():
+                    stock_anterior_est = _stock_establecimiento_actual(cursor, articulo_id, sucursal_id)
+                    _asegurar_stock_establecimiento(
+                        cursor,
+                        articulo_id,
+                        sucursal_id,
+                        valores_stock["stock"],
+                        valores_stock["stock_minimo"],
+                    )
+                    diferencia_est = valores_stock["stock"] - stock_anterior_est
+                    if abs(diferencia_est) > 0.0001:
+                        _registrar_movimiento_articulo(
+                            cursor,
+                            articulo_id=articulo_id,
+                            establecimiento_id=sucursal_id,
+                            tipo_movimiento="ajuste",
+                            cantidad=diferencia_est,
+                            stock_anterior=stock_anterior_est,
+                            stock_nuevo=valores_stock["stock"],
+                            referencia_tipo="manual",
+                            descripcion="Ajuste manual de inventario por concesionaria",
+                        )
+                        movimiento_registrado = True
+                _recalcular_stock_articulo(cursor, articulo_id)
+            elif establecimiento_id:
                 filas_actuales = _stock_por_establecimiento(cursor, articulo_id)
                 stock_anterior_est = 0
                 for fila_stock in filas_actuales:
@@ -700,23 +907,32 @@ def guardar_articulo():
                 _asegurar_stock_establecimiento(cursor, articulo_id, establecimiento_id, stock, stock_minimo)
                 _recalcular_stock_articulo(cursor, articulo_id)
                 stock_anterior = stock_anterior_est
-            diferencia = stock - stock_anterior
-            if abs(diferencia) > 0.0001:
-                cursor.execute("""
-                    INSERT INTO articulo_movimientos (
-                        articulo_id, tipo_movimiento, cantidad, stock_anterior, stock_nuevo,
-                        referencia_tipo, referencia_id, descripcion, creado_por, creado_en
+                diferencia_est = stock - stock_anterior_est
+                if abs(diferencia_est) > 0.0001:
+                    _registrar_movimiento_articulo(
+                        cursor,
+                        articulo_id=articulo_id,
+                        establecimiento_id=establecimiento_id,
+                        tipo_movimiento="ajuste",
+                        cantidad=diferencia_est,
+                        stock_anterior=stock_anterior_est,
+                        stock_nuevo=stock,
+                        referencia_tipo="manual",
+                        descripcion="Ajuste manual de inventario",
                     )
-                    VALUES (?, 'ajuste', ?, ?, ?, 'manual', NULL, ?, ?, ?)
-                """, (
-                    articulo_id,
-                    diferencia,
-                    stock_anterior,
-                    stock,
-                    "Ajuste manual de inventario",
-                    session.get("usuario_id"),
-                    ahora,
-                ))
+                    movimiento_registrado = True
+            diferencia = stock - stock_anterior
+            if abs(diferencia) > 0.0001 and not movimiento_registrado:
+                _registrar_movimiento_articulo(
+                    cursor,
+                    articulo_id=articulo_id,
+                    tipo_movimiento="ajuste",
+                    cantidad=diferencia,
+                    stock_anterior=stock_anterior,
+                    stock_nuevo=stock,
+                    referencia_tipo="manual",
+                    descripcion="Ajuste manual de inventario",
+                )
 
             accion = "Artículo actualizado"
             flash("Artículo actualizado correctamente.", "success")
@@ -730,31 +946,60 @@ def guardar_articulo():
                 )
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?)
             """, (
-                codigo_articulo, nombre, categoria, marca, proveedor, descripcion, imagen_guardada or "",
+                codigo_articulo, nombre, categoria, marca, proveedor, descripcion, imagen_guardada or imagen_existente or "",
                 precio, costo, stock, stock_minimo, unidad, estado, activo,
                 session.get("usuario_id"), session.get("usuario_id"), ahora, ahora,
             ))
             articulo_id = cursor.lastrowid
 
-            if establecimiento_id:
+            if stock_por_sucursal is not None:
+                for sucursal_id, valores_stock in stock_por_sucursal.items():
+                    _asegurar_stock_establecimiento(
+                        cursor,
+                        articulo_id,
+                        sucursal_id,
+                        valores_stock["stock"],
+                        valores_stock["stock_minimo"],
+                    )
+                    if valores_stock["stock"] > 0:
+                        _registrar_movimiento_articulo(
+                            cursor,
+                            articulo_id=articulo_id,
+                            establecimiento_id=sucursal_id,
+                            tipo_movimiento="entrada",
+                            cantidad=valores_stock["stock"],
+                            stock_anterior=0,
+                            stock_nuevo=valores_stock["stock"],
+                            referencia_tipo="creacion",
+                            descripcion="Stock inicial al crear artículo por concesionaria",
+                        )
+                _recalcular_stock_articulo(cursor, articulo_id)
+            elif establecimiento_id:
                 _asegurar_stock_establecimiento(cursor, articulo_id, establecimiento_id, stock, stock_minimo)
                 _recalcular_stock_articulo(cursor, articulo_id)
-
-            if stock > 0:
-                cursor.execute("""
-                    INSERT INTO articulo_movimientos (
-                        articulo_id, tipo_movimiento, cantidad, stock_anterior, stock_nuevo,
-                        referencia_tipo, referencia_id, descripcion, creado_por, creado_en
+                if stock > 0:
+                    _registrar_movimiento_articulo(
+                        cursor,
+                        articulo_id=articulo_id,
+                        establecimiento_id=establecimiento_id,
+                        tipo_movimiento="entrada",
+                        cantidad=stock,
+                        stock_anterior=0,
+                        stock_nuevo=stock,
+                        referencia_tipo="creacion",
+                        descripcion="Stock inicial al crear artículo",
                     )
-                    VALUES (?, 'entrada', ?, 0, ?, 'creacion', NULL, ?, ?, ?)
-                """, (
-                    articulo_id,
-                    stock,
-                    stock,
-                    "Stock inicial al crear artículo",
-                    session.get("usuario_id"),
-                    ahora,
-                ))
+            elif stock > 0:
+                _registrar_movimiento_articulo(
+                    cursor,
+                    articulo_id=articulo_id,
+                    tipo_movimiento="entrada",
+                    cantidad=stock,
+                    stock_anterior=0,
+                    stock_nuevo=stock,
+                    referencia_tipo="creacion",
+                    descripcion="Stock inicial al crear artículo",
+                )
 
             accion = "Artículo creado"
             flash("Artículo agregado correctamente al inventario.", "success")
@@ -786,6 +1031,125 @@ def guardar_articulo():
         conexion.close()
 
     return _redirigir_articulos(origen)
+
+
+@app.route("/articulos/transferir-stock", methods=["POST"])
+def transferir_stock_articulo():
+    if str(session.get("rol", "")).upper() != "ADMIN":
+        flash("Solo administración puede transferir stock entre concesionarias.", "warning")
+        return redirect(url_for("inicio"))
+
+    origen_panel = _origen_panel()
+    articulo_id = request.form.get("articulo_id", type=int)
+    origen_id = request.form.get("origen_id", type=int)
+    destino_id = request.form.get("destino_id", type=int)
+    cantidad = _normalizar_stock(request.form.get("cantidad"), 0)
+    motivo = request.form.get("motivo", "").strip() or "Transferencia de stock entre concesionarias"
+
+    if not articulo_id or not origen_id or not destino_id:
+        flash("Selecciona artículo, concesionaria origen y concesionaria destino.", "warning")
+        return _redirigir_articulos(origen_panel)
+
+    if origen_id == destino_id:
+        flash("La concesionaria origen y destino deben ser diferentes.", "warning")
+        return _redirigir_articulos(origen_panel)
+
+    if cantidad <= 0:
+        flash("Ingresa una cantidad válida para transferir.", "warning")
+        return _redirigir_articulos(origen_panel)
+
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    try:
+        conexion.execute("BEGIN IMMEDIATE")
+
+        cursor.execute("""
+            SELECT id, nombre, unidad, COALESCE(archivado, 0) AS archivado
+            FROM articulos
+            WHERE id = ?
+            LIMIT 1
+        """, (articulo_id,))
+        articulo = cursor.fetchone()
+        if not articulo or articulo["archivado"] == 1:
+            raise ValueError("El artículo no existe o fue archivado.")
+
+        concesionarias = {
+            item["id"]: item
+            for item in _concesionarias_activas(cursor)
+            if item.get("id") in {origen_id, destino_id}
+        }
+        if origen_id not in concesionarias or destino_id not in concesionarias:
+            raise ValueError("Origen y destino deben ser concesionarias activas.")
+
+        stock_origen = _stock_establecimiento_actual(cursor, articulo_id, origen_id)
+        if cantidad > stock_origen:
+            unidad = articulo["unidad"] or "Unidad"
+            raise ValueError(f"Stock insuficiente en {concesionarias[origen_id]['nombre']}. Disponible: {stock_origen:g} {unidad}.")
+
+        stock_destino = _stock_establecimiento_actual(cursor, articulo_id, destino_id)
+        minimo_origen = _stock_minimo_establecimiento_actual(cursor, articulo_id, origen_id)
+        minimo_destino = _stock_minimo_establecimiento_actual(cursor, articulo_id, destino_id)
+        nuevo_origen = stock_origen - cantidad
+        nuevo_destino = stock_destino + cantidad
+
+        _asegurar_stock_establecimiento(cursor, articulo_id, origen_id, nuevo_origen, minimo_origen)
+        _asegurar_stock_establecimiento(cursor, articulo_id, destino_id, nuevo_destino, minimo_destino)
+
+        descripcion = (
+            f"{motivo}: {concesionarias[origen_id]['nombre']} -> "
+            f"{concesionarias[destino_id]['nombre']}"
+        )
+        _registrar_movimiento_articulo(
+            cursor,
+            articulo_id=articulo_id,
+            establecimiento_id=origen_id,
+            tipo_movimiento="transferencia_salida",
+            cantidad=-cantidad,
+            stock_anterior=stock_origen,
+            stock_nuevo=nuevo_origen,
+            referencia_tipo="transferencia",
+            descripcion=descripcion,
+        )
+        _registrar_movimiento_articulo(
+            cursor,
+            articulo_id=articulo_id,
+            establecimiento_id=destino_id,
+            tipo_movimiento="transferencia_entrada",
+            cantidad=cantidad,
+            stock_anterior=stock_destino,
+            stock_nuevo=nuevo_destino,
+            referencia_tipo="transferencia",
+            descripcion=descripcion,
+        )
+
+        _recalcular_stock_articulo(cursor, articulo_id)
+        registrar_auditoria(
+            conexion,
+            "Stock de artículo transferido",
+            "articulo",
+            articulo_id,
+            {
+                "origen_id": origen_id,
+                "destino_id": destino_id,
+                "cantidad": cantidad,
+                "motivo": motivo,
+            },
+        )
+        conexion.commit()
+        flash("Stock transferido correctamente entre concesionarias.", "success")
+
+    except ValueError as error:
+        conexion.rollback()
+        flash(str(error), "warning")
+    except Exception as error:
+        conexion.rollback()
+        print("Error al transferir stock:", error)
+        flash("No se pudo transferir el stock.", "error")
+    finally:
+        conexion.close()
+
+    return _redirigir_articulos(origen_panel)
 
 
 @app.route("/articulos/<int:articulo_id>/estado", methods=["POST"])
@@ -850,6 +1214,74 @@ def archivar_articulo(articulo_id):
         conexion.rollback()
         print("Error al archivar artículo:", error)
         return jsonify({"ok": False, "error": "No se pudo archivar el artículo."}), 500
+    finally:
+        conexion.close()
+
+
+@app.route("/admin/articulos/<int:articulo_id>/eliminar-permanente", methods=["POST"])
+def eliminar_articulo_permanente(articulo_id):
+    """Elimina definitivamente un artículo archivado y limpia imagen local no compartida."""
+
+    if str(session.get("rol", "")).upper() != "ADMIN":
+        return jsonify({"ok": False, "error": "Solo un administrador puede eliminar permanentemente."}), 403
+
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    try:
+        conexion.execute("BEGIN IMMEDIATE")
+
+        cursor.execute("""
+            SELECT *, COALESCE(archivado, 0) AS archivado_normalizado
+            FROM articulos
+            WHERE id = ?
+        """, (articulo_id,))
+        articulo = cursor.fetchone()
+
+        if not articulo:
+            conexion.rollback()
+            return jsonify({"ok": False, "error": "Artículo no encontrado."}), 404
+
+        if articulo["archivado_normalizado"] != 1:
+            conexion.rollback()
+            return jsonify({"ok": False, "error": "Solo puedes eliminar permanentemente artículos archivados."}), 400
+
+        imagen_articulo = normalizar_ruta_static_documento(articulo["imagen"] if "imagen" in articulo.keys() else "")
+
+        if tabla_existe_db(cursor, "factura_articulos") and columna_existe_db(cursor, "factura_articulos", "articulo_id"):
+            cursor.execute("DELETE FROM factura_articulos WHERE articulo_id = ?", (articulo_id,))
+
+        if tabla_existe_db(cursor, "articulo_stock_establecimiento") and columna_existe_db(cursor, "articulo_stock_establecimiento", "articulo_id"):
+            cursor.execute("DELETE FROM articulo_stock_establecimiento WHERE articulo_id = ?", (articulo_id,))
+
+        if tabla_existe_db(cursor, "articulo_movimientos") and columna_existe_db(cursor, "articulo_movimientos", "articulo_id"):
+            cursor.execute("DELETE FROM articulo_movimientos WHERE articulo_id = ?", (articulo_id,))
+
+        cursor.execute("DELETE FROM articulos WHERE id = ?", (articulo_id,))
+
+        archivo_borrado = False
+        if imagen_articulo:
+            archivo_borrado = eliminar_archivo_static_si_no_referenciado(cursor, imagen_articulo)
+
+        registrar_auditoria(
+            conexion,
+            "Artículo eliminado permanentemente",
+            "articulo",
+            articulo_id,
+            {
+                "codigo_articulo": articulo["codigo_articulo"],
+                "nombre": articulo["nombre"],
+                "imagen": imagen_articulo,
+                "archivo_borrado": archivo_borrado,
+            },
+        )
+        conexion.commit()
+        return jsonify({"ok": True, "archivo_borrado": archivo_borrado})
+
+    except Exception as error:
+        conexion.rollback()
+        print("Error al eliminar artículo permanentemente:", error)
+        return jsonify({"ok": False, "error": "No se pudo eliminar permanentemente el artículo."}), 500
     finally:
         conexion.close()
 
@@ -938,4 +1370,3 @@ def activar_vehiculo_oculto(vehiculo_id):
     if origen == "trabajador":
         return redirect(url_for("trabajador_panel") + "#trabajador-ocultos")
     return redirect(url_for("admin_vehiculos") + "#admin-ocultos")
-

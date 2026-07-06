@@ -345,6 +345,140 @@ document.addEventListener("DOMContentLoaded", () => {
 
     initMaintenanceVehicleSearch();
 
+
+
+    // =============================
+    // BUSCADOR DE DESTINATARIOS PARA MENSAJES
+    // =============================
+
+    function escapeHtml(value) {
+        return String(value || "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+    function initNotificationRecipientSearch() {
+        const forms = document.querySelectorAll("[data-recipient-form]");
+
+        forms.forEach((form) => {
+            const input = form.querySelector("[data-recipient-search]");
+            const hiddenInput = form.querySelector("[data-recipient-id]");
+            const resultsBox = form.querySelector("[data-recipient-results]");
+            const selectedBox = form.querySelector("[data-recipient-selected]");
+            const selectedName = form.querySelector("[data-recipient-name]");
+            const selectedMeta = form.querySelector("[data-recipient-meta]");
+            const clearButton = form.querySelector("[data-recipient-clear]");
+            const endpoint = input?.dataset.recipientEndpoint;
+            let controller = null;
+            let timeout = null;
+
+            if (!input || !hiddenInput || !resultsBox || !endpoint) return;
+
+            function setResultsMessage(message, type = "info") {
+                resultsBox.innerHTML = `<div class="notification-recipient-empty ${type}">${escapeHtml(message)}</div>`;
+            }
+
+            function clearSelection() {
+                hiddenInput.value = "";
+                if (selectedName) selectedName.textContent = "";
+                if (selectedMeta) selectedMeta.textContent = "";
+                if (selectedBox) selectedBox.hidden = true;
+            }
+
+            function selectRecipient(recipient) {
+                hiddenInput.value = recipient.id || "";
+                if (selectedName) selectedName.textContent = recipient.nombre || "Usuario";
+                if (selectedMeta) {
+                    const metaParts = [recipient.correo, recipient.rol, recipient.cedula ? `CI/RUC ${recipient.cedula}` : ""].filter(Boolean);
+                    selectedMeta.textContent = metaParts.join(" · ");
+                }
+                if (selectedBox) selectedBox.hidden = false;
+                resultsBox.innerHTML = "";
+                input.value = `${recipient.nombre || "Usuario"} — ${recipient.correo || ""}`.trim();
+            }
+
+            function renderResults(recipients) {
+                if (!recipients.length) {
+                    setResultsMessage("No encontré usuarios activos con ese dato.", "warning");
+                    return;
+                }
+
+                resultsBox.innerHTML = recipients.map((recipient) => {
+                    const meta = [
+                        recipient.correo,
+                        recipient.rol,
+                        recipient.cedula ? `CI/RUC ${recipient.cedula}` : "",
+                        `${recipient.total_vehiculos || 0} vehículo(s)`
+                    ].filter(Boolean).join(" · ");
+
+                    return `
+                        <button type="button" class="notification-recipient-option" data-recipient-id="${escapeHtml(recipient.id)}">
+                            <strong>${escapeHtml(recipient.nombre || "Usuario")}</strong>
+                            <small>${escapeHtml(meta)}</small>
+                        </button>
+                    `;
+                }).join("");
+
+                resultsBox.querySelectorAll("[data-recipient-id]").forEach((button, index) => {
+                    button.addEventListener("click", () => selectRecipient(recipients[index]));
+                });
+            }
+
+            async function searchRecipients() {
+                const query = input.value.trim();
+                clearSelection();
+
+                if (query.length < 2) {
+                    setResultsMessage("Escribe al menos 2 caracteres para buscar.");
+                    return;
+                }
+
+                if (controller) controller.abort();
+                controller = new AbortController();
+                setResultsMessage("Buscando destinatarios...");
+
+                try {
+                    const response = await fetch(`${endpoint}?q=${encodeURIComponent(query)}`, {
+                        headers: { "Accept": "application/json" },
+                        signal: controller.signal
+                    });
+
+                    if (!response.ok) throw new Error("Respuesta no válida");
+                    const data = await response.json();
+                    renderResults(Array.isArray(data.resultados) ? data.resultados : []);
+                } catch (error) {
+                    if (error.name === "AbortError") return;
+                    setResultsMessage("No se pudo buscar ahora. Intenta nuevamente.", "warning");
+                }
+            }
+
+            input.addEventListener("input", () => {
+                window.clearTimeout(timeout);
+                timeout = window.setTimeout(searchRecipients, 320);
+            });
+
+            clearButton?.addEventListener("click", () => {
+                clearSelection();
+                input.value = "";
+                setResultsMessage("Busca un usuario para enviarle el mensaje.");
+                input.focus();
+            });
+
+            form.addEventListener("submit", (event) => {
+                if (!hiddenInput.value) {
+                    event.preventDefault();
+                    setResultsMessage("Selecciona un destinatario de los resultados antes de enviar.", "warning");
+                    input.focus();
+                }
+            });
+        });
+    }
+
+    initNotificationRecipientSearch();
+
     // =============================
     // ACCIONES DESHABILITADAS
     // =============================
@@ -538,6 +672,54 @@ document.addEventListener("DOMContentLoaded", () => {
             if (originalText) {
                 submitButton.dataset.originalText = originalText;
                 submitButton.textContent = "Procesando...";
+            }
+        });
+    });
+
+    // =============================
+    // VISTA PREVIA DE IMAGENES
+    // =============================
+
+    document.querySelectorAll(".vinova-file-field").forEach((field) => {
+        const input = field.querySelector('input[type="file"]');
+
+        if (!input) return;
+
+        input.addEventListener("change", () => {
+            const file = input.files && input.files[0];
+
+            if (!file || !file.type.startsWith("image/")) return;
+
+            let resource = field.querySelector(".vinova-current-resource-image");
+
+            if (!resource) {
+                resource = document.createElement("div");
+                resource.className = "vinova-current-resource vinova-current-resource-image";
+                resource.innerHTML = `
+                    <div class="vinova-current-preview">
+                        <img alt="Vista previa de la imagen seleccionada">
+                    </div>
+                    <div>
+                        <strong>Imagen seleccionada</strong>
+                        <small></small>
+                        <em>Se guardará al enviar el formulario.</em>
+                    </div>
+                `;
+                field.insertBefore(resource, input);
+            }
+
+            const img = resource.querySelector("img");
+            const small = resource.querySelector("small");
+            const strong = resource.querySelector("strong");
+
+            if (img) {
+                img.src = URL.createObjectURL(file);
+            }
+            if (small) {
+                small.textContent = file.name;
+            }
+            if (strong) {
+                strong.textContent = "Imagen seleccionada";
             }
         });
     });

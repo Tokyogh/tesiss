@@ -205,6 +205,8 @@ def admin_vehiculos():
     """)
     manuales_admin = cursor.fetchall()
 
+    recursos_static_admin = listar_recursos_static_bd(cursor)
+
     cursor.execute("""
         SELECT
             facturas_vehiculo.*,
@@ -262,6 +264,19 @@ def admin_vehiculos():
         ORDER BY usuarios.id DESC
     """)
     usuarios_admin = cursor.fetchall()
+
+    usuarios_notificacion_admin = [
+        dict(usuario)
+        for usuario in usuarios_admin
+        if int(usuario["activo"] or 0) == 1
+    ]
+
+    notificaciones_enviadas_admin = listar_notificaciones_enviadas(
+        cursor,
+        remitente_id=None,
+        solo_clientes=False,
+        limite=60
+    )
 
     cursor.execute("""
         SELECT
@@ -339,6 +354,8 @@ def admin_vehiculos():
         vehiculos_archivados=vehiculos_archivados,
         ventas_canje=ventas_canje,
         usuarios_admin=usuarios_admin,
+        usuarios_notificacion_admin=usuarios_notificacion_admin,
+        notificaciones_enviadas_admin=notificaciones_enviadas_admin,
         trabajadores_admin=trabajadores_admin,
         canjes_reversados=canjes_reversados,
         total_usuarios=total_usuarios,
@@ -348,6 +365,7 @@ def admin_vehiculos():
         mantenimientos=mantenimientos,
         total_mantenimientos=total_mantenimientos,
         manuales_admin=manuales_admin,
+        recursos_static_admin=recursos_static_admin,
         facturas_admin=facturas_admin,
         total_facturas=total_facturas,
         establecimientos_admin=establecimientos_admin,
@@ -382,6 +400,11 @@ def admin_guardar_vehiculo():
     modelo_3d_id = request.form.get("modelo_3d_id", "").strip()
     modelo_3d = normalizar_ruta_static_documento(request.form.get("modelo_3d", "")) or request.form.get("modelo_3d", "").strip()
     modelo_3d_tipo = request.form.get("modelo_3d_tipo", "glb").strip()
+    imagen_existente = normalizar_ruta_static_documento(request.form.get("imagen_existente", ""))
+    modelo_3d_existente = normalizar_ruta_static_documento(request.form.get("modelo_3d_existente", ""))
+    if modelo_3d_existente:
+        modelo_3d = modelo_3d_existente
+        modelo_3d_tipo = modelo_3d_existente.rsplit(".", 1)[1].lower() if "." in modelo_3d_existente else "glb"
     preview_sistemas_json_raw = request.form.get("preview_sistemas_json", "").strip()
 
     estados_permitidos = {
@@ -542,7 +565,9 @@ def admin_guardar_vehiculo():
 
         if vehiculo_id:
 
-            if imagen_guardada:
+            imagen_final = imagen_guardada or imagen_existente or vehiculo_actual["imagen"] or ""
+
+            if imagen_final != (vehiculo_actual["imagen"] or ""):
                 cursor.execute("""
                     UPDATE vehiculos
                     SET
@@ -578,7 +603,7 @@ def admin_guardar_vehiculo():
                     transmision,
                     kilometraje,
                     precio,
-                    imagen_guardada,
+                    imagen_final,
                     modelo_base_id,
                     modelo_3d,
                     modelo_3d_id,
@@ -638,6 +663,12 @@ def admin_guardar_vehiculo():
                     vehiculo_id
                 ))
 
+            if imagen_final != (vehiculo_actual["imagen"] or ""):
+                eliminar_archivo_static_si_no_referenciado(cursor, vehiculo_actual["imagen"])
+
+            if modelo_3d != (vehiculo_actual["modelo_3d"] or ""):
+                eliminar_archivo_static_si_no_referenciado(cursor, vehiculo_actual["modelo_3d"])
+
             flash("Vehículo actualizado correctamente.", "success")
 
         else:
@@ -678,7 +709,7 @@ def admin_guardar_vehiculo():
                 transmision,
                 kilometraje,
                 precio,
-                imagen_guardada,
+                imagen_guardada or imagen_existente or "",
                 modelo_base_id,
                 modelo_3d,
                 modelo_3d_id,
@@ -1001,6 +1032,184 @@ def admin_archivar_vehiculo(vehiculo_id):
         conexion.rollback()
         print("Error al archivar vehículo:", error)
         flash("No se pudo archivar el vehículo.", "error")
+
+    finally:
+        conexion.close()
+
+    return redirigir_admin("archivados")
+
+
+@app.route("/admin/vehiculos/<int:vehiculo_id>/desarchivar", methods=["POST"])
+def admin_desarchivar_vehiculo(vehiculo_id):
+
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+    ahora = fecha_actual()
+
+    try:
+        cursor.execute("""
+            SELECT *, COALESCE(archivado, 0) AS archivado_normalizado
+            FROM vehiculos
+            WHERE id = ?
+        """, (vehiculo_id,))
+        vehiculo = cursor.fetchone()
+
+        if not vehiculo:
+            flash("Vehículo no encontrado.", "warning")
+            return redirigir_admin("archivados")
+
+        if vehiculo["archivado_normalizado"] == 0:
+            flash("Este vehículo no está archivado.", "info")
+            return redirigir_admin("vehiculos")
+
+        cursor.execute("""
+            UPDATE vehiculos
+            SET archivado = 0,
+                archivado_en = NULL,
+                archivado_por = NULL,
+                motivo_archivado = NULL,
+                activo = 0,
+                actualizado_en = ?
+            WHERE id = ?
+        """, (ahora, vehiculo_id))
+
+        registrar_auditoria(
+            conexion,
+            "Vehículo desarchivado",
+            "vehiculo",
+            vehiculo_id,
+            {"codigo_catalogo": vehiculo["codigo_catalogo"], "origen": "admin", "activo": 0}
+        )
+        conexion.commit()
+        flash("Vehículo desarchivado correctamente. Volvió al listado principal como oculto.", "success")
+
+    except Exception as error:
+        conexion.rollback()
+        print("Error al desarchivar vehículo desde admin:", error)
+        flash("No se pudo desarchivar el vehículo.", "error")
+
+    finally:
+        conexion.close()
+
+    return redirigir_admin("vehiculos")
+
+
+@app.route("/admin/vehiculos/<int:vehiculo_id>/eliminar-permanente", methods=["POST"])
+def admin_eliminar_vehiculo_permanente(vehiculo_id):
+    """Elimina definitivamente un vehículo archivado y limpia archivos no compartidos."""
+
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+    recursos_a_revisar = set()
+
+    def tabla_columna(tabla, columna):
+        return tabla_existe_db(cursor, tabla) and columna_existe_db(cursor, tabla, columna)
+
+    def borrar_where(tabla, where, params=()):
+        if tabla_existe_db(cursor, tabla):
+            cursor.execute(f"DELETE FROM {tabla} WHERE {where}", params)
+
+    def recolectar_columna(tabla, columna, where, params=()):
+        if tabla_columna(tabla, columna):
+            cursor.execute(f"SELECT {columna} FROM {tabla} WHERE {where}", params)
+            for fila in cursor.fetchall():
+                ruta = normalizar_ruta_static_documento(fila[columna])
+                if ruta:
+                    recursos_a_revisar.add(ruta)
+
+    try:
+        conexion.execute("BEGIN IMMEDIATE")
+
+        cursor.execute("""
+            SELECT *, COALESCE(archivado, 0) AS archivado_normalizado
+            FROM vehiculos
+            WHERE id = ?
+        """, (vehiculo_id,))
+        vehiculo = cursor.fetchone()
+
+        if not vehiculo:
+            conexion.rollback()
+            flash("Vehículo no encontrado.", "warning")
+            return redirigir_admin("archivados")
+
+        if vehiculo["archivado_normalizado"] != 1:
+            conexion.rollback()
+            flash("Solo puedes eliminar permanentemente vehículos que ya estén archivados.", "warning")
+            return redirigir_admin("vehiculos")
+
+        for campo in ("imagen", "modelo_3d"):
+            ruta = normalizar_ruta_static_documento(vehiculo[campo] if campo in vehiculo.keys() else "")
+            if ruta:
+                recursos_a_revisar.add(ruta)
+
+        recolectar_columna("manuales_vehiculo", "archivo", "vehiculo_id = ?", (vehiculo_id,))
+        recolectar_columna("facturas_vehiculo", "archivo", "vehiculo_id = ?", (vehiculo_id,))
+
+        usuario_vehiculo_ids = []
+        if tabla_columna("usuarios_vehiculos", "id") and columna_existe_db(cursor, "usuarios_vehiculos", "vehiculo_id"):
+            cursor.execute("SELECT id FROM usuarios_vehiculos WHERE vehiculo_id = ?", (vehiculo_id,))
+            usuario_vehiculo_ids = [fila["id"] for fila in cursor.fetchall()]
+
+        factura_ids = []
+        if tabla_columna("facturas_vehiculo", "id") and columna_existe_db(cursor, "facturas_vehiculo", "vehiculo_id"):
+            cursor.execute("SELECT id FROM facturas_vehiculo WHERE vehiculo_id = ?", (vehiculo_id,))
+            factura_ids = [fila["id"] for fila in cursor.fetchall()]
+
+        for factura_id in factura_ids:
+            borrar_where("factura_articulos", "factura_id = ?", (factura_id,))
+
+        modelo_base_id = vehiculo["modelo_base_id"] if "modelo_base_id" in vehiculo.keys() else None
+        eliminar_modelo_base = False
+        if modelo_base_id:
+            cursor.execute("""
+                SELECT COUNT(*)
+                FROM vehiculos
+                WHERE modelo_base_id = ?
+                  AND id != ?
+            """, (modelo_base_id, vehiculo_id))
+            eliminar_modelo_base = int(cursor.fetchone()[0] or 0) == 0
+
+        if eliminar_modelo_base:
+            recolectar_columna("vehiculo_modelos", "modelo_3d", "id = ?", (modelo_base_id,))
+            recolectar_columna("manuales_modelo", "archivo", "modelo_id = ?", (modelo_base_id,))
+            borrar_where("manuales_modelo", "modelo_id = ?", (modelo_base_id,))
+            borrar_where("vehiculo_modelos", "id = ?", (modelo_base_id,))
+
+        borrar_where("manuales_vehiculo", "vehiculo_id = ?", (vehiculo_id,))
+        borrar_where("facturas_vehiculo", "vehiculo_id = ?", (vehiculo_id,))
+        borrar_where("mantenimientos", "vehiculo_id = ?", (vehiculo_id,))
+        borrar_where("canjes_reversados", "vehiculo_id = ?", (vehiculo_id,))
+        for usuario_vehiculo_id in usuario_vehiculo_ids:
+            borrar_where("canjes_reversados", "usuario_vehiculo_id = ?", (usuario_vehiculo_id,))
+        borrar_where("usuarios_vehiculos", "vehiculo_id = ?", (vehiculo_id,))
+        borrar_where("codigos_vehiculo", "vehiculo_id = ?", (vehiculo_id,))
+        borrar_where("vehiculos", "id = ?", (vehiculo_id,))
+
+        archivos_borrados = []
+        for recurso in sorted(recursos_a_revisar):
+            if eliminar_archivo_static_si_no_referenciado(cursor, recurso):
+                archivos_borrados.append(recurso)
+
+        registrar_auditoria(
+            conexion,
+            "Vehículo eliminado permanentemente",
+            "vehiculo",
+            vehiculo_id,
+            {
+                "codigo_catalogo": vehiculo["codigo_catalogo"],
+                "marca": vehiculo["marca"],
+                "modelo": vehiculo["modelo"],
+                "anio": vehiculo["anio"],
+                "archivos_borrados": archivos_borrados,
+            },
+        )
+        conexion.commit()
+        flash("Vehículo eliminado permanentemente. Los archivos locales no compartidos también fueron limpiados.", "success")
+
+    except Exception as error:
+        conexion.rollback()
+        print("Error al eliminar vehículo permanentemente:", error)
+        flash("No se pudo eliminar permanentemente el vehículo.", "error")
 
     finally:
         conexion.close()
@@ -1489,6 +1698,108 @@ def admin_cambiar_estado_usuario(usuario_id):
     return redirigir_admin("usuarios")
 
 
+
+@app.route("/admin/notificaciones/buscar-usuarios", endpoint="admin_buscar_usuarios_notificacion")
+def admin_buscar_usuarios_notificacion():
+
+    termino = request.args.get("q", "").strip()
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    try:
+        resultados = buscar_destinatarios_notificacion(
+            cursor,
+            termino,
+            solo_clientes=False,
+            limite=12
+        )
+        return jsonify({"resultados": resultados})
+
+    except Exception as error:
+        print("Error al buscar destinatarios desde admin:", error)
+        return jsonify({"resultados": [], "error": "No se pudo buscar usuarios."}), 500
+
+    finally:
+        conexion.close()
+
+
+@app.route("/admin/notificaciones/enviar", methods=["POST"])
+def admin_enviar_notificacion_usuario():
+
+    usuario_id = request.form.get("usuario_id", type=int)
+    tipo = normalizar_tipo_notificacion(request.form.get("tipo"))
+    prioridad = normalizar_prioridad_notificacion(request.form.get("prioridad"))
+    titulo = request.form.get("titulo", "").strip()
+    mensaje = request.form.get("mensaje", "").strip()
+
+    if not usuario_id:
+        flash("Selecciona el usuario que recibirá la notificación.", "warning")
+        return redirigir_admin("mensajes")
+
+    if not titulo or not mensaje:
+        flash("Completa título y mensaje de la notificación.", "warning")
+        return redirigir_admin("mensajes")
+
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT id, nombre, correo, rol, COALESCE(activo, 1) AS activo
+            FROM usuarios
+            WHERE id = ?
+            LIMIT 1
+        """, (usuario_id,))
+        usuario_destino = cursor.fetchone()
+
+        if not usuario_destino:
+            flash("El usuario seleccionado no existe.", "warning")
+            return redirigir_admin("mensajes")
+
+        if int(usuario_destino["activo"] or 0) != 1:
+            flash("No puedes enviar notificaciones a una cuenta inactiva.", "warning")
+            return redirigir_admin("mensajes")
+
+        notificacion_id = crear_notificacion_usuario(
+            conexion,
+            usuario_id=usuario_destino["id"],
+            remitente_id=session.get("usuario_id"),
+            tipo=tipo,
+            prioridad=prioridad,
+            titulo=titulo,
+            mensaje=mensaje,
+        )
+
+        if not notificacion_id:
+            flash("No se pudo crear la notificación. Revisa título y mensaje.", "warning")
+            return redirigir_admin("mensajes")
+
+        registrar_auditoria(
+            conexion,
+            "Notificación enviada a usuario",
+            "notificacion_usuario",
+            notificacion_id,
+            {
+                "usuario_id": usuario_destino["id"],
+                "usuario_correo": usuario_destino["correo"],
+                "tipo": tipo,
+                "prioridad": prioridad,
+            }
+        )
+        conexion.commit()
+        flash(f"Notificación enviada a {usuario_destino['nombre']}.", "success")
+
+    except Exception as error:
+        conexion.rollback()
+        print("Error al enviar notificación desde admin:", error)
+        flash("No se pudo enviar la notificación.", "error")
+
+    finally:
+        conexion.close()
+
+    return redirigir_admin("mensajes")
+
+
 @app.route("/admin/trabajadores/<int:trabajador_id>/establecimiento", methods=["POST"])
 def admin_actualizar_establecimiento_trabajador(trabajador_id):
 
@@ -1627,8 +1938,8 @@ def admin_guardar_establecimiento():
                 lng = lng_actual
 
         if lat is None or lng is None or (lat == 0 and lng == 0):
-            lat = -2.170998
-            lng = -79.922359
+            lat = DEFAULT_ESTABLECIMIENTO_LAT
+            lng = DEFAULT_ESTABLECIMIENTO_LNG
 
         try:
             imagen_guardada = guardar_imagen_establecimiento(archivo_imagen, nombre, tipo)
